@@ -22,7 +22,7 @@ struct FuncInfo;
 namespace Distribution
 {
     typedef enum distFlag : int { DISTR = 0, NO_DISTR, SPF_PRIV, IO_PRIV } distFlagType;
-    typedef enum arrayLocation : int { l_LOCAL = 0, l_COMMON, l_MODULE, l_PARAMETER, l_STRUCT } arrayLocType;
+    typedef enum arrayLocation : int { l_LOCAL = 0, l_COMMON, l_MODULE, l_PARAMETER, l_STRUCT, l_LOCAL_SAVE } arrayLocType;
 
     class Array;
 

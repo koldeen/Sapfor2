@@ -72,7 +72,7 @@ std::string getShortName(const std::tuple<int, std::string, std::string> &uniqKe
 
 void getAllDeclaratedArrays(SgFile *file, std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                             std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt, std::vector<Messages> &currMessages,
-                            const std::vector<ParallelRegion*> &regions);
+                            const std::vector<ParallelRegion*> &regions, const std::map<std::string, int>& keyValueFromGUI);
 void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
 void recalculateArraySizes(std::set<DIST::Array*> &arraysDone, const std::set<DIST::Array*> &allArrays, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, const std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo);
 int getSizeOfType(SgType* t);

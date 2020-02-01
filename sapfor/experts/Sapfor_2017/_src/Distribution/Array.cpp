@@ -176,6 +176,8 @@ namespace Distribution
                 locN = "PARAMETER of ";
             else if (loc.first == l_LOCAL)
                 locN = "LOCAL of ";
+            else if (loc.first == l_LOCAL_SAVE)
+                locN = "LOCAL (save) of ";
             else if (loc.first == l_STRUCT)
                 locN = "STRUCT ";
             else 

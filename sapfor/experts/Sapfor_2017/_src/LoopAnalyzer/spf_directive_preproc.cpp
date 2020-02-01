@@ -837,6 +837,19 @@ static bool checkRemote(SgStatement *st,
     return retVal;
 }
 
+static void findAllRefs(SgExpression *ex, set<string> &names)
+{
+    if (ex)
+    {
+        if (ex->variant() == VAR_REF || ex->variant() == ARRAY_REF)
+            if (ex->symbol())
+                names.insert(ex->symbol()->identifier());
+
+        findAllRefs(ex->lhs(), names);
+        findAllRefs(ex->rhs(), names);
+    }
+}
+
 static bool checkParallelRegions(SgStatement *st,
                                  const map<string, CommonBlock> *commonBlocks,
                                  vector<Messages> &messagesForFile)
@@ -867,24 +880,23 @@ static bool checkParallelRegions(SgStatement *st,
                 {
                     if (iterator->variant() == VAR_DECL || iterator->variant() == VAR_DECL_90)
                     {
-                        for (SgExpression *exp = iterator->expr(0); exp && retVal; exp = exp->rhs())
+                        set<string> names;
+                        findAllRefs(iterator->expr(0), names);
+                        if (names.find(identSymbol->identifier()) != names.end())
                         {
-                            if (!strcmp(exp->lhs()->symbol()->identifier(), identSymbol->identifier()))
-                            {
-                                __spf_print(1, "wrong parallel region identifier: variable '%s' was declarated on line %d on line %d\n",
+                            __spf_print(1, "wrong parallel region identifier: variable '%s' was declarated on line %d on line %d\n",
                                             identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
 
-                                wstring messageE, messageR;
-                                __spf_printToLongBuf(messageE, L"wrong parallel region identifier: variable '%s' was declarated on line %d",
-                                                     to_wstring(identSymbol->identifier()).c_str(), iterator->lineNumber());
+                            wstring messageE, messageR;
+                            __spf_printToLongBuf(messageE, L"wrong parallel region identifier: variable '%s' was declarated on line %d",
+                                                           to_wstring(identSymbol->identifier()).c_str(), iterator->lineNumber());
 #ifdef _WIN32
-                                __spf_printToLongBuf(messageR, R63,
-                                                     to_wstring(identSymbol->identifier()).c_str(), iterator->lineNumber());
+                            __spf_printToLongBuf(messageR, R63,
+                                                           to_wstring(identSymbol->identifier()).c_str(), iterator->lineNumber());
 #endif
-                                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1031));
+                            messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1031));
 
-                                retVal = false;
-                            }
+                            retVal = false;
                         }
                     }
                 }

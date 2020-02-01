@@ -135,6 +135,10 @@ std::map<std::string, std::string> moduleDecls; // module -> file where declarat
 std::pair<std::string, int> inOnlyForloopOnPlace;
 //
 
+//cache for declaration arrays state switching
+std::map<std::string, int> keyValueFromGUI;
+//
+
 const char* passNames[EMPTY_PASS + 1];
 const char* optionNames[EMPTY_OPTION + 1];
 bool passNamesWasInit = false;

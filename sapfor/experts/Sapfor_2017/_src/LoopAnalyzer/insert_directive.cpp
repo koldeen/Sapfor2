@@ -803,28 +803,25 @@ getNewDirective(const string &fullArrayName,
             string rule = alignRules[i];
             if (alignToRealign)
             {
-                if (dataDir.alignRules[i].alignArray->GetLocation().first == DIST::l_MODULE)
+                auto it = rule.find("ALIGN");
+                while (it != string::npos)
                 {
-                    auto it = rule.find("ALIGN");
-                    while (it != string::npos)
-                    {
-                        rule = rule.replace(it, 5, "REALIGN");
-                        it = rule.find("ALIGN", it + 7);
-                    }
+                    rule = rule.replace(it, 5, "REALIGN");
+                    it = rule.find("ALIGN", it + 7);
+                }
 
-                    for (auto byUseElem : byUse)
-                    {
-                        if (byUseElem.second.size() == 0)
-                            continue;
+                for (auto byUseElem : byUse)
+                {
+                    if (byUseElem.second.size() == 0)
+                        continue;
 
-                        it = rule.find(byUseElem.first);
-                        if (it != string::npos)
+                    it = rule.find(byUseElem.first);
+                    if (it != string::npos)
+                    {
+                        if (rule[it + byUseElem.first.size()] == '(' && rule[it - 1] == ' ')
                         {
-                            if (rule[it + byUseElem.first.size()] == '(' && rule[it - 1] == ' ')
-                            {
-                                rule = rule.replace(it, byUseElem.first.size(), getWithSort(byUseElem.second));
-                                break;
-                            }
+                            rule = rule.replace(it, byUseElem.first.size(), getWithSort(byUseElem.second));
+                            break;
                         }
                     }
                 }
@@ -1691,7 +1688,26 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                 }
                                 else
                                 {
+                                    if (allocatableStmts.size())
+                                    {
+                                        if (isModule && dvmhModule)
+                                            toInsert = templDecl + toInsert;
+
+                                        for (auto& elem : allocatableStmts)
+                                        {
+                                            const string save = current_file->filename();
+                                            if (!elem->switchToFile())
+                                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                            elem->lexNext()->addComment(toInsert.c_str());
+
+                                            if (SgFile::switchToFile(save) == -1)
+                                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                        }
+                                        toInsert = "!DVM$ ALIGN :: " + dirWithArray.first->GetShortName() + "\n";
+                                    }
                                     addStringToComments({ templDecl, toInsert }, commentsToInclude, st->fileName(), st->lineNumber());
+
                                     if (templDecl != "")
                                         templateDeclInIncludes[templDecl] = st->fileName();
                                 }

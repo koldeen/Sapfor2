@@ -1221,35 +1221,42 @@ int SPF_GetFileLineInfo(void*& context, int winHandler, short *options, short *p
     return retSize;
 }
 
+extern map<string, int> keyValueFromGUI;
 int SPF_SetDistributionFlagToArray(void*& context, char *key, int flag)
 {
     MessageManager::clearCache();
 
-    if (flag != 0 && flag != 1)
-        return 0;
+    if (flag != DIST::DISTR && flag != DIST::NO_DISTR)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
     string keyStr(key);
     try
     {
-        for (auto &array : declaratedArrays)
+        if (declaratedArrays.size())
         {
-            if (array.second.first->GetName() == keyStr)
+            for (auto& array : declaratedArrays)
             {
-                __spf_print(1, "change flag for array '%s': %d -> %d\n", array.second.first->GetName().c_str(), array.second.first->GetNonDistributeFlag(), flag);
-                //printf("SAPFOR: change flag for array '%s': %d -> %d\n", array.second.first->GetName().c_str(), array.second.first->GetNonDistributeFlag(), flag);
+                if (array.second.first->GetName() == keyStr)
+                {
+                    __spf_print(1, "change flag for array '%s': %d -> %d\n", array.second.first->GetName().c_str(), array.second.first->GetNonDistributeFlag(), flag);
+                    //printf("SAPFOR: change flag for array '%s': %d -> %d\n", array.second.first->GetName().c_str(), array.second.first->GetNonDistributeFlag(), flag);
 
-                if (flag == 0)
-                    array.second.first->SetNonDistributeFlag(DIST::DISTR);
-                else
-                    array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
-                break;
+                    if (flag == DIST::DISTR)
+                        array.second.first->SetNonDistributeFlag(DIST::DISTR);
+                    else
+                        array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+                    break;
+                }
             }
         }
+        else
+            keyValueFromGUI[keyStr] = flag;
     }
     catch (...)
     {
         return -1;
     }
+
     return 0;
 }
 
@@ -1275,28 +1282,36 @@ int SPF_SetDistributionFlagToArrays(void*& context, const char* keys, const char
         for (auto& array : declaratedArrays)
             allArrays[array.second.first->GetName()] = array.second.first;
 
-        for (int z = 0; z < keysS.size(); ++z)
+        if (allArrays.size())
         {
-            auto it = allArrays.find(keysS[z]);
-            if (it == allArrays.end())
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-            int flag = -1;
-            if (sscanf(flagsS[z].c_str(), "%d", &flag) != 1)
+            for (int z = 0; z < keysS.size(); ++z)
             {
-                __spf_print(1, "!wrong value!\n");
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                auto it = allArrays.find(keysS[z]);
+                if (it == allArrays.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                int flag = -1;
+                if (sscanf(flagsS[z].c_str(), "%d", &flag) != 1)
+                {
+                    __spf_print(1, "!wrong value!\n");
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+
+                if (flag != DIST::DISTR && flag != DIST::NO_DISTR)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                __spf_print(1, "change flag for array '%s': %d -> %d\n", keysS[z].c_str(), it->second->GetNonDistributeFlag(), flag);
+
+                if (flag == DIST::DISTR)
+                    it->second->SetNonDistributeFlag(DIST::DISTR);
+                else
+                    it->second->SetNonDistributeFlag(DIST::NO_DISTR);
             }
-
-            if (flag != 0 && flag != 1)
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-            __spf_print(1, "change flag for array '%s': %d -> %d\n", keysS[z].c_str(), it->second->GetNonDistributeFlag(), flag);
-
-            if (flag == 0)
-                it->second->SetNonDistributeFlag(DIST::DISTR);
-            else
-                it->second->SetNonDistributeFlag(DIST::NO_DISTR);
+        }
+        else
+        {
+            for (int z = 0; z < keysS.size(); ++z)
+                keyValueFromGUI[keysS[z]] = flags[z];
         }
     }
     catch (...)
@@ -1846,7 +1861,7 @@ static wstring finishJniCall(const int size, const int* sizes, short* newFilesNa
 {
     wstring codedResult = L"";
 
-    codeInfo(codedResult, toWstring(sizes, size + 1));
+    codeInfo(codedResult, toWstring(sizes, (sizes) ? (size + 1) : 0));
     codeInfo(codedResult, toWstring(newFilesNames, (newFilesNames) ? strLen(newFilesNames) : 0));
     codeInfo(codedResult, toWstring(newFiles, (newFiles) ? strLen(newFiles) : 0));
 
@@ -2126,9 +2141,17 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunModification
     {
         int flag = atoi(addOpt2_c);
         retCode = SPF_SetDistributionFlagToArray(context, (char*)addOpt1_c, flag);
+
+        convertGlobalBuffer(output, outputSize);
+        convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
     }
     else if (whichRun == "SPF_SetDistributionFlagToArrays")
-        retCode = SPF_SetDistributionFlagToArrays(context, addOpt1_c, addOpt2_c);    
+    {
+        retCode = SPF_SetDistributionFlagToArrays(context, addOpt1_c, addOpt2_c);
+
+        convertGlobalBuffer(output, outputSize);
+        convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    }
     else
     {
         if (showDebug)

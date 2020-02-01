@@ -2651,6 +2651,29 @@ static bool findOmpThreadPrivDecl(SgStatement* st, map<SgStatement*, set<string>
         return false;
 }
 
+static bool hasAssingOpInDecl(SgSymbol* symb)
+{
+    vector<SgStatement*> allDecls;
+    SgStatement* decl = declaratedInStmt(symb, &allDecls);
+    
+    for (auto& elem : allDecls)
+    {
+        if (elem->variant() == VAR_DECL_90)
+        {
+            SgExpression* list = elem->expr(0);
+            while (list)
+            {
+                if (list->lhs()->variant() == ASSGN_OP)
+                    if (list->lhs()->lhs()->symbol() && OriginalSymbol(list->lhs()->lhs()->symbol()) == symb)
+                        return true;
+                list = list->rhs();
+            }
+        }
+    }
+
+    return false;
+}
+
 static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName, const int parN, 
                           const map<string, vector<SgExpression*>> &commonBlocks,
                           const vector<SgStatement*> &modules,
@@ -2660,7 +2683,9 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName
                           bool isExecutable, const string &currFunctionName, bool isWrite,
                           const vector<string> &inRegion,
                           const set<string> &funcParNames,
-                          map<SgStatement*, set<string>>& ompThreadPrivate)
+                          map<SgStatement*, set<string>>& ompThreadPrivate, 
+                          const map<string, int>& keyValueFromGUI,
+                          const bool saveAllLocals)
 {
     if (ex == NULL)
         return;
@@ -2739,7 +2764,12 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName
                 else if (funcParNames.find(symb->identifier()) != funcParNames.end())
                     arrayLocation = make_pair(DIST::l_PARAMETER, currFunctionName);
                 else
-                    arrayLocation = make_pair(DIST::l_LOCAL, currFunctionName);
+                {
+                    if (saveAllLocals || ((symb->attributes() & SAVE_BIT) != 0) || hasAssingOpInDecl(symb))
+                        arrayLocation = make_pair(DIST::l_LOCAL_SAVE, currFunctionName);
+                    else
+                        arrayLocation = make_pair(DIST::l_LOCAL, currFunctionName);
+                }
 
                 auto itNew = declaratedArrays.find(uniqKey);
                 if (itNew == declaratedArrays.end())
@@ -2774,6 +2804,17 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName
                         itNew->second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
                     else
                         itNew->second.first->SetNonDistributeFlag(DIST::DISTR);
+
+                    const auto newVal = itNew->second.first->GetNonDistributeFlagVal();
+                    if (newVal == DIST::DISTR || newVal == DIST::NO_DISTR)
+                    {
+                        auto it = keyValueFromGUI.find(itNew->second.first->GetName());
+                        if (it != keyValueFromGUI.end() && it->second != newVal)
+                        {
+                            itNew->second.first->SetNonDistributeFlag((DIST::distFlag)it->second);
+                            __spf_print(1, "change flag for array from cache '%s': %d -> %d\n", it->first.c_str(), newVal, it->second);
+                        }
+                    }
                 }
 
                 if (typeSize == 0) // unknown
@@ -2819,14 +2860,14 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName
             //assume all arguments of function as OUT, except for inctrinsics
             bool isWriteN = intr ? false : true;
             //need to correct W/R usage with GraphCall map later
-            findArrayRefs(funcExp->arg(z), st, fName, z, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWriteN, inRegion, funcParNames, ompThreadPrivate);
+            findArrayRefs(funcExp->arg(z), st, fName, z, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWriteN, inRegion, funcParNames, ompThreadPrivate, keyValueFromGUI, saveAllLocals);
         }
     }
     else
     {
         bool isWriteN = false;
-        findArrayRefs(ex->lhs(), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWriteN, inRegion, funcParNames, ompThreadPrivate);
-        findArrayRefs(ex->rhs(), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWriteN, inRegion, funcParNames, ompThreadPrivate);
+        findArrayRefs(ex->lhs(), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWriteN, inRegion, funcParNames, ompThreadPrivate, keyValueFromGUI, saveAllLocals);
+        findArrayRefs(ex->rhs(), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWriteN, inRegion, funcParNames, ompThreadPrivate, keyValueFromGUI, saveAllLocals);
     }
 }
 
@@ -2889,7 +2930,7 @@ static void findReshape(SgStatement *st, set<string> &privates, vector<Messages>
 
 void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                             map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt, vector<Messages> &currMessages,
-                            const vector<ParallelRegion*> &regions)
+                            const vector<ParallelRegion*> &regions, const map<string, int>& keyValueFromGUI)
 {
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
@@ -2919,6 +2960,8 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
     map<SgStatement*, set<string>> ompThreadPrivate;
     for (int i = 0; i < file->numberOfFunctions(); ++i)
     {
+        bool saveAllLocals = false;
+
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
         map<string, vector<SgExpression*>> commonBlocks;
@@ -2938,13 +2981,13 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                 funcParNames.insert(func->parameter(z)->identifier());
         }
 
-        for (SgStatement *iter = st; iter != lastNode; iter = iter->lexNext())
+        for (SgStatement* iter = st; iter != lastNode; iter = iter->lexNext())
         {
             if (iter->variant() == CONTAINS_STMT)
                 break;
 
             //after SPF preprocessing 
-            for (auto &data : getAttributes<SgStatement*, SgStatement*>(iter, set<int>{ SPF_ANALYSIS_DIR }))
+            for (auto& data : getAttributes<SgStatement*, SgStatement*>(iter, set<int>{ SPF_ANALYSIS_DIR }))
             {
                 fillPrivatesFromComment(new Statement(data), privates);
                 fillReductionsFromComment(new Statement(data), reductions);
@@ -2961,6 +3004,10 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
 
             if (iter->variant() == USE_STMT)
                 fillFromModule(iter->symbol(), privatesByModule, privates);
+
+            if (iter->variant() == SAVE_DECL)
+                if (!iter->expr(0) && !iter->expr(1) && !iter->expr(2))
+                    saveAllLocals = true;
 
             findReshape(iter, privates, currMessages);
         }
@@ -3054,7 +3101,7 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                     {
                         findArrayRefs(funcExp->arg(z), st, fName, z, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
                                       isSgExecutableStatement(st) ? true : false, currFunctionName,
-                                      true, regNames, funcParNames, ompThreadPrivate);
+                                      true, regNames, funcParNames, ompThreadPrivate, keyValueFromGUI, saveAllLocals);
                     }
                 }
                 else
@@ -3062,7 +3109,7 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                     for (int i = 0; i < 3; ++i)
                         findArrayRefs(st->expr(i), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
                                       isSgExecutableStatement(st) ? true : false, currFunctionName,
-                                      (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames, ompThreadPrivate);
+                                      (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames, ompThreadPrivate, keyValueFromGUI, saveAllLocals);
                 }
             }
             st = st->lexNext();
@@ -3098,7 +3145,7 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
 
                 for (int i = 0; i < 3; ++i)
                     findArrayRefs(st->expr(i), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
-                                  false, "NULL", false, regNames, funcParNames, ompThreadPrivate);
+                                  false, "NULL", false, regNames, funcParNames, ompThreadPrivate, keyValueFromGUI, false);
             }
             st = st->lexNext();
         }

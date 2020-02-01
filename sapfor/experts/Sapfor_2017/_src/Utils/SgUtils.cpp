@@ -1044,7 +1044,7 @@ SgStatement* findMainUnit(SgProject *proj, map<string, vector<Messages>> &SPF_me
 #ifdef _WIN32
                 __spf_printToLongBuf(messageR, R147);
 #endif
-                currMessages.push_back(Messages(ERROR, file->firstStatement()->lineNumber(), messageR, messageE, 1050));
+                currMessages.push_back(Messages(ERROR, file->firstStatement()->lexNext()->lineNumber(), messageR, messageE, 1050));
             }            
         }
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
