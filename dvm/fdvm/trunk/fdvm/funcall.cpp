@@ -3690,7 +3690,7 @@ SgStatement *LoopAcross_H(int il,SgExpression *oldGroup,SgExpression *newGroup)
   return(call);
 }
 
-SgStatement *LoopAcross_H2(int il, SgExpression *headref, int rank, SgExpression *shlist)
+SgStatement *LoopAcross_H2(int il, int isOut, SgExpression *headref, int rank, SgExpression *shlist)
 {  //generating subroutine call:  
    //            dvmh_loop_across(const DvmType *pCurLoop, const DvmType dvmDesc[], const DvmType *pRank, /* const DvmType *pShadowLow, const DvmType *pShadowHigh */...)
 
@@ -3698,6 +3698,7 @@ SgStatement *LoopAcross_H2(int il, SgExpression *headref, int rank, SgExpression
   fmask[LOOP_ACROSS_2] = 2;
   
   call -> addArg(*DVM000(il));
+  call -> addArg(*ConstRef(isOut));
   call -> addArg(*headref);
   call -> addArg(*ConstRef(rank));               
   AddListToList(call->expr(0),shlist);

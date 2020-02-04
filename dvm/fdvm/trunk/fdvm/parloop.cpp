@@ -10,6 +10,8 @@ SgStatement *parallel_dir;
 SgExpression *spec_accr; 
 int iacross;
 symb_list *newvar_list;
+#define IN_  0 
+#define OUT_ 1 
 
 extern int nloopred; //counter of parallel loops with reduction group
 extern int nloopcons; //counter of parallel loops with consistent group
@@ -703,29 +705,13 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
 
      if(clause[ACROSS_])
      { 
-        int k,not_in;
-        SgExpression *ea[2],*in_spec,*out_spec;
+        int not_in=0;
+        SgExpression *e_spec[2];
         SgExpression *e = clause[ACROSS_];
-        SgKeywordValExp *kwe;
-                 
         all_positive_step = Analyze_DO_steps(step,step_mask,ndo);
-        in_spec = NULL;  out_spec = NULL;
-        not_in = 0;
-        ea[0] = e->lhs();
-        ea[1] = e->rhs();
-        for (k=0;k<2;k++){
-           if(!ea[k]) continue;
-           if(ea[k]->variant() != DDOT) { 
-              in_spec  = ea[k]; not_in = 0;/*not_in=1*/
-           } else {
-              if((kwe=isSgKeywordValExp(ea[k]->lhs())) && (!strcmp(kwe->value(),"in")))
-                     in_spec  = ea[k]->rhs();
-              else
-                     out_spec = ea[k]->rhs();
-           } 
-        }   
-        if(ea[0] && ea[1] && (in_spec == NULL || out_spec == NULL))
-           err("Double IN/OUT specification in ACROSS clause",257 ,stmt); 
+        InOutAcross(e,e_spec,stmt);
+        SgExpression *in_spec =e_spec[IN_];
+        SgExpression *out_spec=e_spec[OUT_];
         if(not_in && in_spec && !out_spec) { // old implementation
            stat = cur_st;//store current statement    
            cur_st = stc; //insert statements for creating shadow group 
@@ -1044,6 +1030,31 @@ int Analyze_DO_steps(SgExpression *step[], int step_mask[],int ndo)
     s = s && step_mask[i];
  }
     return(s);
+}
+
+void InOutAcross(SgExpression *e, SgExpression* e_spec[], SgStatement *stmt)
+{    
+   e_spec[IN_] = NULL;
+   e_spec[OUT_]= NULL;
+   InOutSpecification(e->lhs(), e_spec);
+   InOutSpecification(e->rhs(), e_spec);
+   if(e->lhs() && e->rhs() && (e_spec[IN_] == NULL || e_spec[OUT_] == NULL))
+      err("Double IN/OUT specification in ACROSS clause",257 ,stmt); 
+}
+
+void InOutSpecification(SgExpression *ea,SgExpression* e_spec[])
+{
+           SgKeywordValExp *kwe;
+                 
+           if(!ea) return;
+           if(ea->variant() != DDOT) { 
+              e_spec[IN_] = ea; 
+           } else {
+              if((kwe=isSgKeywordValExp(ea->lhs())) && (!strcmp(kwe->value(),"in")))
+                     e_spec[IN_]  = ea->rhs();
+              else           
+                     e_spec[OUT_] = ea->rhs();
+           }            
 }
 
 void CreateShadowGroupsForAccross(SgExpression *in_spec,SgExpression *out_spec,SgStatement * stmt,SgExpression *gleft,SgExpression *g,SgExpression *gright,int ag[],int all_positive_step,int loop_num[])
@@ -1568,7 +1579,7 @@ SgExpression *doLowHighList(SgExpression *shl, SgSymbol *ar, SgStatement *st)
   return( shlist );
 }
 
-void AcrossList(int ilh, SgExpression *el, SgStatement *st)
+void AcrossList(int ilh, int isOut, SgExpression *el, SgStatement *st)
 { 
   SgExpression *es, *ear;  
   
@@ -1590,7 +1601,7 @@ void AcrossList(int ilh, SgExpression *el, SgStatement *st)
        continue;
      }
      
-     doCallAfter(LoopAcross_H2(ilh, HeaderRef(ar), Rank(ar), doLowHighList(ear->lhs(), ar, st)));
+     doCallAfter(LoopAcross_H2(ilh, isOut, HeaderRef(ar), Rank(ar), doLowHighList(ear->lhs(), ar, st)));
   }
 }
 
@@ -2125,22 +2136,12 @@ void Interface_2(SgStatement *stmt,SgExpression *clause[],SgExpression *init[],S
   }
   if(clause[ACROSS_])  //there is ACROSS clause
   {
-        SgExpression *in_spec=NULL;
-        SgExpression *e = clause[ACROSS_];
-        SgKeywordValExp *kwe;        
-        if(e->rhs())
-           err("Illegal ACROSS clause", 444, stmt); 
-        else if((e->lhs()->variant() == DDOT) && (kwe=isSgKeywordValExp(e->lhs()->lhs())))
-        {
-           if(!strcmp(kwe->value(),"in"))
-              in_spec = e->lhs()->rhs();
-           else
-              err("Illegal ACROSS clause", 444, stmt); 
-        } 
-        else
-           in_spec = e->lhs();            
-        if(in_spec)
-           AcrossList(ilh,in_spec,stmt);
+        SgExpression *e_spec[2];
+        InOutAcross(clause[ACROSS_],e_spec,stmt);
+        if(e_spec[IN_])
+           AcrossList(ilh,IN_, e_spec[IN_], stmt);
+        if(e_spec[OUT_])
+           AcrossList(ilh,OUT_,e_spec[OUT_],stmt);
   }
 
   //---------------------------------------------------------------------------

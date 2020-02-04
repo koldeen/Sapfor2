@@ -862,7 +862,8 @@ bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DI
                         continue;
                     
                     for (auto &arrays : realAlignArrayRefsSet)
-                        DIST::AddArrayAccess(G, allArrays, arrays, alignWithArray, make_pair(i, dimT), 1.0, make_pair(make_pair(1, 0), alignWithTemplate[dimT].second), WW_link);
+                        if (!arrays->GetNonDistributeFlag())
+                            DIST::AddArrayAccess(G, allArrays, arrays, alignWithArray, make_pair(i, dimT), 1.0, make_pair(make_pair(1, 0), alignWithTemplate[dimT].second), WW_link);
                 }
             }
         }

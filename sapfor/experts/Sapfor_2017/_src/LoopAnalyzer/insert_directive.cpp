@@ -1699,7 +1699,10 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                             if (!elem->switchToFile())
                                                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                                            elem->lexNext()->addComment(toInsert.c_str());
+                                            if (extractDir)
+                                                extractComments(elem->lexNext(), toInsert);
+                                            else
+                                                elem->lexNext()->addComment(toInsert.c_str());
 
                                             if (SgFile::switchToFile(save) == -1)
                                                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
