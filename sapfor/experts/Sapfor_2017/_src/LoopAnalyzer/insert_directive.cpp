@@ -1829,7 +1829,7 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
                             DIST::GraphCSR<int, double, attrType> &reducedG,
                             map<string, map<int, set<string>>> &commentsToInclude,
                             const bool extractDir, vector<Messages> &messagesForFile,
-                            const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays)
+                            const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays)
 {
     vector<SgStatement*> modulesAndFuncs;
     getModulesAndFunctions(file, modulesAndFuncs);
@@ -1872,8 +1872,8 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
                         if (distrArrays.find(fullArrayName) != distrArrays.end())
                         {
                             auto uniqKey = getFromUniqTable(currSymb);
-                            auto itArr = declaratedArrays.find(uniqKey);
-                            if (itArr != declaratedArrays.end())                                
+                            auto itArr = declaredArrays.find(uniqKey);
+                            if (itArr != declaredArrays.end())                                
                                 declaratedDistrArrays.insert(itArr->second.first);
                         }
                     }

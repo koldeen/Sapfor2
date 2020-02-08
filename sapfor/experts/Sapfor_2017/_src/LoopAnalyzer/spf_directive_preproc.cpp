@@ -166,7 +166,7 @@ static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<string> &v
 
 static bool checkPrivate(SgStatement *st,
                          SgStatement *attributeStatement,
-                         const set<string> &privates,
+                         const set<SgSymbol*> &privates,
                          vector<Messages> &messagesForFile)
 {    
     // PRIVATE(VAR)
@@ -185,8 +185,9 @@ static bool checkPrivate(SgStatement *st,
         
         set<string> wrongPrivFromOmpParallel;
 
-        for (auto &privElem : privates)
+        for (auto &privElemS : privates)
         {
+            const string privElem = privElemS->identifier();
             bool defCond = true;
             bool useCond = true;
 
@@ -271,7 +272,7 @@ static bool checkPrivate(SgStatement *st,
 
 static bool checkReduction(SgStatement *st,
                            SgStatement *attributeStatement,
-                           const map<string, set<string>> &reduction,
+                           const map<string, set<SgSymbol*>> &reduction,
                            vector<Messages> &messagesForFile)
 {
     // REDUCTION(OP(VAR))
@@ -289,8 +290,9 @@ static bool checkReduction(SgStatement *st,
 
         for (auto &redElem : reduction)
         {
-            for (auto &setElem : redElem.second)
+            for (auto &setElemS : redElem.second)
             {
+                const string setElem = setElemS->identifier();
                 bool defCond = true;
                 bool useCond = true;
 
@@ -483,11 +485,11 @@ static bool checkReduction(SgStatement *st,
             }
         }
 
-        map<string, set<string>> reductionVar;
-        map<string, set<string>> reductionArr;
+        map<string, set<SgSymbol*>> reductionVar;
+        map<string, set<SgSymbol*>> reductionArr;
 
-        reductionVar[redElem.first] = varsS;
-        reductionArr[redElem.first] = arrsS;
+        reductionVar[redElem.first] = vars;
+        reductionArr[redElem.first] = arrs;
 
         retVal = checkReduction(st, attributeStatement, reductionVar, messagesForFile) && checkReduction(st, attributeStatement, reductionArr, messagesForFile);
     }
@@ -1323,7 +1325,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         {
             // !$SPF ANALYSIS
             // PRIVATE(VAR)
-            set<string> privates;
+            set<SgSymbol*> privates;
             fillPrivatesFromComment(new Statement(attributeStatement), privates);
             if (privates.size())
             {
@@ -1332,7 +1334,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             }
 
             // REDUCTION(OP(VAR), MIN/MAXLOC(VAR, ARRAY, CONST))
-            map<string, set<string>> reduction;
+            map<string, set<SgSymbol*>> reduction;
             map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> reductionLoc;
             fillReductionsFromComment(new Statement(attributeStatement), reduction);
             fillReductionsFromComment(new Statement(attributeStatement), reductionLoc);
@@ -1624,7 +1626,7 @@ static vector<SgStatement*> filterUserSpf(const vector<SgStatement*> &toFilter)
 }
 
 void revertion_spf_dirs(SgFile *file,
-                        map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
+                        map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaredArrays,
                         map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt)
 {
     const string fileName(file->filename());

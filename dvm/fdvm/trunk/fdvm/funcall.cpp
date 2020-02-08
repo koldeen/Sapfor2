@@ -4496,7 +4496,7 @@ SgExpression *CudaInitReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num,  SgS
   return(fe);
 }
 
-SgExpression *PrepareReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num, SgSymbol *s_count, SgSymbol *s_fill_flag)
+SgExpression *PrepareReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num, SgSymbol *s_count, SgSymbol *s_fill_flag, int fixedCount, int fillFlag)
 { // generating function call: loop_cuda_red_prepare_(DvmhLoopRef *InDvmhLoop, Dvmtype InRedNumRef, DvmType InCountRef, DvmType InFillFlagRef)
   // or when RTS2 is used  
   //                      dvmh_loop_cuda_red_prepare_C(DvmType curLoop, DvmType redIndex, DvmType count, DvmType fillFlag)                                                     
@@ -4508,8 +4508,14 @@ SgExpression *PrepareReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num, SgSym
   else   
      fe->addArg(* new SgVarRefExp(s_loop_ref));
   fe->addArg(* new SgVarRefExp(s_var_num));
-  fe->addArg(* new SgVarRefExp(s_count));
-  fe->addArg(* new SgVarRefExp(s_fill_flag));
+  if (fixedCount == 0)
+    fe->addArg(* new SgVarRefExp(s_count));
+  else
+    fe->addArg(*new SgValueExp(fixedCount));
+  if (fillFlag == -1)
+    fe->addArg(* new SgVarRefExp(s_fill_flag));
+  else
+    fe->addArg(* new SgValueExp(fillFlag));
   return(fe);
 }
 

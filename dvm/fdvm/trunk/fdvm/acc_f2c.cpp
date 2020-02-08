@@ -746,9 +746,7 @@ void createNewFCall(SgExpression *expr, SgExpression *&retExp, const char *name,
     if (nArgs != 0)
     {
         for (int i = 0; i < nArgs; ++i)
-        {
             ((SgFunctionCallExp*)retExp)->addArg(*Arg[i]);
-        }
     }
     else
         ((SgFunctionCallExp*)retExp)->addArg(*expr);
@@ -1482,7 +1480,103 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
     }
 }
 
-static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retSts, vector < stack < SgStatement*> > &copyBlock, int countOfCopy, int lvl)
+static SgExpression* convertReductionAddressForAtomic(SgExpression* exp)
+{
+    SgExpression* ref = exp->copyPtr();
+    ref->setLhs(NULL);
+
+    SgExpression* idx = exp->lhs()->copyPtr();
+
+    return new SgExpression(ADD_OP, ref, idx);
+}
+
+//TODO: need to check bitwise operations
+static SgExpression* splitReductionForAtomic(SgExpression* lhs, SgExpression* rhs, const int num_red)
+{
+    SgExpression* args = NULL;
+    if (!lhs || !rhs)
+    {
+        Error("Internal inconsistency in F->C onvertation", "", 900, first_do_par);
+        return NULL;
+    }
+
+    string left(lhs->unparse());
+    string right(rhs->unparse());
+
+    set<int> op;
+    if (num_red == 1) // sum
+    {
+        op.insert(ADD_OP);
+        op.insert(SUBT_OP);
+    }
+    else if (num_red == 2)  // product
+        op.insert(MULT_OP);
+    else if (num_red == 3)  // max
+        op.insert(FUNC_CALL);
+    else if (num_red == 4)  // min
+        op.insert(FUNC_CALL);
+    else if (num_red == 5)  // and
+        ;// op.insert(AND_OP);
+    else if (num_red == 6)  // or
+        ;// op.insert(OR_OP);
+    else if (num_red == 7)  // neqv
+        ;// op.insert(NEQV_OP);
+    else if (num_red == 8)  // eqv
+        ;// op.insert(EQV_OP);
+
+    if (op.size())
+    {
+        if (op.find(rhs->variant()) != op.end())
+        {
+            SgExpression* l_part = rhs->lhs();
+            SgExpression* r_part = rhs->rhs();
+            if (rhs->variant() == FUNC_CALL)
+            {
+                if (rhs->lhs())
+                {
+                    if (rhs->lhs()->lhs())
+                        l_part = rhs->lhs()->lhs();
+                    if (rhs->lhs()->rhs() && rhs->lhs()->rhs()->lhs())
+                        r_part = rhs->lhs()->rhs()->lhs();
+                }
+            }
+
+            if (l_part && r_part)
+            {
+                string Lpart(l_part->unparse());
+                string Rpart(r_part->unparse());
+
+                bool ok = false;
+                if (Lpart == left)
+                    ok = true;
+                else if (Rpart == left)
+                {
+                    std::swap(l_part, r_part);
+                    ok = true;
+                }
+
+                if (ok)
+                {
+                    if (rhs->variant() == SUBT_OP)
+                        r_part = new SgExpression(MINUS_OP, r_part, NULL);
+
+                    SgExpression* arg1 = convertReductionAddressForAtomic(l_part);
+                    SgExpression* arg2 = r_part;
+
+                    args = new SgExpression(EXPR_LIST, arg1, new SgExpression(EXPR_LIST, arg2, NULL));
+                }
+            }
+        }
+    }
+
+    if (args == NULL)
+        Error("Can not match reduction template for this pattern: %s", (left + " = " + right).c_str(), 900, first_do_par);
+
+    return args;
+}
+
+static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retSts, vector < stack < SgStatement*> > &copyBlock, 
+                        int countOfCopy, int lvl, const map<string, int>& redArraysWithUnknownSize)
 {
     bool needReplace = false;
     SgStatement *labSt = NULL;
@@ -1515,8 +1609,46 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
         printfSpaces(lvl_convert_st);
         printf("end of convert assign node\n");
 #endif
-        retSt = new SgCExpStmt(SgAssignOp(*lhs, *rhs));
-        needReplace = true;
+        if (lhs->variant() == ARRAY_REF && redArraysWithUnknownSize.find(lhs->symbol()->identifier()) != redArraysWithUnknownSize.end())
+        {
+            const string arrayName = lhs->symbol()->identifier();
+            const int num_red = redArraysWithUnknownSize.find(arrayName)->second;
+            string atomicName = "NULL";
+
+            if (num_red == 1) // sum
+                atomicName = "__dvmh_atomic_add";
+            else if (num_red == 2)  // product
+                atomicName = "__dvmh_atomic_prod";
+            else if (num_red == 3)  // max
+                atomicName = "__dvmh_atomic_max";
+            else if (num_red == 4)  // min
+                atomicName = "__dvmh_atomic_min";
+            else if (num_red == 5)  // and
+                atomicName = "__dvmh_atomic_and";
+            else if (num_red == 6)  // or
+                atomicName = "__dvmh_atomic_or";
+            else if (num_red == 7)  // neqv
+                atomicName = "__dvmh_atomic_neqv";
+            else if (num_red == 8)  // eqv
+                atomicName = "__dvmh_atomic_eqv";
+
+            if (atomicName == "NULL")
+            {
+                Error("Unsupported reduction type by unknown(large) array size", "", 900, first_do_par);
+                retSt = new SgCExpStmt(SgAssignOp(*lhs, *rhs));
+            }
+            else
+            {
+                SgFunctionSymb* fCall = new SgFunctionSymb(FUNCTION_NAME, atomicName.c_str(), *SgTypeInt(), *kernel_st);
+
+                SgExpression* args = splitReductionForAtomic(lhs, rhs, num_red);
+                if (args)
+                    retSt = new SgCExpStmt(*new SgFunctionCallExp(*fCall, *args));
+            }
+        }
+        else
+            retSt = new SgCExpStmt(SgAssignOp(*lhs, *rhs));
+        needReplace = true;        
     }
     else if (st->variant() == CONT_STAT)
     {
@@ -1581,7 +1713,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
         printf("convert logicif node\n");
         lvl_convert_st += 2;
 #endif
-        convertStmt(body, t, copyBlock, countOfCopy, lvl + 1);
+        convertStmt(body, t, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
 #if TRACE
         lvl_convert_st-=2;
         printfSpaces(lvl_convert_st);
@@ -1610,7 +1742,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
                 printf("convert if node\n");
                 lvl_convert_st += 2;
 #endif
-                convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1);
+                convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
 #if TRACE
                 lvl_convert_st-=2;
                 printfSpaces(lvl_convert_st);
@@ -1627,7 +1759,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
             if (tmp->variant() == CONTROL_END)
             {
                 pair<SgStatement*, SgStatement*> convSt;
-                convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1);
+                convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
                 if (convSt.second)
                     bodySts.push(convSt.second);
             }
@@ -1714,7 +1846,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
                     printf("convert if node\n");
                     lvl_convert_st += 2;
 #endif
-                    convertStmt(tb, tmp, copyBlock, countOfCopy, lvl + 1);
+                    convertStmt(tb, tmp, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
 #if TRACE
                     lvl_convert_st-=2;
                     printfSpaces(lvl_convert_st);
@@ -1740,7 +1872,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
                 printf("convert if node\n");
                 lvl_convert_st += 2;
 #endif
-                convertStmt(fb, tmp, copyBlock, countOfCopy, lvl + 1);
+                convertStmt(fb, tmp, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
 #if TRACE
                 lvl_convert_st-=2;
                 printfSpaces(lvl_convert_st);
@@ -1757,7 +1889,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
             if (fb->variant() == CONTROL_END)
             {
                 pair<SgStatement*, SgStatement*> tmp;
-                convertStmt(fb, tmp, copyBlock, countOfCopy, lvl + 1);
+                convertStmt(fb, tmp, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
                 if (tmp.second)
                     bodyFalse.push(tmp.second);
             }
@@ -1871,7 +2003,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
             map<SgStatement*, vector<SgStatement*> > save_insertBefore, save_insertAfter;            
             saveInsertBeforeAfter(save_insertAfter, save_insertBefore);
 
-            convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1);
+            convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
 #if TRACE
             lvl_convert_st-=2;
             printfSpaces(lvl_convert_st);
@@ -1898,7 +2030,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
 #endif
             map<SgStatement*, vector<SgStatement*> > save_insertBefore, save_insertAfter;
             saveInsertBeforeAfter(save_insertAfter, save_insertBefore);
-            convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1);
+            convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
 #if TRACE
             lvl_convert_st-=2;
             printfSpaces(lvl_convert_st);
@@ -1918,7 +2050,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
 
             map<SgStatement*, vector<SgStatement*> > save_insertBefore, save_insertAfter;
             saveInsertBeforeAfter(save_insertAfter, save_insertBefore);
-            convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1);
+            convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
             copyToStack(bodySt, insertBefore);
             if (tmp.second)
                 bodySt.push(tmp.second);
@@ -2021,7 +2153,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
             printf("convert while node\n");
             lvl_convert_st += 2;
 #endif
-            (void)convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1);
+            (void)convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
 #if TRACE
             lvl_convert_st -= 2;
             printfSpaces(lvl_convert_st);
@@ -2043,7 +2175,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
             printf("convert while node\n");
             lvl_convert_st += 2;
 #endif
-            (void)convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1);
+            (void)convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
 #if TRACE
             lvl_convert_st -= 2;
             printfSpaces(lvl_convert_st);
@@ -2057,7 +2189,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
         else
         {
             pair<SgStatement*, SgStatement*> tmp;
-            (void)convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1);
+            (void)convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
             if (tmp.second)
                 bodySt.push(tmp.second);
         }
@@ -2121,7 +2253,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
                 printf("convert switch node\n");
                 lvl_convert_st+=2;
 #endif
-                (void)convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1);
+                (void)convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
 #if TRACE
                 lvl_convert_st -= 2;
                 printfSpaces(lvl_convert_st);
@@ -2139,7 +2271,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
             if (tmp->variant() == CONTROL_END)
             {
                 pair<SgStatement*, SgStatement*> convSt;
-                (void)convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1);
+                (void)convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
                 if (convSt.second)
                     bodyQueue.push_back(convSt.second);
             }
@@ -2170,7 +2302,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
             printf("convert switch node\n");
             lvl_convert_st+=2;
 #endif
-            (void)convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1);
+            (void)convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
 #if TRACE
             lvl_convert_st -= 2;
             printfSpaces(lvl_convert_st);
@@ -2194,7 +2326,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
                 printf("convert switch node\n");
                 lvl_convert_st+=2;
 #endif
-                (void)convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1);
+                (void)convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1, redArraysWithUnknownSize);
 #if TRACE
                 lvl_convert_st -= 2;
                 printfSpaces(lvl_convert_st);
@@ -2361,17 +2493,30 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
             retSt = new SgCExpStmt(*new SgFunctionCallExp(*st->symbol()));
         else
         {
-            SgStatement *inter = getInterfaceForCall(st->symbol());
-            if (inter)
+            if (st->symbol()->identifier() == string("random_number"))
             {
-                //switch arguments by keyword
-                lhs = (SgFunctionCallExp *)switchArgumentsByKeyword(lhs, inter);
-                //check ommited arguments
-                //transform fact to formal
+                if (lhs->variant() != EXPR_LIST || lhs->lhs() == NULL || lhs->lhs()->variant() != VAR_REF)
+                    Error("Unsupported random_number call", "", 900, first_do_par);
+                
+                //rand state
+                lhs->setRhs(new SgExpression(EXPR_LIST, new SgVarRefExp(*new SgSymbol(VARIABLE_NAME, "__dvmh_rand_state")), NULL));
+
+                retSt = new SgCExpStmt(*new SgFunctionCallExp(*new SgSymbol(VARIABLE_NAME, "__dvmh_rand"), *lhs));                
             }
-            
-            matchPrototype(st->symbol(), lhs);
-            retSt = new SgCExpStmt(*new SgFunctionCallExp(*st->symbol(), *lhs));
+            else
+            {
+                SgStatement* inter = getInterfaceForCall(st->symbol());
+                if (inter)
+                {
+                    //switch arguments by keyword
+                    lhs = (SgFunctionCallExp*)switchArgumentsByKeyword(lhs, inter);
+                    //check ommited arguments
+                    //transform fact to formal
+                }
+
+                matchPrototype(st->symbol(), lhs);
+                retSt = new SgCExpStmt(*new SgFunctionCallExp(*st->symbol(), *lhs));
+            }
         }
 #if TRACE
         lvl_convert_st -= 2;
@@ -2820,6 +2965,11 @@ void Translate_Fortran_To_C(SgStatement *Stmt)
 #if TRACE
     printf("START: CONVERTION OF BODY ON LINE %d\n", number_of_loop_line);
 #endif
+    map<string, int> redArraysWithUnknownSize;
+    SgExpression* er = red_list;
+    for (reduction_operation_list* rsl = red_struct_list; rsl; rsl = rsl->next, er = er->rhs())
+        if (rsl->redvar_size < 0)
+            redArraysWithUnknownSize[rsl->redvar->identifier()] = RedFuncNumber(er->lhs()->lhs());
 
     SgStatement *copyFSt = Stmt;
     vector<stack<SgStatement*> > copyBlock;
@@ -2835,7 +2985,7 @@ void Translate_Fortran_To_C(SgStatement *Stmt)
     printf("convert Stmt\n");
     lvl_convert_st += 2;
 #endif
-    needReplace = convertStmt(copyFSt, tmp, copyBlock, 0, 0);
+    needReplace = convertStmt(copyFSt, tmp, copyBlock, 0, 0, redArraysWithUnknownSize);
 #if TRACE
     lvl_convert_st-=2;
     printfSpaces(lvl_convert_st);
@@ -2873,6 +3023,12 @@ void Translate_Fortran_To_C(SgStatement *firstStmt, SgStatement *lastStmt, vecto
     lvl_convert_st += 2;
 #endif
 
+    map<string, int> redArraysWithUnknownSize;
+    SgExpression* er = red_list;
+    for (reduction_operation_list* rsl = red_struct_list; rsl; rsl = rsl->next, er = er->rhs())
+        if (rsl->redvar_size < 0)
+            redArraysWithUnknownSize[rsl->redvar->identifier()] = RedFuncNumber(er->lhs()->lhs());
+
     SgStatement *copyFSt = firstStmt->lexNext();
     vector<SgStatement*> forRemove;        
     labelsExitCycle.clear();
@@ -2896,7 +3052,7 @@ void Translate_Fortran_To_C(SgStatement *firstStmt, SgStatement *lastStmt, vecto
         printf("convert Stmt\n");
         lvl_convert_st += 2;
 #endif        
-        needReplace = convertStmt(copyFSt, tmp, copyBlock, countOfCopy, 0);        
+        needReplace = convertStmt(copyFSt, tmp, copyBlock, countOfCopy, 0, redArraysWithUnknownSize);
 #if TRACE
         lvl_convert_st-=2;
         printfSpaces(lvl_convert_st);

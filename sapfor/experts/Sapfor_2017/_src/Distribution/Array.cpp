@@ -154,13 +154,13 @@ namespace Distribution
         }
     }
 
-    void printArrayInfo(const string &file, const map<tuple<int, string, string>, pair<Array*, ArrayAccessInfo*>> &declaratedArrays)
+    void printArrayInfo(const string &file, const map<tuple<int, string, string>, pair<Array*, ArrayAccessInfo*>> &declaredArrays)
     {
         FILE* out = fopen(file.c_str(), "w");
         if (out == NULL)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-        for (auto& elem : declaratedArrays)
+        for (auto& elem : declaredArrays)
         {
             Array* currA = elem.second.first;
             ArrayAccessInfo* info = elem.second.second;
@@ -198,10 +198,10 @@ namespace Distribution
         fclose(out);
     }
 
-    void fixTypeOfArrayInfoWithCallGraph(map<tuple<int, string, string>, pair<Array*, ArrayAccessInfo*>> &declaratedArrays,
+    void fixTypeOfArrayInfoWithCallGraph(map<tuple<int, string, string>, pair<Array*, ArrayAccessInfo*>> &declaredArrays,
                                          const map<string, FuncInfo*> &allFuncs)
     {
-        for (auto& elem : declaratedArrays)
+        for (auto& elem : declaredArrays)
         {
             ArrayAccessInfo* info = elem.second.second;
             info->checkAndUpdate(allFuncs);

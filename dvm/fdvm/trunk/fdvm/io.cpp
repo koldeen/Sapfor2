@@ -1198,12 +1198,13 @@ void SendList(SgStatement *st_first, SgExpression *iisize[], int imem, int j0, i
      if( j!=j0 && (ElementDependence(st_first,st,st->expr(1)->lhs()->lhs()) || ElementDependence(st_first,st,iisize[j])))
          break;
   }
+  cur_st = st->lexPrev();
   for(i=j0;i<j;i++)
      doAssignStmtAfter(iisize[i]);
  
   doCallAfter(SendMemory(j-j0,imem+j0,imem+nl+j0));
  
-  SendList(st,iisize,imem,j,nl);
+  SendList(cur_st->lexNext(),iisize,imem,j,nl);
 }
 
 # define MAXLISTLEN  1000

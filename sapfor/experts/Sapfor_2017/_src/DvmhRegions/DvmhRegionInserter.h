@@ -5,6 +5,7 @@
 #include "../GraphCall/graph_calls_func.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include "../ExpressionTransform/expr_transform.h"
+#include "../ParallelizationRegions/ParRegions.h"
 #include "../Utils/SgUtils.h"
 #include "ReadWriteAnalyzer.h"
 #include "DvmhRegion.h"
@@ -51,8 +52,8 @@ class DvmhRegionInserter
     ArraySet symbs_to_arrs(std::set<SgSymbol*>) const;
     ArraySet get_used_arrs(SgStatement* st, int usage_type) const;
     ArraySet get_used_arrs_for_block(SgStatement* st, int usage_type) const;
-    SgStatement* processSt(SgStatement *st);
-    void insertActualDirectives();
+    SgStatement* processSt(SgStatement *st, const std::vector<ParallelRegion*>* regs);
+    void insertActualDirectives(const std::vector<ParallelRegion*>* regs);
     void insertActualDirective(SgStatement*, const ArraySet&, int, bool, const std::set<std::string>* = NULL);
 
     void parFuncsInNode(LoopGraph *loop, bool isParallel);
@@ -65,7 +66,7 @@ public:
         std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls
     ) : file(curFile), loopGraph(curLoopGraph), rw_analyzer(rws), arrayLinksByFuncCalls(arrayLinksByFuncCalls) { }
 
-    void insertDirectives();
+    void insertDirectives(const std::vector<ParallelRegion*>* regs = NULL);
 
     void updateParallelFunctions(const std::map<std::string, std::vector<LoopGraph*>>& loopGraphs, const std::map<std::string, std::vector<FuncInfo*>> &callGraphs);
 

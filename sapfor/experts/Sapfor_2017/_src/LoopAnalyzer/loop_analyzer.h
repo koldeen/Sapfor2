@@ -52,13 +52,13 @@ void loopAnalyzer(SgFile *file,
                   std::vector<Messages> &messagesForFile,
                   REGIME regime,
                   const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo,
-                  const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+                  const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays,
                   const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
                   const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, 
                   const std::map<SgStatement*, std::vector<DefUseList>> &defUseByPlace,
                   bool skipDeps, std::vector<LoopGraph*> *loopGraph = NULL);
 void arrayAccessAnalyzer(SgFile *file, std::vector<Messages> &messagesForFile, 
-                         const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, 
+                         const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays, 
                          REGIME regime);
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);
@@ -70,7 +70,7 @@ bool isIntrinsic(const char *funName);
 std::tuple<int, std::string, std::string> getUniqName(const std::map<std::string, SgStatement*> &commonBlocks, SgStatement *decl, SgSymbol *symb);
 std::string getShortName(const std::tuple<int, std::string, std::string> &uniqKey);
 
-void getAllDeclaratedArrays(SgFile *file, std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+void getAllDeclaratedArrays(SgFile *file, std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays,
                             std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt, std::vector<Messages> &currMessages,
                             const std::vector<ParallelRegion*> &regions, const std::map<std::string, int>& keyValueFromGUI);
 void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
@@ -116,7 +116,7 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const std::set<s
                             DIST::GraphCSR<int, double, attrType> &reducedG,
                             std::map<std::string, std::map<int, std::set<std::string>>> &commentsToInclude,
                             const bool extractDir, std::vector<Messages> &messagesForFile,
-                            const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
+                            const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays);
 
 void insertDistributionToFile(const char *origFile, const char *outFile, const std::map<int, std::set<std::string>> &commentsToInclude);
 void removeDvmDirectives(SgFile *file, const bool toComment);
@@ -135,7 +135,7 @@ bool preprocess_spf_dirs(SgFile *file, const std::map<std::string, CommonBlock> 
 bool check_par_reg_dirs(SgFile *file, std::vector<Messages> &messagesForFile);
 
 void revertion_spf_dirs(SgFile *file, 
-                        std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
+                        std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaredArrays,
                         std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> declaratedArraysSt);
 void addAcrossToLoops(LoopGraph *topLoop, const std::map<SgSymbol*, std::tuple<int, int, int>> &acrossToAdd, 
                       const std::map<int, SgForStmt*> &allLoops, 

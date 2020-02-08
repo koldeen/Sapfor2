@@ -1761,7 +1761,7 @@ SgExpression *CudaTransform(SgSymbol *s_loop_ref, SgSymbol *s_head, SgSymbol *s_
 SgExpression *CudaAutoTransform(SgSymbol *s_loop_ref, SgSymbol *s_head);
 SgExpression *ApplyOffset(SgSymbol *s_head, SgSymbol *s_base, SgSymbol *s_headH) ;
 SgExpression *GetConfig(SgSymbol *s_loop_ref,SgSymbol *s_shared_perThread,SgSymbol *s_regs_perThread,SgSymbol *s_threads,SgSymbol *s_stream, SgSymbol *s_shared_perBlock);
-SgExpression *PrepareReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num, SgSymbol *s_count, SgSymbol *s_fill_flag);
+SgExpression *PrepareReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num, SgSymbol *s_count, SgSymbol *s_fill_flag, int fixedCount = 0, int fillFlag = -1);
 SgExpression *FinishReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num);
 SgExpression *Register_Red(SgSymbol *s_loop_ref, SgSymbol *s_var_num, SgSymbol *s_red_array, SgSymbol *s_loc_array,SgSymbol *s_offset,SgSymbol *s_loc_offset);
 SgExpression *ChangeFilledBounds(SgSymbol *s_low,SgSymbol *s_high,SgSymbol *s_idx, SgSymbol *s_n,SgSymbol *s_dep,SgSymbol *s_type,SgSymbol *s_idxs);

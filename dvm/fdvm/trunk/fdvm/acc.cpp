@@ -8590,6 +8590,7 @@ SgExpression *CreateRedDummyList()
         }
         else                       // reduction array of unknown size
             arg_list = AddListToList(arg_list, &(rsl->dimSize_arg->copy()));
+
         if (options.isOn(C_CUDA))
         {
             ae = new SgArrayRefExp(*rsl->red_grid, *new SgExprListExp());
@@ -8601,7 +8602,15 @@ SgExpression *CreateRedDummyList()
         arg_list = AddListToList(arg_list, ae);
         if (rsl->redvar_size < 0)
         {
-            ae = options.isOn(C_CUDA) ? new SgExprListExp(*new SgPointerDerefExp(*new SgVarRefExp(rsl->red_init))) : new SgExprListExp(*new SgVarRefExp(rsl->red_init));
+            if (options.isOn(C_CUDA))
+            {
+                ae = new SgArrayRefExp(*rsl->red_init, *new SgExprListExp());
+                //XXX ues correct type from red_grid, changed reduction scheme to atomic, Kolganov 06.02.2020
+                ae->setType(rsl->red_grid->type());
+                ae = new SgExprListExp(*ae);
+            }
+            else
+                ae = new SgExprListExp(*new SgVarRefExp(rsl->red_init));
             arg_list = AddListToList(arg_list, ae);
         }
         arg_list = AddListToList(arg_list, loc_list);
@@ -9412,7 +9421,6 @@ void CreateReductionBlocks(SgStatement *stat, int nloop, SgExpression *red_op_li
             re = &(*re + (*ThreadIdxRefExpr("z")) * (*new SgRecordRefExp(*s_blockdim, "x") * (*new SgRecordRefExp(*s_blockdim, "y"))));
     }
     ass = AssignStatement(new SgVarRefExp(i_var), re);
-    stat->insertStmtBefore(*ass, *stat->controlParent());
 
     if (options.isOn(C_CUDA))
         ass->addComment("// Reduction");
@@ -9429,15 +9437,26 @@ void CreateReductionBlocks(SgStatement *stat, int nloop, SgExpression *red_op_li
     if (options.isOn(C_CUDA))
         if_st = new SgIfStmt(SgEqOp(*new SgVarRefExp(i_var) % *new SgVarRefExp(s_warpsize), *new SgValueExp(0)));
 
+    bool assInserted = false;
     for (er = red_op_list, rsl = red_struct_list, n = 1; er; er = er->rhs(), rsl = rsl->next, n++)
     {
+        if (rsl->redvar_size != 0 && rsl->redvar_size <= 0) // array of [UNknown size] or arrays that have [ > 16 elems]
+            continue;
+
+        if (!assInserted)
+        {
+            stat->insertStmtBefore(*ass, *stat->controlParent());
+            assInserted = true;
+        }
+
         if (options.isOn(C_CUDA))
             ReductionBlockInKernel_On_C_Cuda(stat, i_var, er->lhs(), rsl, if_st, if_del, if_new, declArrayVars);
         else
             ReductionBlockInKernel(stat, nloop, i_var, j_var, er->lhs(), rsl, red_count_symb, n);
     }
 
-    if (options.isOn(C_CUDA))
+    
+    if (options.isOn(C_CUDA) && assInserted)
         stat->insertStmtBefore(*if_st, *stat->controlParent());
 }
 
@@ -10328,27 +10347,33 @@ void Do_Assign_For_Loc_Arrays()
         if (!rl->locvar && rl->redvar_size == 0)
             continue;
         if (rl->redvar_size > 0)
-        for (i = 0, el = rl->value_arg; i < rl->redvar_size && el; i++, el = el->rhs())
-        {
-            eind = !options.isOn(C_CUDA) ? &(*new SgValueExp(i) + (*LowerBound(rl->redvar, 0))) : new SgValueExp(i);
-            eind = Calculate(eind);
-            //ass = new SgAssignStmt( *new SgArrayRefExp( *rl->redvar,*eind),   el->lhs()->copy() ); 
-            ass = AssignStatement(new SgArrayRefExp(*rl->redvar, *eind), &(el->lhs()->copy()));
-            curst->insertStmtAfter(*ass, *kernel_st);
-            curst = ass;
-        }
+            for (i = 0, el = rl->value_arg; i < rl->redvar_size && el; i++, el = el->rhs())
+            {
+                eind = !options.isOn(C_CUDA) ? &(*new SgValueExp(i) + (*LowerBound(rl->redvar, 0))) : new SgValueExp(i);
+                eind = Calculate(eind);
+                //ass = new SgAssignStmt( *new SgArrayRefExp( *rl->redvar,*eind),   el->lhs()->copy() ); 
+                ass = AssignStatement(new SgArrayRefExp(*rl->redvar, *eind), &(el->lhs()->copy()));
+                curst->insertStmtAfter(*ass, *kernel_st);
+                curst = ass;
+            }
+
         if (rl->redvar_size < 0)
         {
             if (options.isOn(C_CUDA))
             {
-                eind = LinearFormForRedArray(rl->redvar, SubscriptListOfRedArray(rl->redvar), rl);
-                ass = AssignStatement(new SgArrayRefExp(*rl->redvar, *eind), new SgArrayRefExp(*rl->red_init, *eind));
+                //XXX changed reduction scheme to atomic, Kolganov 06.02.2020
+                //eind = LinearFormForRedArray(rl->redvar, SubscriptListOfRedArray(rl->redvar), rl);
+                //ass = AssignStatement(new SgArrayRefExp(*rl->redvar, *eind), new SgArrayRefExp(*rl->red_init, *eind));
             }
             else
+            {
                 ass = AssignStatement(new SgArrayRefExp(*rl->redvar, *SubscriptListOfRedArray(rl->redvar)), new SgArrayRefExp(*rl->red_init, *SubscriptListOfRedArray(rl->redvar)));
-            dost = doLoopNestForReductionArray(rl, ass);
-            curst->insertStmtAfter(*dost, *kernel_st);
-            curst = dost->lastNodeOfStmt();
+
+                //XXX move this block to this condition, Kolganov 06.02.2020
+                dost = doLoopNestForReductionArray(rl, ass);
+                curst->insertStmtAfter(*dost, *kernel_st);
+                curst = dost->lastNodeOfStmt();
+            }
         }
 
         if (rl->locvar)
@@ -10541,7 +10566,6 @@ void CompleteStructuresForReductionInKernel()
     //!printf("redstruct _0\n");
     for (rl = red_struct_list; rl; rl = rl->next)
     {
-
         rl->value_arg = CreateFormalLocationList(rl->redvar, rl->redvar_size);
         rl->formal_arg = CreateFormalLocationList(rl->locvar, rl->number);
         //!printf("redstruct _1\n");
@@ -10552,7 +10576,10 @@ void CompleteStructuresForReductionInKernel()
         if (rl->redvar_size < 0)
         {
             rl->dimSize_arg = CreateFormalDimSizeList(rl->redvar);
-            rl->red_init = RedInitValSymbolInKernel(rl->redvar, rl->dimSize_arg); // after CreateFormalDimSizeList()
+
+            //XXX changed reduction scheme to atomic, Kolganov 06.02.2020
+            //rl->red_init = RedInitValSymbolInKernel(rl->redvar, rl->dimSize_arg); // after CreateFormalDimSizeList()
+            rl->red_init = rl->redvar;
         }
         else
         {
@@ -12381,10 +12408,15 @@ SgStatement *Create_C_Adapter_Function(SgSymbol *sadapter)
                 stmt->addComment("// Register reduction for CUDA-execution");
                 first_exec = stmt;
             }
+
+            //XXX swap pointers, changed reduction scheme to atomic, Kolganov 06.02.2020
+            if (rsl->redvar_size < 0)
+                std::swap(sgrid, sinit);
+
             stmt = new SgCExpStmt(*RegisterReduction(s_loop_ref, s_red_num, sgrid, sgrid_loc));
             st_end->insertStmtBefore(*stmt, *st_hedr);                //!printf("__1131 %d\n",s_loc_var);
             e = (rsl->redvar_size >= 0) ? InitReduction(s_loop_ref, s_red_num, sred, s_loc_var) :
-                CudaInitReduction(s_loop_ref, s_red_num, sinit, NULL);  //sred, s_loc_var,
+                                      CudaInitReduction(s_loop_ref, s_red_num, sinit, NULL);  //sred, s_loc_var,
             stmt = new SgCExpStmt(*e);
             st_end->insertStmtBefore(*stmt, *st_hedr);
               
@@ -13249,7 +13281,12 @@ void  InsertPrepareReductionCalls(SgStatement *st_where, SgSymbol *s_loop_ref, S
     {
         stmt = new SgCExpStmt(SgAssignOp(*new SgVarRefExp(s_red_num), *new SgValueExp(ln + 1)));
         st_where->insertStmtBefore(*stmt, *st_where->controlParent());
-        stmt = new SgCExpStmt(*PrepareReduction(s_loop_ref, s_red_num, s_num_of_red_blocks, s_fill_flag));
+
+        //XXX changed reduction scheme to atomic, Kolganov 06.02.2020
+        if (rsl->redvar_size < 0)
+            stmt = new SgCExpStmt(*PrepareReduction(s_loop_ref, s_red_num, s_num_of_red_blocks, s_fill_flag, 1, 1));
+        else
+            stmt = new SgCExpStmt(*PrepareReduction(s_loop_ref, s_red_num, s_num_of_red_blocks, s_fill_flag));
         st_where->insertStmtBefore(*stmt, *st_where->controlParent());
     }
 }

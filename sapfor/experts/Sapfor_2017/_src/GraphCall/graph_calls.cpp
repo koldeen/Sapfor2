@@ -67,7 +67,7 @@ static void correctNameIfContains(SgStatement *call, SgExpression *exCall, strin
     }
 }
 
-extern map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
+extern map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaredArrays;
 extern map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt;
 extern int getIntrinsicFunctionType(const char* name);
 
@@ -160,8 +160,8 @@ static void fillParam(const int i, SgSymbol *parIn, FuncParam *currParams, const
 
             SgStatement *decl = declaratedInStmt(par);
             auto uniqKey = getUniqName(commonBlocks, decl, par);
-            auto itArray = declaratedArrays.find(uniqKey);
-            if (itArray == declaratedArrays.end())
+            auto itArray = declaredArrays.find(uniqKey);
+            if (itArray == declaredArrays.end())
             {
                 __spf_print(1, "array was not in declarated list %s\n", par->identifier());
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -1225,7 +1225,7 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                     SgStatement *decl = declaratedInStmt(symb);
                     set<string> privatesVars;
                     tryToFindPrivateInAttributes(decl, privatesVars);
-                    fillNonDistrArraysAsPrivate(decl, declaratedArrays, declaratedArraysSt, privatesVars);
+                    fillNonDistrArraysAsPrivate(decl, declaredArrays, declaratedArraysSt, privatesVars);
 
                     if (privatesVars.find(symb->identifier()) == privatesVars.end())
                     {
@@ -2100,13 +2100,13 @@ void detectCopies(map<string, vector<FuncInfo*>> &allFuncInfo)
 }
 
 void removeDistrStateFromDeadFunctions(const map<string, vector<FuncInfo*>>& allFuncInfo, 
-                                       const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>>& declaratedArrays)
+                                       const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>>& declaredArrays)
 {
     map<string, FuncInfo*> funcByName;
     createMapOfFunc(allFuncInfo, funcByName);
 
     // remove distr state of arrays from dead functions
-    for (auto& elem : declaratedArrays)
+    for (auto& elem : declaredArrays)
     {
         DIST::Array* array = elem.second.first;
         if (array->GetLocation().first == DIST::l_PARAMETER)

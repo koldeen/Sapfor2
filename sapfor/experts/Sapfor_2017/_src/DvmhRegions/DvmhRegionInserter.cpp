@@ -306,7 +306,7 @@ static void createExceptList(SgExpression *ex, set<string> &symbs)
 }
 
 //TODO:
-SgStatement* DvmhRegionInserter::processSt(SgStatement *st)
+SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<ParallelRegion*>* regs)
 {
     if (st == NULL)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -337,12 +337,14 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st)
 
     if (!isSgExecutableStatement(st) || isDVM_stat(st) ||
         var == ALLOCATE_STMT || var == DEALLOCATE_STMT || 
-        st->lastNodeOfStmt() != st)
+        st->lastNodeOfStmt() != st || isSPF_stat(st))
     {
         return st->lexNext();
     }
 
-    
+    // Skip operators out of parallel regions 
+    if (regs && getAllRegionsByLine(*regs, st->fileName(), st->lineNumber()).size() == 0)
+            return st->lexNext();
 
     //TODO: read and write !!!
     if (var != PROC_STAT && var != READ_STAT)
@@ -380,7 +382,7 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st)
     return st->lexNext();
 }
 
-void DvmhRegionInserter::insertActualDirectives() 
+void DvmhRegionInserter::insertActualDirectives(const vector<ParallelRegion*>* regs)
 {
     int funcNum = file->numberOfFunctions();
     for (int i = 0; i < funcNum; ++i)
@@ -395,11 +397,11 @@ void DvmhRegionInserter::insertActualDirectives()
 
         st = st->lexNext();
         while (st != lastNode && st != NULL && st->variant() != CONTAINS_STMT)
-            st = processSt(st);
+            st = processSt(st, regs);
     }
 }
 
-void DvmhRegionInserter::insertDirectives()
+void DvmhRegionInserter::insertDirectives(const vector<ParallelRegion*> *regs)
 {
     __spf_print(1, "Find edges for regions\n");
     findEdgesForRegions(loopGraph);
@@ -421,7 +423,7 @@ void DvmhRegionInserter::insertDirectives()
     insertRegionDirectives();
 
      __spf_print(1, "Insert actuals\n");
-    insertActualDirectives();
+    insertActualDirectives(regs);
 }
 
 void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &arraySet, int variant, bool moveComments, const set<string>* exceptSymbs)

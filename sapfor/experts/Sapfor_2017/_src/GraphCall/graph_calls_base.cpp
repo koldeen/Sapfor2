@@ -503,7 +503,7 @@ static bool propagateUp(DIST::Array *from, set<DIST::Array*> to, DIST::distFlag 
 }
 
 static bool propagateFlag(bool isDown, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls, 
-                          const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+                          const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays,
                           map<string, vector<Messages>> &SPF_messages)
 {
     bool globalChange = false;
@@ -511,7 +511,7 @@ static bool propagateFlag(bool isDown, const map<DIST::Array*, set<DIST::Array*>
     while (change)
     {
         change = false;
-        for (auto &array : declaratedArrays)
+        for (auto &array : declaredArrays)
         {
             set<DIST::Array*> realArrayRefs;
             getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
@@ -583,14 +583,14 @@ static bool propagateFlag(bool isDown, const map<DIST::Array*, set<DIST::Array*>
 }
 
 void propagateArrayFlags(const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls, 
-                         const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+                         const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays,
                          map<string, vector<Messages>> &SPF_messages)
 {
     bool change = true;
     while (change)
     {
-        bool changeD = propagateFlag(true, arrayLinksByFuncCalls, declaratedArrays, SPF_messages);
-        bool changeU = propagateFlag(false, arrayLinksByFuncCalls, declaratedArrays, SPF_messages);
+        bool changeD = propagateFlag(true, arrayLinksByFuncCalls, declaredArrays, SPF_messages);
+        bool changeU = propagateFlag(false, arrayLinksByFuncCalls, declaredArrays, SPF_messages);
 
         change = changeD || changeU;
     }
@@ -676,7 +676,7 @@ static void aggregateUsedArrays(map<string, FuncInfo*> &funcByName, const map<DI
 }
 
 void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &allFuncInfo, map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                                             const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, 
+                                             const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays, 
                                              map<string, vector<Messages>> &SPF_messages, bool keepFiles)
 {
     for (auto &funcsOnFile : allFuncInfo)
@@ -704,14 +704,14 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
         }
         fclose(file);
     }
-    propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays, SPF_messages);
+    propagateArrayFlags(arrayLinksByFuncCalls, declaredArrays, SPF_messages);
 
     //propagate distr state
     bool change = true;
     while (change)
     {
         change = false;
-        for (auto &array : declaratedArrays)
+        for (auto &array : declaredArrays)
         {
             set<DIST::Array*> realArrayRefs;
             getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
@@ -730,7 +730,7 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     aggregateUsedArrays(funcByName, arrayLinksByFuncCalls);
 
     //debug dump
-    /*for (auto &elem : declaratedArrays)
+    /*for (auto &elem : declaredArrays)
     {
         auto array = elem.second.first;
         auto flag = array->GetNonDistributeFlagVal();

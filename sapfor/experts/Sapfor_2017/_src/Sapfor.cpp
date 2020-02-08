@@ -96,7 +96,7 @@ void deleteAllAllocatedData(bool enable)
 {
     if (enable)
     {
-        for (auto& toDel : declaratedArrays)
+        for (auto& toDel : declaredArrays)
         {
             if (!toDel.second.first->IsTemplate())
             {
@@ -104,7 +104,7 @@ void deleteAllAllocatedData(bool enable)
                 delete toDel.second.second;
             }
         }
-        declaratedArrays.clear();
+        declaredArrays.clear();
 
         for (int i = 0; i < parallelRegions.size(); ++i)
             delete parallelRegions[i];
@@ -241,7 +241,7 @@ static string unparseProjectIfNeed(SgFile* file, const int curr_regime, const bo
         restoreCorrectedModuleProcNames(file);
 
         if (keepSpfDirs)
-            revertion_spf_dirs(file, declaratedArrays, declaratedArraysSt);
+            revertion_spf_dirs(file, declaredArrays, declaratedArraysSt);
         else
         {
             vector<SgStatement*> toDel;
@@ -502,7 +502,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             vector<Messages> tmp;
             loopAnalyzer(file, parallelRegions, createdArrays, tmp, DATA_DISTR,
-                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapByPlace(), true, &(loopGraph.find(file_name)->second));
+                         allFuncInfo, declaredArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapByPlace(), true, &(loopGraph.find(file_name)->second));
         }
         else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1 || curr_regime == ONLY_ARRAY_GRAPH)
         {
@@ -513,7 +513,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     states.push_back(new SapforState());*/
 
                 loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), DATA_DISTR, 
-                             allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapByPlace(),
+                             allFuncInfo, declaredArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapByPlace(),
                              false, &(loopGraph.find(file_name)->second));
             }
             catch (...)
@@ -525,7 +525,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto itFound = loopGraph.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), COMP_DISTR, 
-                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapByPlace(),
+                         allFuncInfo, declaredArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapByPlace(),
                          false, &(itFound->second));
             
             UniteNestedDirectives(itFound->second);
@@ -634,7 +634,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 createdDirectives[file_name].clear();
 
                 //clear shadow specs
-                for (auto& array : declaratedArrays)
+                for (auto& array : declaredArrays)
                     array.second.first->ClearShadowSpecs();
             }
             else if (mpiProgram == 0)
@@ -662,7 +662,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 for (auto& elem : distrArraysF)
                     if (distrArraysDone.find(elem) == distrArraysDone.end())
                         distrArrays.insert(elem);
-                insertShadowSpecToFile(file, file_name, distrArrays, reducedG, commentsToInclude, extract, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays);
+                insertShadowSpecToFile(file, file_name, distrArrays, reducedG, commentsToInclude, extract, getObjectForFileFromMap(file_name, SPF_messages), declaredArrays);
 
                 distrArraysDone.insert(distrArrays.begin(), distrArrays.end());
             }
@@ -681,7 +681,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == REVERT_SPF_DIRS)
         {
             if (keepSpfDirs)
-                revertion_spf_dirs(file, declaratedArrays, declaratedArraysSt);
+                revertion_spf_dirs(file, declaredArrays, declaratedArraysSt);
             else
                 __spf_print(1, "   ignore SPF REVERT\n");
         }
@@ -726,7 +726,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             VarDeclCorrecter(file);
         else if (curr_regime == CREATE_REMOTES)
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), REMOTE_ACC, 
-                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapByPlace(),
+                         allFuncInfo, declaredArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapByPlace(),
                          false, &(loopGraph.find(file_name)->second));
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
@@ -739,7 +739,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 insertSpfAnalysisBeforeParalleLoops(itFound->second);
         }
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE4)
-            arrayAccessAnalyzer(file, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays, PRIVATE_STEP4);
+            arrayAccessAnalyzer(file, getObjectForFileFromMap(file_name, SPF_messages), declaredArrays, PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
             fillRegionLines(file, parallelRegions, getObjectForFileFromMap(file_name, SPF_messages), &(loopGraph[file_name]), &(allFuncInfo[file_name]));
         else if (curr_regime == FILL_COMMON_BLOCKS)
@@ -820,7 +820,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             expressionAnalyzer(file, defUseByFunctions, commonBlocks, temporaryAllFuncInfo, subs_parallelRegions);
             // analyze again for substituted expressions
-            arrayAccessAnalyzer(file, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays, PRIVATE_STEP4);
+            arrayAccessAnalyzer(file, getObjectForFileFromMap(file_name, SPF_messages), declaredArrays, PRIVATE_STEP4);
         }
         else if (curr_regime == REVERT_SUBST_EXPR)
             revertReplacements(file->filename(), true);
@@ -835,7 +835,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     createNestedLoops(itFound->second[i], depInfoForLoopGraph, mapFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
         }
         else if (curr_regime == GET_ALL_ARRAY_DECL)
-            getAllDeclaratedArrays(file, declaratedArrays, declaratedArraysSt, getObjectForFileFromMap(file_name, SPF_messages), subs_parallelRegions, keyValueFromGUI);
+            getAllDeclaratedArrays(file, declaredArrays, declaratedArraysSt, getObjectForFileFromMap(file_name, SPF_messages), subs_parallelRegions, keyValueFromGUI);
         else if (curr_regime == FILE_LINE_INFO)
         {
             SgStatement *st = file->firstStatement();
@@ -994,8 +994,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
             //collect info about <parallel> functions
             regionInserter.updateParallelFunctions(loopGraph, allFuncInfo);
-
-            regionInserter.insertDirectives();
+            
+            if (parallelRegions.size() == 0 && parallelRegions[0]->GetName() == "DEFAULT")
+                regionInserter.insertDirectives(NULL);
+            else
+                regionInserter.insertDirectives(&parallelRegions);
 
             //remove private from loops out of DVMH region
             map<int, LoopGraph*> mapLoopGraph;
@@ -1265,14 +1268,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             mpiProgram = 1;
             parallizeFreeLoops = 1;
-            for (auto& array : declaratedArrays)
+            for (auto& array : declaredArrays)
             {
                 if (array.second.first->GetNonDistributeFlagVal() == DIST::DISTR)
                     array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
             }
         }
 
-        createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays, SPF_messages, keepFiles);
+        createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaredArrays, SPF_messages, keepFiles);
         propagateWritesToArrays(allFuncInfo);
         updateFuncInfo(allFuncInfo);
 
@@ -1286,8 +1289,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         moveAllocatesInterproc(arrayLinksByFuncCalls);
 
-        removeDistrStateFromDeadFunctions(allFuncInfo, declaratedArrays);
-        propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays, SPF_messages);
+        removeDistrStateFromDeadFunctions(allFuncInfo, declaredArrays);
+        propagateArrayFlags(arrayLinksByFuncCalls, declaredArrays, SPF_messages);
     }
     else if (curr_regime == CALL_GRAPH2)
     {
@@ -1295,7 +1298,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         createMapOfFunc(allFuncInfo, allFuncs);
         completeFillOfArrayUsageBetweenProc(loopGraph, allFuncInfo);
 
-        fixTypeOfArrayInfoWithCallGraph(declaratedArrays, allFuncs);
+        fixTypeOfArrayInfoWithCallGraph(declaredArrays, allFuncs);
 
         //for each file of graphLoop
         for (auto &loopGraphInFile : loopGraph)
@@ -1307,7 +1310,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         detectCopies(allFuncInfo);
 
         if (keepFiles)
-            printArrayInfo("_arrayInfo.txt", declaratedArrays);
+            printArrayInfo("_arrayInfo.txt", declaredArrays);
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
@@ -1587,11 +1590,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S0)
     {
         checkArraysMapping(loopGraph, SPF_messages, arrayLinksByFuncCalls);
-        propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays, SPF_messages);
+        propagateArrayFlags(arrayLinksByFuncCalls, declaredArrays, SPF_messages);
 
         for (int z = 0; z < parallelRegions.size(); ++z)        
             filterArrayInCSRGraph(loopGraph, allFuncInfo, parallelRegions[z], arrayLinksByFuncCalls, SPF_messages);
-        propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays, SPF_messages);
+        propagateArrayFlags(arrayLinksByFuncCalls, declaredArrays, SPF_messages);
 
         for (auto &loopByFile : loopGraph)
             for (auto &loop : loopByFile.second)
@@ -1641,7 +1644,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         if (hasNonDefaultReg)
         {
-            for (auto array : declaratedArrays)
+            for (auto array : declaredArrays)
             {
                 if (array.second.first->GetRegionsName().size() == 0)
                     array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);

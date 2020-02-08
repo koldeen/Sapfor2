@@ -28,6 +28,8 @@
 #include "../Distribution/Array.h"
 #include "../Distribution/Arrays.h"
 #include "../DynamicAnalysis/gcov_info.h"
+#include "../ParallelizationRegions/ParRegions.h"
+
 #if __SPF
 #include "acc_analyzer.h"
 #endif
@@ -1116,11 +1118,11 @@ bool isMpiFunction(const string& func)
     return mpiFunctions.find(func) != mpiFunctions.end();
 }
 
-map<DIST::Array*, DIST::ArrayAccessInfo*> createMapOfArrayAccess(const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays)
+map<DIST::Array*, DIST::ArrayAccessInfo*> createMapOfArrayAccess(const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays)
 {
     map<DIST::Array*, DIST::ArrayAccessInfo*> out;
 
-    for (auto& elem : declaratedArrays)
+    for (auto& elem : declaredArrays)
         out[elem.second.first] = elem.second.second;
     return out;
 }
@@ -1149,4 +1151,70 @@ void writeFileFromStr(const string& name, const string &data)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     outf << data;    
     outf.close();
+}
+
+ParallelRegion* getRegionById(const vector<ParallelRegion*>& regions, const int regionId)
+{
+    for (auto& region : regions)
+        if (region->GetId() == regionId)
+            return region;
+
+    return NULL;
+}
+
+ParallelRegion* getRegionByName(const vector<ParallelRegion*>& regions, const string& regionName)
+{
+    string test = regionName;
+    convertToLower(test);
+
+    for (auto& region : regions)
+        if (region->GetName() == test)
+            return region;
+
+    return NULL;
+}
+
+
+ParallelRegion* getRegionByLine(const vector<ParallelRegion*>& regions, const string& file, const int line)
+{
+    if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
+        return regions[0];
+    else if (regions.size() > 0)
+    {
+        set<ParallelRegion*> regFound;
+
+        for (int i = 0; i < regions.size(); ++i)
+            if (regions[i]->HasThisLine(line, file))
+                regFound.insert(regions[i]);
+
+        if (regFound.size() == 0)
+            return NULL;
+        else if (regFound.size() == 1)
+            return *regFound.begin();
+        else
+        {
+            __spf_print(1, "WARN: this lines included in more than one region!!\n");
+            return NULL;
+        }
+    }
+    else
+        return NULL;
+
+    return NULL;
+}
+
+set<ParallelRegion*> getAllRegionsByLine(const vector<ParallelRegion*>& regions, const string& file, const int line)
+{
+    set<ParallelRegion*> regFound;
+
+    if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
+        regFound.insert(regions[0]);
+    else if (regions.size() > 0)
+    {
+        for (int i = 0; i < regions.size(); ++i)
+            if (regions[i]->HasThisLine(line, file))
+                regFound.insert(regions[i]);
+    }
+
+    return regFound;
 }

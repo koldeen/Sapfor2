@@ -619,8 +619,9 @@ bool isSPF_comment(const int var)
     return var == SPF_ANALYSIS_DIR || var == SPF_PARALLEL_DIR || var == SPF_TRANSFORM_DIR || var == SPF_PARALLEL_REG_DIR || var == SPF_END_PARALLEL_REG_DIR;
 }
 
-void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privatesVars)
+void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privates)
 {
+    set<SgSymbol*> privatesVars;
     for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR }))
     {
         if (data)
@@ -631,8 +632,8 @@ void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privatesVars)
             // try to find reductions and set its symbols as private in 
             // current loop analysis for correct scalar detection in 
             // tryToFindDependencies() function
-            map<string, set<string>> reductions;
-            map<string, set<tuple<string, string, int>>> reductionsLoc;
+            map<string, set<SgSymbol*>> reductions;
+            map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> reductionsLoc;
 
             fillReductionsFromComment(sData, reductions);
             fillReductionsFromComment(sData, reductionsLoc);
@@ -650,10 +651,13 @@ void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privatesVars)
             }
         }
     }
+
+    for (auto& elem : privatesVars)
+        privates.insert(elem->identifier());
 }
 
 void fillNonDistrArraysAsPrivate(SgStatement *st,
-                                 const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+                                 const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays,
                                  const map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
                                  set<string> &privatesVars)
 {
@@ -663,15 +667,15 @@ void fillNonDistrArraysAsPrivate(SgStatement *st,
     {
         for (auto itSet = it->second.begin(); itSet != it->second.end(); ++itSet)
         {
-            auto itD = declaratedArrays.find(*itSet);
-            if (itD != declaratedArrays.end())
+            auto itD = declaredArrays.find(*itSet);
+            if (itD != declaredArrays.end())
                 if (itD->second.first->GetNonDistributeFlag())
                     privatesVars.insert(itD->second.first->GetShortName());
         }
     }
 }
 
-extern  map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
+extern  map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaredArrays;
 extern  map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt;
 
 DIST::Array* getArrayFromDeclarated(SgStatement *st, const string &arrayName)
@@ -683,8 +687,8 @@ DIST::Array* getArrayFromDeclarated(SgStatement *st, const string &arrayName)
     {
         for (auto itSet = it->second.begin(); itSet != it->second.end() && !found; ++itSet)
         {
-            auto itD = declaratedArrays.find(*itSet);
-            if (itD != declaratedArrays.end())
+            auto itD = declaredArrays.find(*itSet);
+            if (itD != declaredArrays.end())
                 if (itD->second.first->GetShortName() == arrayName)
                     found = itD->second.first;
         }

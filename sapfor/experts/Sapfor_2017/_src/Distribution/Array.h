@@ -695,8 +695,8 @@ namespace Distribution
         }
     };
 
-    void printArrayInfo(const STRING &file, const MAP<std::tuple<int, STRING, STRING>, PAIR<Array*, ArrayAccessInfo*>> &declaratedArrays);
-    void fixTypeOfArrayInfoWithCallGraph(MAP<std::tuple<int, STRING, STRING>, PAIR<Array*, ArrayAccessInfo*>>& declaratedArrays, const MAP<STRING, FuncInfo*>& allFuncs);
+    void printArrayInfo(const STRING &file, const MAP<std::tuple<int, STRING, STRING>, PAIR<Array*, ArrayAccessInfo*>> &declaredArrays);
+    void fixTypeOfArrayInfoWithCallGraph(MAP<std::tuple<int, STRING, STRING>, PAIR<Array*, ArrayAccessInfo*>>& declaredArrays, const MAP<STRING, FuncInfo*>& allFuncs);
 }
 #undef VECTOR
 #undef STRING

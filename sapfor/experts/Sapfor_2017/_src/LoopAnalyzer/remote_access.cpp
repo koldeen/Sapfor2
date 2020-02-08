@@ -326,8 +326,9 @@ static bool ifRange(SgExpression* spec)
                 return true;
             if (string(spec->lhs()->lhs()->unparse()) != string(spec->lhs()->rhs()->unparse()))
                 return true;
-        }
-        
+            /*else
+                spec->setLhs(spec->lhs()->lhs());*/
+        }        
         spec = spec->rhs();
     }
 

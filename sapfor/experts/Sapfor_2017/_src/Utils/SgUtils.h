@@ -20,7 +20,7 @@ void findModulesInFile(SgFile *file, std::vector<SgStatement*> &modules);
 void tryToFindPrivateInAttributes(SgStatement *st, std::set<std::string> &privatesVars);
 
 void fillNonDistrArraysAsPrivate(SgStatement *st,
-                                 const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+                                 const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays,
                                  const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
                                  std::set<std::string> &privatesVars);
 

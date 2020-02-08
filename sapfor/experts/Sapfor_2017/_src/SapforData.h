@@ -49,7 +49,7 @@ std::vector<ParallelRegion*> parallelRegions;
 // for LOOP_ANALYZER_DATA_DIST
 std::map<std::tuple<int, std::string, std::string>, DIST::Array*> createdArrays;
 
-std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
+std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaredArrays;
 std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> declaratedArraysSt; // St -> set<KEY>
 
 //for CALL_GRAPH 
@@ -157,7 +157,7 @@ private:
 
     // for LOOP_ANALYZER_DATA_DIST
     std::map<std::tuple<int, std::string, std::string>, DIST::Array*> createdArrays;
-    std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
+    std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaredArrays;
     
     std::map<DIST::Array*, std::set<DIST::Array*>> arrayLinksByFuncCalls;
 
@@ -172,14 +172,14 @@ public:
 
         map<DIST::Array*, DIST::Array*> oldNewLinks;
 
-        for (auto &elem : ::declaratedArrays)
+        for (auto &elem : ::declaredArrays)
             oldNewLinks[elem.second.first] = new DIST::Array(*elem.second.first);
 
-        declaratedArrays = ::declaratedArrays;
+        declaredArrays = ::declaredArrays;
         createdArrays = ::createdArrays;
 
         //fix links to new Array
-        for (auto &elem : declaratedArrays)
+        for (auto &elem : declaredArrays)
             elem.second.first = oldNewLinks[elem.second.first];
 
         //fix links to new Array
@@ -233,7 +233,7 @@ public:
             ::tableOfUniqNamesByArray = tableOfUniqNamesByArray;
             ::parallelRegions = parallelRegions;
             ::createdArrays = createdArrays;
-            ::declaratedArrays = declaratedArrays;
+            ::declaredArrays = declaredArrays;
             ::declaratedArraysSt = declaratedArraysSt;
             ::arrayLinksByFuncCalls = arrayLinksByFuncCalls;
             ::parallelRegions = parallelRegions;

@@ -580,13 +580,13 @@ int SPF_GetPassesStateStr(void*& context, short *&passInfo)
 }
 
 
-extern std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
+extern std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaredArrays;
 static void printDeclArraysState()
 {
     if (showDebug)
         printf("SAPFOR: decl state: \n");
     int dist = 0, priv = 0, err = 0;
-    for (auto it = declaratedArrays.begin(); it != declaratedArrays.end(); ++it)
+    for (auto it = declaredArrays.begin(); it != declaredArrays.end(); ++it)
     {
         if (it->second.first->GetNonDistributeFlag() == false)
             //printf("array '%s' is DISTR\n", it->second.first->GetShortName().c_str());
@@ -1135,9 +1135,9 @@ int SPF_GetAllDeclaratedArrays(void*& context, int winHandler, short *options, s
         runPassesForVisualizer(projName, { GET_ALL_ARRAY_DECL });
 
         string resVal = "";
-        for (auto f = declaratedArrays.begin(); f != declaratedArrays.end(); ++f)
+        for (auto f = declaredArrays.begin(); f != declaredArrays.end(); ++f)
         {
-            if (f != declaratedArrays.begin())
+            if (f != declaredArrays.begin())
                 resVal += "@";
             resVal += f->second.first->toString();
         }
@@ -1232,9 +1232,9 @@ int SPF_SetDistributionFlagToArray(void*& context, char *key, int flag)
     string keyStr(key);
     try
     {
-        if (declaratedArrays.size())
+        if (declaredArrays.size())
         {
-            for (auto& array : declaratedArrays)
+            for (auto& array : declaredArrays)
             {
                 if (array.second.first->GetName() == keyStr)
                 {
@@ -1279,7 +1279,7 @@ int SPF_SetDistributionFlagToArrays(void*& context, const char* keys, const char
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         map<string, DIST::Array*> allArrays;
-        for (auto& array : declaratedArrays)
+        for (auto& array : declaredArrays)
             allArrays[array.second.first->GetName()] = array.second.first;
 
         if (allArrays.size())
@@ -1845,7 +1845,7 @@ static void codeInfo(wstring& total, const wstring& toAdd)
 }
 
 static wstring finishJniCall(int retCode, const short* result, const short* output, const int* outputSize, 
-                             const short* outputMessage, const int* outputMessageSize)
+                             const short* outputMessage, const int* outputMessageSize, const short* predictorStats = NULL)
 { 
     wstring codedResult = L"";
 
@@ -1853,6 +1853,7 @@ static wstring finishJniCall(int retCode, const short* result, const short* outp
     codeInfo(codedResult, toWstring(result, (result) ? strLen(result) : 0));
     codeInfo(codedResult, toWstring(output, (outputSize) ? (outputSize[0]) : 0));
     codeInfo(codedResult, toWstring(outputMessage, (outputMessageSize) ? (outputMessageSize[0]) : 0));
+    codeInfo(codedResult, toWstring(predictorStats, (predictorStats) ? strLen(predictorStats) : 0));
 
     return codedResult;
 }
@@ -1868,23 +1869,21 @@ static wstring finishJniCall(const int size, const int* sizes, short* newFilesNa
     return codedResult;
 }
 
-static void fillInfo(const vector<string> &data, int64_t *arr1, int *arr2)
+static void fillInfo(const vector<string>& data, int64_t*& arr1, int& arr2)
 {
     if (data.size() < 4)
         return;
     int idx = 0;
-    int count = std::stoi(data[idx++]);
-    arr1 = new int64_t[count];
-    for (int z = 0; z < count; ++z, ++idx)
+    arr2 = std::stoi(data[idx++]) * 3;
+    arr1 = new int64_t[arr2];
+    for (int z = 0; z < arr2; ++z, ++idx)
         arr1[z] = std::stoll(data[idx]);
 
-    count = std::stoi(data[idx++]);
-    arr2 = new int[count];
-    for (int z = 0; z < count; ++z, ++idx)
-        arr2[z] = std::stoi(data[idx]);
+    if (data.size() != idx)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-static void fillInfo(const string& data, int* arr)
+static void fillInfo(const string& data, int*& arr)
 {
     vector<string> splited;
     splitString(data, '|', splited);
@@ -1896,7 +1895,7 @@ static void fillInfo(const string& data, int* arr)
         arr[z] = std::stoi(splited[idx]);
 }
 
-static void fillInfo(const string& data, int64_t* arr)
+static void fillInfo(const string& data, int64_t*& arr)
 {
     vector<string> splited;
     splitString(data, '|', splited);
@@ -2009,8 +2008,8 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(
     short* predStats = NULL;
 
     short* projSh = toShort(projName_c);
-    short* optSh = toShort(options_c);
-    short* fold = toShort(folder_c);
+    short* optSh = toShort(options_c);    
+    short* fold = toShort(folder_c); if (string("") == folder_c) fold = NULL;    
     short* addOpt = toShort(addOpt_c);
 
     if (whichRun == "SPF_CorrectCodeStylePass")
@@ -2027,23 +2026,18 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(
         retCode = SPF_LoopEndDoConverterPass(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
     else if (whichRun == "SPF_CreateParallelVariant")
     {
-        //TODO: predStats
         vector<string> splited;
         string orig(addOpt_c);
         splitString(orig, '|', splited);
 
         int64_t* variants = NULL;
-        int* varLen = NULL;
-        
+        int varLen = -1;
 
         fillInfo(splited, variants, varLen);
-        retCode = SPF_CreateParallelVariant(context, winHandler, optSh, projSh, fold, variants, varLen, output, outputSize, outputMessage, outputMessageSize, predStats);
+        retCode = SPF_CreateParallelVariant(context, winHandler, optSh, projSh, fold, variants, &varLen, output, outputSize, outputMessage, outputMessageSize, predStats);
 
         if (retCode > 0)
-        {
             delete []variants;
-            delete []varLen;
-        }
     }
     else if (whichRun == "SPF_LoopFission")
         retCode = SPF_LoopFission(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
@@ -2072,7 +2066,7 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(
     delete []optSh;
     delete []fold;
     delete []addOpt;
-    wstring codedResult = finishJniCall(retCode, result, output, outputSize, outputMessage, outputMessageSize);
+    wstring codedResult = finishJniCall(retCode, result, output, outputSize, outputMessage, outputMessageSize, predStats);
     fflush(NULL);
     return StringToJCharArray(env, codedResult);
 }
