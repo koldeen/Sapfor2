@@ -77,6 +77,7 @@ extern void BufferAllocate();
 
 int out_free_form;
 int out_upper_case;
+int out_line_unlimit;
 PTR_SYMB last_file_symbol;
 
 static int CountNullBifNext = 0; /* for internal debugging */
@@ -1429,7 +1430,7 @@ char* filter(char *s)
         }
         else 
         {
-            if (((!out_free_form && temp_i == 71) || (out_free_form && temp_i == 131)) && !commentline && (s[i + 1] != '\n'))
+            if (((!out_free_form && temp_i == 71) || (out_free_form && !out_line_unlimit && temp_i == 131)) && !commentline && (s[i + 1] != '\n'))
             {
                 if (buf_i + 1 > temp_size)
                 {
@@ -1466,7 +1467,7 @@ char* filter(char *s)
                 buf_i = -1;
             }
 
-            if (((!out_free_form && temp_i == 71) || (out_free_form && temp_i == 131)) && commentline && (s[i + 1] != '\n') && ((OMP == 1) || (OMP == 2) || (DVM == 1) || (SPF == 1))) /*07.08.17*/
+            if (((!out_free_form && temp_i == 71) || (out_free_form && !out_line_unlimit && temp_i == 131)) && commentline && (s[i + 1] != '\n') && ((OMP == 1) || (OMP == 2) || (DVM == 1) || (SPF == 1))) /*07.08.17*/
             {
                 if (buf_i + 1 > temp_size)
                 {
@@ -5461,44 +5462,47 @@ void LibsaveDepFile(str)
 /***************************************************************************/
 int getNumberOfFunction()
 {
-  PTR_BFND thebif;
-  int count  =0;
+    PTR_BFND thebif;
+    int count = 0;
 
-  thebif = PROJ_FIRST_BIF();
-  for (;thebif;thebif=BIF_NEXT(thebif)) 
+    thebif = PROJ_FIRST_BIF();
+    for (; thebif; thebif = BIF_NEXT(thebif))
     {
-      if ((BIF_CODE(thebif) == FUNC_HEDR)  ||
-           (BIF_CODE(thebif) == PROC_HEDR)  || 
-           (BIF_CODE(thebif) == PROS_HEDR)  || 
-           (BIF_CODE(thebif) == PROG_HEDR))
-	count++;
+        if ((BIF_CODE(thebif) == FUNC_HEDR) || (BIF_CODE(thebif) == PROC_HEDR) ||
+            (BIF_CODE(thebif) == PROS_HEDR) || (BIF_CODE(thebif) == PROG_HEDR))
+        {
+            if (thebif->control_parent->variant != INTERFACE_STMT && 
+                thebif->control_parent->variant != INTERFACE_OPERATOR &&
+                thebif->control_parent->variant != INTERFACE_ASSIGNMENT)
+                count++;
+        }        
     }
-
-  return count;
+    return count;
 }
   
 /***************************************************************************/
-PTR_BFND getFunctionNumHeader(num)
-     int num;
+PTR_BFND getFunctionNumHeader(int num)
 {
-  PTR_BFND thebif;
-  int count  =0;
+    PTR_BFND thebif;
+    int count = 0;
 
-  thebif = PROJ_FIRST_BIF();
-  for (;thebif;thebif=BIF_NEXT(thebif)) 
+    thebif = PROJ_FIRST_BIF();
+    for (; thebif; thebif = BIF_NEXT(thebif))
     {
-      if ((BIF_CODE(thebif) == FUNC_HEDR)  ||
-           (BIF_CODE(thebif) == PROC_HEDR)  || 
-           (BIF_CODE(thebif) == PROS_HEDR)  || 
-           (BIF_CODE(thebif) == PROG_HEDR))
-	{
-	  if (count == num)
-	    return thebif;
-	  count++;
-	}
+        if ((BIF_CODE(thebif) == FUNC_HEDR) || (BIF_CODE(thebif) == PROC_HEDR) ||
+            (BIF_CODE(thebif) == PROS_HEDR) || (BIF_CODE(thebif) == PROG_HEDR))
+        {
+            if (thebif->control_parent->variant != INTERFACE_STMT &&
+                thebif->control_parent->variant != INTERFACE_OPERATOR &&
+                thebif->control_parent->variant != INTERFACE_ASSIGNMENT)
+            {
+                if (count == num)
+                    return thebif;
+                count++;
+            }
+        }        
     }
-
-  return NULL;
+    return NULL;
 }
   
 /***************************************************************************/

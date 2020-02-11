@@ -196,7 +196,8 @@ void OpenClose(SgStatement *stmt, int error_msg)
   int io_err=control_list_open(stmt->expr(1),ioc); // control_list analisys
   if(error_msg)
      Check_Control_IO_Statement(io_err,ioc,stmt,error_msg); 
-  Replace_IO_Statement(ioc,stmt); 
+  if(!options.isOn(READ_ALL))
+     Replace_IO_Statement(ioc,stmt); 
   cur_st = stmt;
   return;
 }
@@ -516,7 +517,7 @@ void Replace_ReadWritePrint( SgExpression *ioc[], SgStatement *stmt)
              }
              else { // replicated variable list
 	       if(!TestIOList(iol,stmt,NO_ERROR_MSG))
-                  return;                                
+                  return;  
                 if (ioc[IOSTAT_] || (stmt->variant() == READ_STAT)) {
 		   
                    if(stmt->variant() == READ_STAT)
@@ -592,9 +593,8 @@ void ReadWritePrint_Statement(SgStatement *stmt, int error_msg)
            //looking through the IO-list
             iol = stmt->expr(0);
             if(!iol) {  // input list is absent 
-              if(ioc[IOSTAT_]) 	
-                 InsertSendIOSTAT(ioc[IOSTAT_]);              
-              ReplaceByIfStmt(stmt);  
+              if(stmt->variant() != READ_STAT || !options.isOn(READ_ALL))  
+                Replace_IO_Statement(ioc,stmt);
               return; 
             } 
              if((e = isSgArrayRefExp(iol->lhs())) &&  (HEADER(iol->lhs()->symbol()))) {
@@ -630,15 +630,16 @@ void ReadWritePrint_Statement(SgStatement *stmt, int error_msg)
              }
              else { // replicated variable list
 	       if(!TestIOList(iol,stmt,error_msg))
-                  return;                                
-                if (ioc[IOSTAT_] || (stmt->variant() == READ_STAT)) {
-		   
-                   if(stmt->variant() == READ_STAT)
-                      InsertSendInputList(iol,ioc[IOSTAT_],stmt);
-                   else
-                      InsertSendIOSTAT(ioc[IOSTAT_]);
-                }
-                ReplaceByIfStmt(stmt);
+                  return;  
+               if (stmt->variant() == READ_STAT) {		   
+                  if(!options.isOn(READ_ALL))
+                     InsertSendInputList(iol,ioc[IOSTAT_],stmt);
+               }
+               else if(ioc[IOSTAT_] )
+                     InsertSendIOSTAT(ioc[IOSTAT_]);
+               
+               if(stmt->variant() != READ_STAT || !options.isOn(READ_ALL))   
+                  ReplaceByIfStmt(stmt);
                 //if(IN_COMPUTE_REGION && !in_checksection)
                 //  ChangeDistArrayRef(iol);
              }

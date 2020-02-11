@@ -2812,17 +2812,18 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName
                     else if (isSgConstantSymb(symb))
                         itNew->second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
                     else
-                        itNew->second.first->SetNonDistributeFlag(DIST::DISTR);
-
-                    const auto newVal = itNew->second.first->GetNonDistributeFlagVal();
-                    if (newVal == DIST::DISTR || newVal == DIST::NO_DISTR)
                     {
-                        auto it = keyValueFromGUI.find(itNew->second.first->GetName());
-                        if (it != keyValueFromGUI.end() && it->second != newVal)
+                        auto it = keyValueFromGUI.find(itNew->second.first->GetIndepUniqName());
+                        if (it != keyValueFromGUI.end())
                         {
-                            itNew->second.first->SetNonDistributeFlag((DIST::distFlag)it->second);
-                            __spf_print(1, "change flag for array from cache '%s': %d -> %d\n", it->first.c_str(), newVal, it->second);
+                            if (it->second != oldVal)
+                            {
+                                itNew->second.first->SetNonDistributeFlag((DIST::distFlag)it->second);
+                                __spf_print(1, "change flag for array from cache '%s': %d -> %d\n", it->first.c_str(), oldVal, it->second);
+                            }
                         }
+                        else
+                            itNew->second.first->SetNonDistributeFlag(DIST::DISTR);
                     }
                 }
 

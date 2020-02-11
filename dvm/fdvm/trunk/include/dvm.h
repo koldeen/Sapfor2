@@ -453,7 +453,6 @@ EXTERN int send;  //set to 1 if I/O statement require 'send' operation
 EXTERN char *fin_name; //input file name
 EXTERN SgStatement *cur_st;  // current statement  (for inserting)
 EXTERN SgFile *current_file;    //current file
-EXTERN int current_file_id;     //number of current file  
 EXTERN SgStatement *where;//used in doAssignStmt: new statement is inserted before 'where' statement
 EXTERN int nio;
 EXTERN SgSymbol *bufIO[Ntp],*IOstat;
@@ -2116,7 +2115,7 @@ void ConvertLoopWithLabelToEnddoLoop (SgStatement *stat); /*OMP*/
 // options on FDVM converter
 enum OPTIONS {
     AUTO_TFM = 0, ONE_THREAD, SPEED_TEST_L0, SPEED_TEST_L1, GPU_O0, GPU_O1, RTC, C_CUDA, OPT_EXP_COMP,
-    O_HOST, NO_CUDA, NO_BL_INFO, LOOP_ANALYSIS, PRIVATE_ANALYSIS, IO_RTS, NUM_OPT
+    O_HOST, NO_CUDA, NO_BL_INFO, LOOP_ANALYSIS, PRIVATE_ANALYSIS, IO_RTS, READ_ALL, NUM_OPT
 };
 // ONE_THREAD - compile one thread CUDA-kernels only for across (TODO for all CUDA-kernels)
 // SPEED_TEST_L0, SPEED_TEST_L1 - debug options for speed testof CUDA-kernels for across

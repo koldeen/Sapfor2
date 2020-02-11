@@ -455,6 +455,8 @@ namespace Distribution
 
         const STRING& GetArrayUniqKey() const { return uniqKey; }
 
+        STRING GetIndepUniqName() const { return shortName + locationPos.second + TO_STR(dimSize); }
+
         const SET<STRING>& GetRegionsName() const { return containsInRegions; }
         void SetRegionPlace(const STRING &regName) { if (regName != "") containsInRegions.insert(regName); }
         
@@ -570,6 +572,7 @@ namespace Distribution
         }
 
         bool IsOmpThreadPrivate() const { return ompThreadPrivate; }
+
         ~Array() 
         {
             for (auto &templ : templateInfo)

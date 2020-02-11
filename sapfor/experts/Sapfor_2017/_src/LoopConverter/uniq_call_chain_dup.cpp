@@ -296,21 +296,6 @@ static map<FuncInfo*, set<FuncInfo*>> groupByMainCall(const vector<FuncInfo*> &t
     return groups;
 }
 
-//TODO: remove? not call
-void extendWithFullCalls(map<FuncInfo*, set<FuncInfo*>> &groups, const map<string, FuncInfo*>& mapOfFunc)
-{
-    for (auto& elem : groups)
-    {
-        set<FuncInfo*> toUpdate;
-        for (auto& inGroup : elem.second)
-        {
-            set<FuncInfo*> fullCalls = getFullCallsFrom(inGroup, mapOfFunc);
-            toUpdate.insert(fullCalls.begin(), fullCalls.end());
-        }
-        elem.second.insert(toUpdate.begin(), toUpdate.end());
-    }
-}
-
 static void fillOrigCopyEx(SgExpression *orig, SgExpression *copy, map<SgExpression*, SgExpression*> &origCopyEx)
 {
     if (orig)
@@ -319,6 +304,25 @@ static void fillOrigCopyEx(SgExpression *orig, SgExpression *copy, map<SgExpress
 
         fillOrigCopyEx(orig->lhs(), copy->lhs(), origCopyEx);
         fillOrigCopyEx(orig->rhs(), copy->rhs(), origCopyEx);
+    }
+}
+
+static void findAllFunctionCalls(SgExpression* ex, const vector<void*> &paramVar, 
+                                 const string& file, set<SgExpression*>& toChange)
+{
+    if (ex)
+    {
+        if (ex->variant() == FUNC_CALL)
+        {
+            pair<void*, int> callPointer = make_pair(ex, FUNC_CALL);
+            if (createParamCalls(callPointer, file) == paramVar)
+                toChange.insert(ex);
+        }
+
+        if (ex->lhs())
+            findAllFunctionCalls(ex->lhs(), paramVar, file, toChange);
+        if (ex->rhs())
+            findAllFunctionCalls(ex->rhs(), paramVar, file, toChange);
     }
 }
 
@@ -411,7 +415,6 @@ static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<Func
                         SgSymbol* newS = &proc->symbol()->copy();
                         newS->changeName(newName.c_str());
                         toChangeSt[proc->fileName()][proc] = newS;
-                        //proc->setSymbol(*newS);
                     }
                     else if (places.second == FUNC_CALL)
                     {
@@ -425,9 +428,15 @@ static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<Func
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                         SgSymbol* newS = &proc->symbol()->copy();
+                        set<SgExpression*> allPlaces;
+                        for (int z = 0; z < 3; ++z)
+                            findAllFunctionCalls(parent->expr(z), varCall.callVariant, parent->fileName(), allPlaces);
+                        if (allPlaces.size() == 0)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
                         newS->changeName(newName.c_str());
-                        toChangeEx[parent->fileName()][proc] = newS;
-                        //proc->setSymbol(*newS);
+                        for (auto &elem : allPlaces)
+                            toChangeEx[parent->fileName()][elem] = newS;
                     }
                     else
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);

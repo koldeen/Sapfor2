@@ -11,7 +11,6 @@
 
 #ifdef __SPF
 SgFile *current_file;    //current file
-int current_file_id;     //number of current file 
 #endif
 
 using std::map;

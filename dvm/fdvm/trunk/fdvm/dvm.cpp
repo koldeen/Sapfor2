@@ -78,6 +78,7 @@ extern int iacross;
 
 extern "C" int out_free_form;
 extern "C" int out_upper_case;
+extern "C" int out_line_unlimit;
 extern "C" PTR_SYMB last_file_symbol;
 
 Options options;
@@ -255,6 +256,8 @@ int main(int argc, char *argv[]){
             out_free_form = 1;
         else if (!strcmp(argv[0], "-upcase"))
             out_upper_case = 1;
+        else if (!strcmp(argv[0], "-unlimLine"))  
+            out_line_unlimit = 1; 
         else if (!strcmp(argv[0], "-lgstd"))
         {
             (void)fprintf(stderr, "Illegal option -lgstd \n");
@@ -272,6 +275,8 @@ int main(int argc, char *argv[]){
         }
         else if (!strcmp(argv[0], "-ioRTS"))
             options.setOn(IO_RTS);
+        else if (!strcmp(argv[0], "-read_all"))
+            options.setOn(READ_ALL);
         else if (!strcmp(argv[0], "-Obase"))
             opt_base = 1;
         else if (!strcmp(argv[0], "-Oloop_range"))
@@ -543,6 +548,8 @@ void initialize()
     opt_loop_range = 0;
     in_interface = 0;
     out_free_form = 0;
+    out_upper_case = 0;
+    out_line_unlimit = 0;
     default_integer_size = 4;
     default_real_size = 4;
     unparse_functions = 0; //set to 1 by option -uf

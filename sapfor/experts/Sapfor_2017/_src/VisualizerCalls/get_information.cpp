@@ -1236,10 +1236,10 @@ int SPF_SetDistributionFlagToArray(void*& context, char *key, int flag)
         {
             for (auto& array : declaredArrays)
             {
-                if (array.second.first->GetName() == keyStr)
+                const auto key = array.second.first->GetName();
+                if (key == keyStr)
                 {
-                    __spf_print(1, "change flag for array '%s': %d -> %d\n", array.second.first->GetName().c_str(), array.second.first->GetNonDistributeFlag(), flag);
-                    //printf("SAPFOR: change flag for array '%s': %d -> %d\n", array.second.first->GetName().c_str(), array.second.first->GetNonDistributeFlag(), flag);
+                    __spf_print(1, "change flag for array '%s': %d -> %d\n", key.c_str(), array.second.first->GetNonDistributeFlag(), flag);                    
 
                     if (flag == DIST::DISTR)
                         array.second.first->SetNonDistributeFlag(DIST::DISTR);
@@ -1280,7 +1280,7 @@ int SPF_SetDistributionFlagToArrays(void*& context, const char* keys, const char
 
         map<string, DIST::Array*> allArrays;
         for (auto& array : declaredArrays)
-            allArrays[array.second.first->GetName()] = array.second.first;
+            allArrays[array.second.first->GetIndepUniqName()] = array.second.first;
 
         if (allArrays.size())
         {
@@ -1311,7 +1311,12 @@ int SPF_SetDistributionFlagToArrays(void*& context, const char* keys, const char
         else
         {
             for (int z = 0; z < keysS.size(); ++z)
-                keyValueFromGUI[keysS[z]] = flags[z];
+            {
+                int flagI = -1;
+                if (sscanf(flagsS[z].c_str(), "%d", &flagI) == -1)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                keyValueFromGUI[keysS[z]] = flagI;
+            }
         }
     }
     catch (...)

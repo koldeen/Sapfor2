@@ -1610,6 +1610,7 @@ SgProject::SgProject(const char* proj_file_name, char** files_list, int no)
 #endif
 }
 
+int current_file_id;     //number of current file 
 SgFile &SgProject::file(int i)
 {
     PTR_FILE file;

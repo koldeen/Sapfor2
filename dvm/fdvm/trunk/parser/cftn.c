@@ -460,6 +460,8 @@ int main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "-ioRTS"))
             ;
+        else if (!strcmp(argv[0], "-read_all"))
+            ;
         else if (!strncmp(argv[0], "-collapse", 9)) {
             if ((*argv)[9] == '\0' || (!is_integer_value(*argv + 9)))
                 goto ERR;
@@ -495,6 +497,8 @@ int main(int argc, char *argv[])
         else if (!strcmp(argv[0], "-ffo"))
             ;
         else if (!strcmp(argv[0], "-upcase"))
+            ;
+        else if (!strcmp(argv[0], "-unlimLine"))
             ;
         else if (!strcmp(argv[0], "-lgstd"))
             ftn_std = 1;
