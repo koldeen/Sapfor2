@@ -1036,7 +1036,7 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
     set<string> deprecateToMatch;
     int nested = loop->perfectLoop;
 
-    LoopGraph* tmpL = loop->children[0];    
+    LoopGraph* tmpL = loop;
     for (int z = 0; z < nested; ++z)
     {
         deprecateToMatch.insert(tmpL->loopSymbol);
