@@ -9,6 +9,7 @@
 #include "../SageAnalysisTool/OmegaForSage/include/lang-interf.h"
 #include "../SageAnalysisTool/definesValues.h"
 #include "../Utils/SgUtils.h"
+#include "../SageAnalysisTool/depGraph.h"
 
 using std::pair;
 using std::map;
@@ -572,9 +573,13 @@ static bool tighten(SgForStmt* pForLoop, int level)
     return true;
 }
 
-bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph, 
+bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, void*> &depInfoForLoopGraphV, 
                        const map<string, FuncInfo*>& mapFuncInfo, vector<Messages> &messages)
 {
+    map<LoopGraph*, depGraph*> depInfoForLoopGraph;
+    for (auto& elem : depInfoForLoopGraphV)
+        depInfoForLoopGraph[elem.first] = (depGraph*)elem.second;
+
     bool wasTightened = false;
     // has non nested child loop
     __spf_print(1, "  createNestedLoops for loop at %d. Start\n", current->lineNum);
@@ -616,7 +621,7 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
     for (int i = 0; i < current->children.size(); ++i) 
     {
         __spf_print(1, "createNestedLoops for loop at %d. Transform child %d\n", current->lineNum, i);
-        bool result = createNestedLoops(current->children[i], depInfoForLoopGraph, mapFuncInfo, messages);
+        bool result = createNestedLoops(current->children[i], depInfoForLoopGraphV, mapFuncInfo, messages);
         wasTightened = wasTightened || result;
     }    
     

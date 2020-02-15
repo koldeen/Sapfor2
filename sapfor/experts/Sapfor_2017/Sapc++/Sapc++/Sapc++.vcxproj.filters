@@ -46,6 +46,9 @@
     <Filter Include="Исходные файлы\LoopAnalyzer">
       <UniqueIdentifier>{87d2a4f0-26c0-45a2-acd0-992c9f1be1bc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Файлы заголовков\CodeConverter">
+      <UniqueIdentifier>{e59c7920-1b24-4a95-9890-192e90bc0181}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\_src\Distribution\CreateDistributionDirs.cpp">
@@ -127,6 +130,9 @@
     </ClInclude>
     <ClInclude Include="..\..\_src\LoopAnalyzer\directive_creator.h">
       <Filter>Исходные файлы\LoopAnalyzer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\LoopConverter\loop_transform.h">
+      <Filter>Файлы заголовков\CodeConverter</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

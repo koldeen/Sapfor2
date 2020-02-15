@@ -147,6 +147,7 @@
     <ClInclude Include="..\..\_src\GraphCall\graph_calls.h" />
     <ClInclude Include="..\..\_src\GraphLoop\graph_loops.h" />
     <ClInclude Include="..\..\_src\LoopAnalyzer\directive_creator.h" />
+    <ClInclude Include="..\..\_src\LoopConverter\loop_transform.h" />
     <ClInclude Include="..\..\_src\ParallelizationRegions\ParRegions.h" />
     <ClInclude Include="..\..\_src\Sapfor.h" />
     <ClInclude Include="..\..\_src\Utils\utils.h" />

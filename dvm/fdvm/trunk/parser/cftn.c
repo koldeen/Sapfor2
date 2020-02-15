@@ -382,7 +382,7 @@ int main(int argc, char *argv[])
             ;
         else if (!strcmp(argv[0], "-speedL1")) /*ACC*/
             ;
-        else if (!strcmp(argv[0], "-uf"))
+        else if (!strcmp(argv[0], "-byFunUnparse"))
             ;
         else if (!strcmp(argv[0], "-dmpi"))
             deb_mpi = 1;
@@ -454,8 +454,8 @@ int main(int argc, char *argv[])
             if ((*argv)[6] == '\0' || (!is_integer_value(*argv + 6)))
                 goto ERR;
         }
-        else if (!strncmp(argv[0], "-ubuf", 5)) {
-            if ((*argv)[5] == '\0' || (!is_integer_value(*argv + 5)))
+        else if (!strncmp(argv[0], "-bufUnparser", 12)) {
+            if ((*argv)[12] == '\0' || (!is_integer_value(*argv + 12)))
                 goto ERR;
         }
         else if (!strcmp(argv[0], "-ioRTS"))
@@ -498,7 +498,7 @@ int main(int argc, char *argv[])
             ;
         else if (!strcmp(argv[0], "-upcase"))
             ;
-        else if (!strcmp(argv[0], "-unlimLine"))
+        else if (!strcmp(argv[0], "-noLimitLine"))
             ;
         else if (!strcmp(argv[0], "-lgstd"))
             ftn_std = 1;
@@ -510,9 +510,9 @@ int main(int argc, char *argv[])
             ;
         else if (!strcmp(argv[0], "-FTN_Cuda") || !strcmp(argv[0], "-F_Cuda"))    /*ACC*/
             ;
-        else if (!strcmp(argv[0], "-noCuda"))         /*ACC*/
+        else if (!strcmp(argv[0], "-noCudaType"))     /*ACC*/
             ;
-        else if (!strcmp(argv[0], "-undef_cuda"))     /*ACC*/
+        else if (!strcmp(argv[0], "-noCuda"))         /*ACC*/
             ;
         else if (!strcmp(argv[0], "-no_blocks_info")) /*ACC*/
             ;

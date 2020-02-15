@@ -5,6 +5,7 @@
 
 typedef enum lang : int { LANG_C, LANG_F } language;
 typedef enum dist : int { BLOCK, NONE } distType;
+typedef std::pair<std::pair<int, int>, std::pair<int, int>> attrType;
 
 namespace Distribution
 {    

@@ -61,16 +61,13 @@
 #include "LoopAnalyzer/directive_creator.h"
 #include "Distribution/Array.h"
 #include "LoopConverter/swap_array_dims.h"
-
-//#include "DEAR/dep_analyzer.h"
+#include "VisualizerCalls/get_information.h"
 
 #if RELEASE_CANDIDATE
 #include "Inliner/inliner.h"
 #endif
 
-#ifdef _WIN32
-#include "VisualizerCalls/get_information.h"
-#endif
+
 
 #include "dvm.h"
 #include "Sapfor.h"
@@ -488,6 +485,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #ifdef _WIN32
         sendMessage_2lvl(wstring(L"обработка файла '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
 #endif
+        sendMessage_progress(std::to_wstring((int)(((double)(n - i) / n) * 100)));
+
         const char *file_name = file->filename();
         __spf_print(DEBUG_LVL1, "  Analyzing: %s\n", file_name);
 
@@ -586,9 +585,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 for (int z1 = 0; z1 < currentVariant.size(); ++z1)
                     currentVar.push_back(make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]));
 
-                selectParallelDirectiveForVariant(file, parallelRegions[z], reducedG, allArrays, loopsByFile, mapLoopsByFile, mapFuncInfo, currentVar,
+                map<LoopGraph*, void*> depInfoForLoopGraphV;
+                for (auto& elem : depInfoForLoopGraph)
+                    depInfoForLoopGraphV[elem.first] = elem.second;
+
+                selectParallelDirectiveForVariant(new File(file), parallelRegions[z], reducedG, allArrays, loopsByFile, mapLoopsByFile, mapFuncInfo, currentVar,
                                                   dataDirectives.alignRules, toInsert, parallelRegions[z]->GetId(), arrayLinksByFuncCalls,
-                                                  depInfoForLoopGraph, getObjectForFileFromMap(file_name, SPF_messages));
+                                                  depInfoForLoopGraphV, getObjectForFileFromMap(file_name, SPF_messages));
 
                 if (toInsert.size() > 0)
                 {
@@ -829,10 +832,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             map<string, FuncInfo*> mapFuncInfo;
             createMapOfFunc(allFuncInfo, mapFuncInfo);
 
+            map<LoopGraph*, void*> depInfoForLoopGraphV;
+            for (auto& elem : depInfoForLoopGraph)
+                depInfoForLoopGraphV[elem.first] = elem.second;
+
             auto itFound = loopGraph.find(file_name);
             if (itFound != loopGraph.end())
                 for (int i = 0; i < itFound->second.size(); ++i)
-                    createNestedLoops(itFound->second[i], depInfoForLoopGraph, mapFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
+                    createNestedLoops(itFound->second[i], depInfoForLoopGraphV, mapFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
         }
         else if (curr_regime == GET_ALL_ARRAY_DECL)
             getAllDeclaratedArrays(file, declaredArrays, declaratedArraysSt, getObjectForFileFromMap(file_name, SPF_messages), subs_parallelRegions, keyValueFromGUI);
@@ -2254,7 +2261,21 @@ int main(int argc, char **argv)
         consoleMode = 1;
         QUALITY = 100;
         SPEED = 100;
-        printVersion();
+
+        bool printed = false;
+        for (int i = 0; i < argc; ++i)
+        {
+            const char* curr_arg = argv[i];
+            if (string(curr_arg) == "-client")
+            {
+                printVersion("[CLIENT]" );
+                printed = true;
+                break;
+            }
+        }
+        if (!printed)
+            printVersion();
+        
         const char *proj_name = "dvm.proj";
         const char *folderName = NULL;
 
@@ -2264,6 +2285,7 @@ int main(int argc, char **argv)
         out_free_form = 0; // F90 style out
         out_upper_case = 1;
         bool printText = false;
+        bool runAsClient = false;
 
         for (int i = 0; i < argc; ++i)
         {
@@ -2277,9 +2299,7 @@ int main(int argc, char **argv)
                     intervals_threshold = atoi(argv[i]);
                 }
                 else if (string(curr_arg) == "-removeNestedIntervals")
-                {
                     removeNestedIntervals = true;
-                }
                 else if (string(curr_arg) == "-p")
                 {
                     i++;
@@ -2415,19 +2435,32 @@ int main(int argc, char **argv)
                         printf("PPPA was completed with error code %d\n", code);
                     exit(0);
                 }
+                else if (string(curr_arg) == "-client")
+                {
+                    runAsClient = true;
+                    withDel = false;
+                    break;
+                }
                 break;
             default:
                 break;
             }
         }
 
-        if (curr_regime == EMPTY_PASS)
-            printHelp(passNames, EMPTY_PASS);
+        if (runAsClient)
+        {
+            printf("[CLIENT] started as client\n");
+            RunSapforAsClient();
+        }
+        else
+        {
+            if (curr_regime == EMPTY_PASS)
+                printHelp(passNames, EMPTY_PASS);
 
-        runPass(curr_regime, proj_name, folderName);
-        if (printText)
-            runPass(UNPARSE_FILE, proj_name, folderName);
-
+            runPass(curr_regime, proj_name, folderName);
+            if (printText)
+                runPass(UNPARSE_FILE, proj_name, folderName);
+        }
     }
     catch (...)
     {

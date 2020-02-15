@@ -1796,8 +1796,8 @@ void createNeededException()
 #ifdef JAVA
 static void* context = NULL;
 
-static jcharArray StringToJCharArray(JNIEnv* env, const wstring& nativeString)
-{    
+static jcharArray StringToJCharArray(const wstring& nativeString, JNIEnv* env)
+{
     jcharArray arr = env->NewCharArray(nativeString.size());
     unsigned short* tmpBuf = new unsigned short[nativeString.size()];
     for (int z = 0; z < nativeString.size(); ++z)
@@ -1863,7 +1863,7 @@ static wstring finishJniCall(int retCode, const short* result, const short* outp
     return codedResult;
 }
 
-static wstring finishJniCall(const int size, const int* sizes, short* newFilesNames, short* newFiles)
+static wstring finishJniCall(const int size, const int* sizes, const short* newFilesNames, const short* newFiles)
 {
     wstring codedResult = L"";
 
@@ -1912,23 +1912,19 @@ static void fillInfo(const string& data, int64_t*& arr)
         arr[z] = std::stoll(splited[idx]);
 }
 
-JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunAnalysis(
 
-          JNIEnv* env, jobject obj, jstring analysisName, jint winHandler, jstring options, jstring projName)
+const wstring Sapfor_RunAnalysis(const char* analysisName_c, const char* options_c, const char* projName_c, int winHandler)
 {
-    const char* analysisName_c = env->GetStringUTFChars(analysisName, NULL);
-    const char* options_c = env->GetStringUTFChars(options, NULL);
-    const char* projName_c = env->GetStringUTFChars(projName, NULL);
-    
-    string whichRun = analysisName_c;
+    const string whichRun = analysisName_c;
     int retCode = 0;
-    
-    short *result = NULL, *output = NULL, *outputMessage = NULL;
-    int *outputSize = NULL, *outputMessageSize = NULL;
+
+    short* result = NULL, * output = NULL, * outputMessage = NULL;
+    int* outputSize = NULL, * outputMessageSize = NULL;
 
     short* projSh = toShort(projName_c);
     short* optSh = toShort(options_c);
 
+    winHandler = -2;
     try
     {
         if (whichRun == "SPF_GetGraphLoops")
@@ -1988,35 +1984,42 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunAnalysis(
         retCode = -1004;
     }
 
-    delete []projSh;
-    delete []optSh;
-    wstring codedResult = finishJniCall(retCode, result, output, outputSize, outputMessage, outputMessageSize);
+    delete[]projSh;
+    delete[]optSh;
+
     fflush(NULL);
-    return StringToJCharArray(env, codedResult);
+    const wstring codedResult = finishJniCall(retCode, result, output, outputSize, outputMessage, outputMessageSize);
+    return codedResult;
 }
 
-JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(
+JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunAnalysis(
 
-        JNIEnv* env, jobject obj, jstring transformName, jint winHandler, jstring options, jstring projName, jstring folder, jstring addOptions)
+          JNIEnv* env, jobject obj, jstring analysisName, jint winHandler, jstring options, jstring projName)
 {
-    const char* transformName_c = env->GetStringUTFChars(transformName, NULL);
+    const char* analysisName_c = env->GetStringUTFChars(analysisName, NULL);
     const char* options_c = env->GetStringUTFChars(options, NULL);
     const char* projName_c = env->GetStringUTFChars(projName, NULL);
-    const char* folder_c = env->GetStringUTFChars(folder, NULL);
-    const char* addOpt_c = env->GetStringUTFChars(addOptions, NULL);
 
-    string whichRun = transformName_c;
+    return StringToJCharArray(Sapfor_RunAnalysis(analysisName_c, options_c, projName_c, winHandler), env);
+}
+
+
+const wstring Sapfor_RunTransformation(const char* transformName_c, const char* options_c, const char* projName_c,
+                                       const char* folder_c, const char* addOpt_c, int winHandler)
+{
+    const string whichRun = transformName_c;
     int retCode = 0;
 
-    short *result = NULL, *output = NULL, *outputMessage = NULL;
-    int *outputSize = NULL, *outputMessageSize = NULL;
+    short* result = NULL, * output = NULL, * outputMessage = NULL;
+    int* outputSize = NULL, * outputMessageSize = NULL;
     short* predStats = NULL;
 
     short* projSh = toShort(projName_c);
-    short* optSh = toShort(options_c);    
-    short* fold = toShort(folder_c); if (string("") == folder_c) fold = NULL;    
+    short* optSh = toShort(options_c);
+    short* fold = toShort(folder_c); if (string("") == folder_c) fold = NULL;
     short* addOpt = toShort(addOpt_c);
 
+    winHandler = -2;
     if (whichRun == "SPF_CorrectCodeStylePass")
         retCode = SPF_CorrectCodeStylePass(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
     else if (whichRun == "SPF_RemoveDvmDirectives")
@@ -2042,7 +2045,7 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(
         retCode = SPF_CreateParallelVariant(context, winHandler, optSh, projSh, fold, variants, &varLen, output, outputSize, outputMessage, outputMessageSize, predStats);
 
         if (retCode > 0)
-            delete []variants;
+            delete[]variants;
     }
     else if (whichRun == "SPF_LoopFission")
         retCode = SPF_LoopFission(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
@@ -2067,38 +2070,46 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(
         retCode = -1002;
     }
 
-    delete []projSh;
-    delete []optSh;
-    delete []fold;
-    delete []addOpt;
-    wstring codedResult = finishJniCall(retCode, result, output, outputSize, outputMessage, outputMessageSize, predStats);
+    delete[]projSh;
+    delete[]optSh;
+    delete[]fold;
+    delete[]addOpt;
+
     fflush(NULL);
-    return StringToJCharArray(env, codedResult);
+    const wstring codedResult = finishJniCall(retCode, result, output, outputSize, outputMessage, outputMessageSize, predStats);
+    return codedResult;
 }
 
-JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunModification
+JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(
 
-        (JNIEnv* env, jobject obj, jstring modifyName, jint winHandler, jstring options, jstring projName, jstring folder, jstring addOpt1, jstring addOpt2)
+        JNIEnv* env, jobject obj, jstring transformName, jint winHandler, jstring options, jstring projName, jstring folder, jstring addOptions)
 {
-    const char* modifyName_c = env->GetStringUTFChars(modifyName, NULL);
+    const char* transformName_c = env->GetStringUTFChars(transformName, NULL);
     const char* options_c = env->GetStringUTFChars(options, NULL);
     const char* projName_c = env->GetStringUTFChars(projName, NULL);
     const char* folder_c = env->GetStringUTFChars(folder, NULL);
-    const char* addOpt1_c = env->GetStringUTFChars(addOpt1, NULL);
-    const char* addOpt2_c = env->GetStringUTFChars(addOpt2, NULL);
+    const char* addOpt_c = env->GetStringUTFChars(addOptions, NULL);
+    
+    return StringToJCharArray(Sapfor_RunTransformation(transformName_c, options_c, projName_c, folder_c, addOpt_c, winHandler), env);
+}
 
-    string whichRun = modifyName_c;
+const wstring Sapfor_RunModification(const char* modifyName_c, const char* options_c, const char* projName_c,
+                                     const char* folder_c, const char* addOpt1_c, const char* addOpt2_c, 
+                                     int winHandler)
+{
+    const string whichRun = modifyName_c;
     int retCode = 0;
 
-    short *result = NULL, *output = NULL, *outputMessage = NULL;
-    int *outputSize = NULL, *outputMessageSize = NULL;
-    int size = 0, *sizes = NULL;
-    short *newFilesNames = NULL, *newFiles = NULL;
+    short* result = NULL, * output = NULL, * outputMessage = NULL;
+    int* outputSize = NULL, * outputMessageSize = NULL;
+    int size = 0, * sizes = NULL;
+    short* newFilesNames = NULL, * newFiles = NULL;
 
     short* projSh = toShort(projName_c);
     short* optSh = toShort(options_c);
     short* fold = toShort(folder_c);
 
+    winHandler = -2;
     if (whichRun == "SPF_ModifyArrayDistribution")
     {
         int regId = atoi(addOpt1_c);
@@ -2106,26 +2117,26 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunModification
         fillInfo(addOpt2_c, modify);
 
         retCode = SPF_ModifyArrayDistribution(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize, regId, modify);
-        delete []modify;
+        delete[]modify;
     }
     else if (whichRun == "SPF_InlineProcedure")
     {
         vector<string> splitS;
         splitString(addOpt1_c, '|', splitS);
-        
+
         vector<short*> tmpPar = { toShort(splitS[0].c_str()), toShort(splitS[1].c_str()) };
         int line = std::stoi(addOpt2_c);
         retCode = SPF_InlineProcedure(context, winHandler, optSh, projSh, fold, tmpPar[0], tmpPar[1], line, output, outputSize, outputMessage, outputMessageSize, size, sizes, newFiles, newFilesNames);
 
-        delete []tmpPar[0];
-        delete []tmpPar[1];
+        delete[]tmpPar[0];
+        delete[]tmpPar[1];
     }
     else if (whichRun == "SPF_LoopUnionCurrent")
     {
         short* file = toShort(addOpt1_c);
         int line = std::stoi(addOpt2_c);
         retCode = SPF_LoopUnionCurrent(context, winHandler, optSh, projSh, fold, file, line, output, outputSize, outputMessage, outputMessageSize, size, sizes, newFiles, newFilesNames);
-        delete []file;
+        delete[]file;
     }
     else if (whichRun == "SPF_ChangeSpfIntervals")
     {
@@ -2133,8 +2144,8 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunModification
         int* toModifyLines = NULL;
         fillInfo(addOpt2_c, toModifyLines);
         retCode = SPF_ChangeSpfIntervals(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize, fileNameToMod, toModifyLines, size, sizes, newFiles, newFilesNames);
-        delete []fileNameToMod;
-        delete []toModifyLines;
+        delete[]fileNameToMod;
+        delete[]toModifyLines;
     }
     else if (whichRun == "SPF_SetDistributionFlagToArray")
     {
@@ -2158,14 +2169,28 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunModification
         retCode = -1003;
     }
 
-    delete []projSh;
-    delete []optSh;
-    delete []fold;
-    
+    delete[]projSh;
+    delete[]optSh;
+    delete[]fold;
+
+    fflush(NULL);
     wstring codedResult = finishJniCall(retCode, result, output, outputSize, outputMessage, outputMessageSize);
     codedResult += finishJniCall(size, sizes, newFilesNames, newFiles);
 
-    fflush(NULL);
-    return StringToJCharArray(env, codedResult);
+    return codedResult;
+}
+
+JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunModification
+
+        (JNIEnv* env, jobject obj, jstring modifyName, jint winHandler, jstring options, jstring projName, jstring folder, jstring addOpt1, jstring addOpt2)
+{
+    const char* modifyName_c = env->GetStringUTFChars(modifyName, NULL);
+    const char* options_c = env->GetStringUTFChars(options, NULL);
+    const char* projName_c = env->GetStringUTFChars(projName, NULL);
+    const char* folder_c = env->GetStringUTFChars(folder, NULL);
+    const char* addOpt1_c = env->GetStringUTFChars(addOpt1, NULL);
+    const char* addOpt2_c = env->GetStringUTFChars(addOpt2, NULL);
+
+    return StringToJCharArray(Sapfor_RunModification(modifyName_c, options_c, projName_c, folder_c, addOpt1_c, addOpt2_c, winHandler), env);
 }
 #endif

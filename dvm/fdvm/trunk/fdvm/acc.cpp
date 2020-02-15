@@ -10962,13 +10962,17 @@ SgType *C_Type(SgType *type)
     case T_DOUBLE:   return (tp);
     case T_COMPLEX:  return(C_Derived_Type(s_cmplx));
     case T_DCOMPLEX: return(C_Derived_Type(s_dcmplx));
-    case T_DERIVED_TYPE: err("Illegal type of used or reduction variable", 499, first_do_par);
+    case T_DERIVED_TYPE: 
+        if (tp->symbol()->identifier() != std::string("uint4")) // for __dvmh_rand_state
+            err("Illegal type of used or reduction variable", 499, first_do_par);
         return(tp);    //return (SgTypeInt());
     case T_CHAR:
-    case T_STRING:   if (len == 1)
-        return (SgTypeChar());
+    case T_STRING:   
+        if (len == 1)
+            return (SgTypeChar());
         break;
-    default:         err("Illegal type of used or reduction variable", 499, first_do_par);
+    default: 
+        err("Illegal type of used or reduction variable", 499, first_do_par);
         return (SgTypeInt());
     }
 

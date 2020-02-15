@@ -10,6 +10,8 @@
 
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../Distribution/Arrays.h"
+#include "../LoopConverter/loop_transform.h"
+//#include "../Distribution/DvmhDirective_func.h"
 
 #include "../Utils/errors.h"
 #include "directive_parser.h"
@@ -767,5 +769,891 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
     }
 }
 
+extern vector<tuple<DIST::Array*, int, pair<int, int>>> 
+    getAlignRuleWithTemplate(DIST::Array *array, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                             DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays, const int regionId);
+
+static void propagateTemplateInfo(map<DIST::Array*, vector<pair<bool, map<string, pair<int, int>>>>> &arrays, const int regId,
+                                  const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                                  DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays)
+{
+    bool changed = true;
+    while (changed)
+    {
+        changed = false;
+        for (auto &arrayElem: arrays)
+        {
+            auto array = arrayElem.first;
+            if (array->GetTemplateArray(regId) == NULL)
+            {
+                vector<tuple<DIST::Array*, int, pair<int, int>>> templRule =
+                    getAlignRuleWithTemplate(array, arrayLinksByFuncCalls, reducedG, allArrays, regId);
+
+                int idx = 0;
+                for (auto &elem : templRule)
+                {
+                    if (get<0>(elem) == NULL)
+                    {
+                        idx++;
+                        continue;
+                    }
+                    auto templ = get<0>(elem);
+                    auto alignDim = get<1>(elem);
+                    auto intRule = get<2>(elem);
+
+                    int dimNum = -1;
+                    int err = allArrays.GetDimNumber(get<0>(elem), alignDim, dimNum);
+                    if (err == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    array->AddLinkWithTemplate(idx, dimNum, templ, intRule, regId);
+                    ++idx;
+                    changed = true;
+                }
+            }
+        }
+    }
+}
+
+static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &updateOn,
+                                  const map<DIST::Array*, vector<bool>> &dimsNotMatch,
+                                  const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                                  DIST::GraphCSR<int, double, attrType> &reducedG, 
+                                  const DIST::Arrays<int> &allArrays, const int regId,
+                                  ParallelDirective *parDirective,
+                                  map<DIST::Array*, vector<pair<bool, pair<string, int>>>> &values,
+                                  const set<string> &deprecateToMatch,
+                                  const set<string> &privates,
+                                  bool fromRead = false)
+{
+    bool ret = true;
+
+    for (auto &elem : dimsNotMatch)
+    {
+        vector<tuple<DIST::Array*, int, pair<int, int>>> rule;
+
+        set<DIST::Array*> realRefs;
+        getRealArrayRefs(elem.first, elem.first, realRefs, arrayLinksByFuncCalls);
+
+        vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> allRules(realRefs.size());
+        int tmpIdx = 0;
+        for (auto &array : realRefs)
+            reducedG.GetAlignRuleWithTemplate(array, allArrays, allRules[tmpIdx++], regId);
+
+        if (isAllRulesEqual(allRules))
+            rule = allRules[0];
+        else
+            return false;
+
+        findAndReplaceDimentions(rule, allArrays);
+
+        for (int i = 0; i < elem.second.size(); ++i)
+        {
+            if (elem.second[i] && values[elem.first][i].first)
+            {
+                const int idx = get<1>(rule[i]);
+                const auto &currRule = get<2>(rule[i]);
+                //TODO: use rule
+                string mapTo = "";
+                if (values[elem.first][i].second.first != "")
+                {
+                    mapTo = values[elem.first][i].second.first;
+                    if (values[elem.first][i].second.second != 0)
+                    {
+                        if (values[elem.first][i].second.second >= 0)
+                            mapTo += " + " + std::to_string(values[elem.first][i].second.second);
+                        else
+                            mapTo += " - " + std::to_string(abs(values[elem.first][i].second.second));
+                    }
+                }
+                else
+                    mapTo = std::to_string(values[elem.first][i].second.second);
+
+                if (deprecateToMatch.find(values[elem.first][i].second.first) != deprecateToMatch.end())
+                    return false;
+
+                if (updateOn[idx].first)
+                {
+                    if (updateOn[idx].second != mapTo && !fromRead) // DIFFERENT VALUES TO MAP
+                        return false;
+                }
+                else
+                    updateOn[idx] = make_pair(true, mapTo);
+            }
+        }
+    }
+
+    for (int i = 0; i < updateOn.size(); ++i)
+    {
+        if (updateOn[i].first && privates.find(updateOn[i].second) == privates.end())
+        {
+            if (parDirective->on[i].first != "*")
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            else
+            {
+                parDirective->on[i].first = updateOn[i].second;
+                parDirective->on[i].second = make_pair(1, 0);
+                resolved = true;
+
+                if (!parDirective->arrayRef->IsTemplate())
+                {
+                    parDirective->on2[i].first = updateOn[i].second;
+                    parDirective->on2[i].second = make_pair(1, 0);
+                }
+                else
+                {
+                    set<DIST::Array*> realRefsOfPar;
+                    getRealArrayRefs(parDirective->arrayRef2, parDirective->arrayRef2, realRefsOfPar, arrayLinksByFuncCalls);
+
+                    vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> allRules(realRefsOfPar.size());
+                    int tmpIdx = 0;
+                    for (auto &array : realRefsOfPar)
+                        reducedG.GetAlignRuleWithTemplate(array, allArrays, allRules[tmpIdx++], regId);
+
+                    if (!isAllRulesEqual(allRules))
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    DIST::Array *arrayRef2 = *realRefsOfPar.begin();
+                    auto links = arrayRef2->GetLinksWithTemplate(regId);
+                    if (arrayRef2->GetTemplateArray(regId) != parDirective->arrayRef)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    int found = -1;
+                    for (int z = 0; z < links.size(); ++z)
+                        if (links[z] == i)
+                            found = z;
+                    if (found == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    if (parDirective->on2[found].first != "*")
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    
+                    parDirective->on2[found].first = updateOn[i].second;
+                    parDirective->on2[found].second = make_pair(1, 0);
+                }
+            }
+        }
+    }
+
+    return ret;
+}
+
+//TODO: 
+static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dimsNotMatch, LoopGraph* loop, const int regId,
+                                     ParallelDirective *parDirective, DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays,
+                                     const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                                     const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
+                                     const map<string, FuncInfo*> &mapFuncInfo)
+{
+    bool resolved = false;
+
+    map<DIST::Array*, vector<pair<bool, pair<string, int>>>> leftValues;
+    map<DIST::Array*, vector<pair<bool, map<string, pair<int, int>>>>> rightValues;
+
+    for (auto &elem : dimsNotMatch)
+    {
+        leftValues[elem.first] = vector<pair<bool, pair<string, int>>>(elem.second.size());
+        std::fill(leftValues[elem.first].begin(), leftValues[elem.first].end(), make_pair(false, make_pair("", 0)));
+
+        rightValues[elem.first] = vector<pair<bool, map<string, pair<int, int>>>>(elem.second.size());
+        std::fill(rightValues[elem.first].begin(), rightValues[elem.first].end(), make_pair(false, map<string, pair<int, int>>()));
+    }
+
+    string base = "";
+    int shiftValue = 0;
+    set<int> countOfLeftBase;
+
+    if (!analyzeLoopBody(loop, leftValues, rightValues, base, dimsNotMatch, mapFuncInfo))
+        return false;
+
+    // check found info
+    for (auto &elem : dimsNotMatch)
+    {
+        for (int idx = 0; idx < elem.second.size(); ++idx)
+            if (elem.second[idx] && (!leftValues[elem.first][idx].first && !rightValues[elem.first][idx].first)) // NOT INFO FOUND
+                return false;
+    }
+
+    //check multiplied Arrays to BLOCK distr of template
+    for (auto &elem : dimsNotMatch)
+    {
+        set<DIST::Array*> realRefs;
+        getRealArrayRefs(elem.first, elem.first, realRefs, arrayLinksByFuncCalls);
+
+        set<DIST::Array*> templates;
+        set<vector<int>> links;
+        for (auto &realR : realRefs)
+        {
+            templates.insert(realR->GetTemplateArray(regId));
+            links.insert(realR->GetLinksWithTemplate(regId));
+        }
+
+        DIST::Array *templ = NULL;
+        vector<int> alignLinks;
+        if (templates.size() == 1 && links.size() == 1)
+        {
+            templ = *templates.begin();
+            alignLinks = *links.begin();
+        }
+
+        if (!templ)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (elem.first->GetDimSize() != templ->GetDimSize())
+        {
+            const DistrVariant *var = NULL;
+            for (auto &distRule : distribution)
+            {
+                if (distRule.first == templ)
+                {
+                    var = distRule.second;
+                    break;
+                }
+            }
+
+            if (!var)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        
+            const set<int> alingLinksSet(alignLinks.begin(), alignLinks.end());
+            for (int z = 0; z < templ->GetDimSize(); ++z)
+            {
+                if (alingLinksSet.find(z) == alingLinksSet.end())
+                {
+                    if (var->distRule[z] == BLOCK)
+                    {
+                        //check all accesses to write
+                        for (auto &left : leftValues)
+                            for (auto &toCheck : left.second)
+                                if (toCheck.first)
+                                    return false;
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    vector<pair<bool, string>> updateOn(parDirective->on.size());
+    std::fill(updateOn.begin(), updateOn.end(), make_pair(false, ""));
+
+    set<string> deprecateToMatch;
+    int nested = loop->perfectLoop;
+
+    LoopGraph* tmpL = loop->children[0];    
+    for (int z = 0; z < nested; ++z)
+    {
+        deprecateToMatch.insert(tmpL->loopSymbol);
+        tmpL = tmpL->children[0];
+    }
+
+    tmpL = loop->parent;
+    while (tmpL)
+    {
+        deprecateToMatch.insert(tmpL->loopSymbol);
+        tmpL = tmpL->parent;
+    }
+
+    set<string> privates;
+#if __SPF
+    tryToFindPrivateInAttributes(loop->loop->GetOriginal(), privates);
+#else
+#error 'TODO - fill privates for this loop'
+#endif
+
+    //try to resolve from write operations
+    bool ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, leftValues, deprecateToMatch, privates);
+    if (!ok)
+        return false;
+    else
+    {
+        //shift right splited values
+        if (base != "")
+        {            
+            for (auto& left : leftValues)
+            {
+                for (int z = 0; z < left.second.size(); ++z)
+                {
+                    if (left.second[z].first)
+                    {
+                        if (left.second[z].second.first != "")
+                        {
+                            countOfLeftBase.insert(left.second[z].second.second);
+                            shiftValue = left.second[z].second.second;
+                        }
+                    }
+                }
+            }
+
+            if (countOfLeftBase.size() != 1)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            for (auto &right : rightValues)
+            {
+                for (int z = 0; z < right.second.size(); ++z)
+                {
+                    if (right.second[z].first)
+                    {
+                        auto itB = right.second[z].second.find(base);
+                        if (itB != right.second[z].second.end())
+                        {
+                            itB->second.first -= shiftValue;
+                            itB->second.second -= shiftValue;
+                        }
+                    }
+                }
+            }
+        }
+    }
+  
+    //try to resolve from read operations
+    if (!resolved)
+    {
+        return false;
+        /*map<DIST::Array*, vector<pair<bool, pair<SgExpression*, int>>>> values2;
+        for (auto &elem : rightValues)
+            for (auto &vElem : elem.second)
+                values2[elem.first].push_back(make_pair(vElem.first, vElem.second.first));
+        
+        ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, values2, privates, true);
+        if (!ok)
+            return false;*/
+    }   
+    
+    if (resolved)
+    {
+        propagateTemplateInfo(rightValues, regId, arrayLinksByFuncCalls, reducedG, allArrays);
+
+        for (auto &elem : rightValues)
+        {
+            auto &shortName = elem.first->GetShortName();
+            
+            for (auto &shadows : parDirective->shadowRenew)
+            {
+                if (shadows.first.first == shortName)
+                {
+                    const auto &leftPartVal = leftValues[elem.first];
+                    for (int i = 0; i < leftPartVal.size(); ++i)
+                    {
+                        if (leftPartVal[i].first || elem.second[i].first)
+                        {
+                            int foundVal = 0;
+                            if (leftPartVal[i].first)
+                            {
+                                if (leftPartVal[i].second.first == base && shiftValue == leftPartVal[i].second.second)
+                                    foundVal = 0;
+                                else
+                                    foundVal = leftPartVal[i].second.second - shiftValue;
+                            }
+                            else
+                            {
+                                auto rules = elem.first->GetAlignRulesWithTemplate(regId);
+                                auto links = elem.first->GetLinksWithTemplate(regId);
+                                if (links[i] == -1)
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                const auto &currRule = rules[i];
+                                if (base == "")
+                                    foundVal = std::stoi(parDirective->on[links[i]].first) + currRule.second;
+                                else
+                                    foundVal = currRule.second;
+                            }
+
+                            auto itSh = elem.second[i].second.find(base);
+                            if (itSh != elem.second[i].second.end()) // shadow
+                            {
+                                auto shadowElem = itSh->second;
+                                shadowElem.first -= foundVal;
+                                shadowElem.second -= foundVal;
+
+                                if (shadowElem.first > 0)
+                                    shadowElem.first = 0;
+                                if (shadowElem.second < 0)
+                                    shadowElem.second = 0;
+
+                                shadows.second[i].first = std::max(shadows.second[i].first, abs(shadowElem.first));
+                                shadows.second[i].second = std::max(shadows.second[i].second, shadowElem.second);
+                            }
+                            else // remote
+                            {
+                                string bounds = "";
+                                Expression* boundsE = NULL;
+#if __SPF
+                                SgExprListExp *listB = new SgExprListExp();
+                                for (int z = 0; z < elem.first->GetDimSize(); ++z)
+                                {
+                                    bounds += ":";
+                                    if (z != elem.first->GetDimSize() - 1)
+                                        bounds += ",";
+
+                                    if (z == 0)
+                                        listB->setLhs(*new SgExpression(DDOT));
+                                    else
+                                        listB->append(*new SgExpression(DDOT));
+                                }
+                                boundsE = new Expression(listB);
+#else
+#error 'TODO: create bound of this array for remote in Expression format, ex. for 3 dims - (:,:,:)'
+#endif
+                                parDirective->remoteAccess[make_pair(make_pair(elem.first->GetShortName(), elem.first->GetName()), bounds)] = boundsE;
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    return resolved;
+}
+
+static bool createLinksBetweenArrays(map<DIST::Array*, vector<int>> &links, DIST::Array *dist, 
+                                     const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                                     DIST::GraphCSR<int, double, attrType> &reducedG,
+                                     DIST::Arrays<int> &allArrays, const int regionId)
+{
+    bool ok = true;
+    if (dist == NULL)
+        return false;
+
+    for (auto &array : links)
+    {
+        set<DIST::Array*> realArrayRef;
+        getRealArrayRefs(array.first, array.first, realArrayRef, arrayLinksByFuncCalls);
+
+        vector<vector<int>> AllLinks(realArrayRef.size());
+        int currL = 0;
+        for (auto &array : realArrayRef)
+            AllLinks[currL++] = findLinksBetweenArrays(array, dist, regionId);
+
+        if (isAllRulesEqual(AllLinks))
+            array.second = AllLinks[0];
+
+        if (ok == false)
+            break;
+    }
+    return ok;
+}
+
+static bool checkCorrectness(const ParallelDirective &dir, 
+                             const vector<pair<DIST::Array*, const DistrVariant*>> &distribution, 
+                             DIST::GraphCSR<int, double, attrType> &reducedG,
+                             DIST::Arrays<int> &allArrays,
+                             const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                             const set<DIST::Array*> &allArraysInLoop,
+                             vector<Messages> &messages, const int loopLine,
+                             map<DIST::Array*, vector<bool>> &dimsNotMatch, const int regionId)
+{    
+    const pair<DIST::Array*, const DistrVariant*> *distArray = NULL;
+    pair<DIST::Array*, const DistrVariant*> *newDistArray = NULL;
+    map<DIST::Array*, vector<int>> arrayLinksWithTmpl;
+    map<DIST::Array*, vector<int>> arrayLinksWithDirArray;
+
+    const DistrVariant *distRuleTempl = NULL;
+
+    for (auto &array : allArraysInLoop)
+        arrayLinksWithDirArray[array] = arrayLinksWithTmpl[array] = vector<int>();
+
+    vector<int> links;
+    bool ok = true;
+
+    for (int i = 0; i < distribution.size(); ++i)
+    {
+        if (dir.arrayRef2 == distribution[i].first)
+        {
+            distArray = &distribution[i];
+            for (int z = 0; z < distArray->first->GetDimSize(); ++z)
+                links.push_back(z);
+            distRuleTempl = distribution[i].second;
+            break;
+        }
+    }
+        
+    if (!distArray)
+    {
+        bool found = false;
+        for (int i = 0; i < distribution.size(); ++i)
+        {
+            DIST::Array *currDistArray = distribution[i].first;
+
+            set<DIST::Array*> realArrayRef;
+            getRealArrayRefs(dir.arrayRef2, dir.arrayRef2, realArrayRef, arrayLinksByFuncCalls);
+
+            vector<vector<int>> AllLinks(realArrayRef.size());
+            int currL = 0;
+            for (auto &array : realArrayRef)
+                AllLinks[currL++] = findLinksBetweenArrays(array, currDistArray, regionId);
+
+            if (isAllRulesEqual(AllLinks))
+                links = AllLinks[0];
+            else
+            {
+                wstring bufE, bufR;
+                __spf_printToLongBuf(bufE, L"Can not create distributed link");
+#ifdef _WIN32
+                __spf_printToLongBuf(bufR, R127);
+#endif
+
+                messages.push_back(Messages(ERROR, loopLine, bufR, bufE, 3007));
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+
+            for (int k = 0; k < links.size(); ++k)
+            {
+                if (links[k] != -1)
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (found)
+            {
+                if (dir.arrayRef2->GetDimSize() != links.size())
+                {
+                    __spf_print(1, "Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'\n", 
+                                    dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
+
+                    wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'", 
+                                         to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, R126,
+                                         to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
+#endif
+
+                    messages.push_back(Messages(ERROR, loopLine, bufR, bufE, 3007));
+
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+
+                vector<dist> derivedRule(dir.arrayRef2->GetDimSize());
+                for (int z = 0; z < links.size(); ++z)
+                {
+                    if (links[z] != -1)
+                        derivedRule[z] = distribution[i].second->distRule[links[z]];
+                    else
+                        derivedRule[z] = dist::NONE;
+                }
+
+                newDistArray = new pair<DIST::Array*, const DistrVariant*>();
+                newDistArray->first = dir.arrayRef2;
+
+                DistrVariant *tmp = new DistrVariant(derivedRule);
+                newDistArray->second = tmp;
+                distArray = newDistArray;
+                distRuleTempl = distribution[i].second;
+                break;
+            }
+        }
+
+        if (found == false)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+    
+    auto templArray = dir.arrayRef;
+    if (templArray->IsTemplate() == false)
+        templArray = dir.arrayRef->GetTemplateArray(regionId);
+
+    ok = createLinksBetweenArrays(arrayLinksWithTmpl, templArray, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
+    if (ok == false)
+    {
+        if (newDistArray)
+        {
+            delete newDistArray->second;
+            delete newDistArray;
+        }
+        return ok;
+    }
+
+    if (dir.arrayRef->IsTemplate())
+        arrayLinksWithDirArray = arrayLinksWithTmpl;
+    else
+        ok = ok && createLinksBetweenArrays(arrayLinksWithDirArray, dir.arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
+    
+    // check main array
+    if (dir.arrayRef2 != dir.arrayRef)
+    {
+        const vector<dist> &rule = distArray->second->distRule;
+
+        DIST::Array* key = distArray->first;
+        dimsNotMatch[key] = vector<bool>(rule.size());
+        auto it = dimsNotMatch.find(key);
+
+        std::fill(it->second.begin(), it->second.end(), false);
+
+        for (int i = 0; i < rule.size(); ++i)
+        {
+            if (rule[i] == dist::BLOCK)
+            {
+                if (dir.on[links[i]].first == "*")
+                {
+                    ok = false;
+                    it->second[i] = true;
+                }
+            }
+        }
+    }
+
+    for (auto &array : arrayLinksWithTmpl)
+    {
+        auto dirArrayRef = arrayLinksWithDirArray[array.first];
+
+        if (array.first != dir.arrayRef2 && array.first != dir.arrayRef)
+        {
+            vector<dist> derivedRule(array.first->GetDimSize());
+
+            DIST::Array* key = array.first;
+            dimsNotMatch[key] = vector<bool>(array.first->GetDimSize());
+
+            auto it = dimsNotMatch.find(key);
+            std::fill(it->second.begin(), it->second.end(), false);
+
+            for (int z = 0; z < array.second.size(); ++z)
+            {
+                if (array.second[z] != -1)
+                    derivedRule[z] = distRuleTempl->distRule[array.second[z]];
+                else
+                    derivedRule[z] = dist::NONE;
+            }
+
+            for (int i = 0; i < derivedRule.size(); ++i)
+            {
+                if (derivedRule[i] == dist::BLOCK)
+                {
+                    if (dir.on[dirArrayRef[i]].first == "*")
+                    {
+                        ok = false;
+                        it->second[i] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    if (newDistArray)
+    {
+        delete newDistArray->second;
+        delete newDistArray;
+    }
+    return ok;
+}
+
+static bool isOnlyTopPerfect(LoopGraph *current, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution)
+{
+    for (auto &elem : distribution)
+    {
+        if (elem.first == current->directive->arrayRef)
+        {
+            bool allNone = true;
+            for (auto &dist : elem.second->distRule)
+            {
+                if (dist != NONE)
+                {
+                    allNone = false;
+                    break;
+                }
+            }
+            if (allNone)
+                return true;
+        }
+    }
+
+    LoopGraph *next = current;
+
+    for (int i = 0; i < current->perfectLoop - 1; ++i)
+        next = next->children[0];
+
+    if (next->children.size() == 0)
+        return true;
+    else
+    //  return false;
+    {
+        while (next->children.size() != 0)
+        {
+            if (next->children.size() > 1)
+                return false;
+            else
+            {
+                next = next->children[0];
+                bool condition = next->directive != NULL;
+                if (condition)
+                    condition = next->directive->arrayRef != NULL;
+
+                if (condition)
+                {
+                    bool found = false;
+                    for (int k = 0; k < distribution.size(); ++k)
+                    {
+                        if (distribution[k].first == next->directive->arrayRef)
+                        {
+                            int dimPos = -1;
+                            for (int p = 0; p < next->directiveForLoop->on.size(); ++p)
+                            {
+                                if (next->directiveForLoop->on[p].first == next->directiveForLoop->parallel[0])
+                                {
+                                    dimPos = p;
+                                    break;
+                                }
+                            }
+
+                            if (dimPos == -1)
+                            {
+                                found = true; //continue;
+                                break;
+                            }
+
+                            if (distribution[k].second->distRule[dimPos] != NONE)
+                                return false;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                        return false;
+                }
+                else
+                    return false;
+            }
+        }
+        return true;
+    }
+}
+
+static void constructRules(vector<pair<DIST::Array*, const DistrVariant*>>& outRules, const vector<pair<DIST::Array*, const DistrVariant*>>& distribution, LoopGraph* loop)
+{
+    outRules = distribution;
+    for (auto& rule : outRules)
+    {
+        const DistrVariant* redistRules = loop->getRedistributeRule(rule.first);
+        if (redistRules)
+            rule.second = redistRules;
+    }
+}
+
+void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
+                                       DIST::GraphCSR<int, double, attrType>& reducedG,
+                                       DIST::Arrays<int>& allArrays,
+                                       const vector<LoopGraph*>& loopGraph,
+                                       const map<int, LoopGraph*>& mapLoopsByFile,
+                                       const map<string, FuncInfo*>& mapFuncInfo,
+                                       const vector<pair<DIST::Array*, const DistrVariant*>>& distribution,
+                                       const vector<AlignRule>& alignRules,
+                                       vector<pair<int, pair<string, vector<Expression*>>>>& toInsert,
+                                       const int regionId,
+                                       const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls,
+                                       const map<LoopGraph*, void*>& depInfoForLoopGraph,
+                                       vector<Messages>& messages)
+{
+    for (int i = 0; i < loopGraph.size(); ++i)
+    {
+        LoopGraph* loop = loopGraph[i];
+
+        if (loop->directive &&
+            (loop->hasLimitsToParallel() == false) &&
+            (loop->region == currParReg) &&
+            (loop->userDvmDirective == NULL) &&
+            (loop->hasLimitsToParallel() == false) &&
+            (loop->isArrayTemplatesTheSame(regionId) == true))
+        {
+            if (loop->perfectLoop >= 1)
+            {
+                bool topCheck = isOnlyTopPerfect(loop, distribution);
+                ParallelDirective* parDirective = loop->directive;
+                parDirective->cloneOfTemplate = "";
+                if (topCheck == false)
+                {  //try to unite loops and recheck
+                    bool result = createNestedLoops(loop, depInfoForLoopGraph, mapFuncInfo, messages);
+                    if (result)
+                    {
+                        parDirective = loop->recalculateParallelDirective();
+                        topCheck = isOnlyTopPerfect(loop, distribution);
+                    }
+                }
+                else
+                {
+                    //try to unite loops for all good loops
+                    bool result = createNestedLoops(loop, depInfoForLoopGraph, mapFuncInfo, messages);
+                    if (result)
+                        parDirective = loop->recalculateParallelDirective();
+                }
+
+                bool needToContinue = false;
+                if (topCheck)
+                {
+                    //<Array, linksWithTempl> -> dims not mached
+                    map<DIST::Array*, vector<bool>> dimsNotMatch;
+                    if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch, regionId))
+                    {
+                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop, regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls, distribution, mapFuncInfo))
+#if __SPF
+                            needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsByFile, parDirective, regionId, messages, arrayLinksByFuncCalls);
+#else
+#error 'TODO: addRedistributionDirs'
+                            needToContinue = true;
+#endif
+                    }
+                }
+                else
+#if __SPF
+                    needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsByFile, parDirective, regionId, messages, arrayLinksByFuncCalls);
+#else
+#error 'TODO: addRedistributionDirs'
+                    needToContinue = true;
+#endif
+
+                if (needToContinue)
+                    continue;
+
+                vector<pair<DIST::Array*, const DistrVariant*>> newRules;
+                constructRules(newRules, distribution, loop);
+
+                // insert parallel dir
+                pair<string, vector<Expression*>> dir;
+#if __SPF
+                dir = parDirective->genDirective(file, newRules, alignRules, reducedG, allArrays, loop->acrossOutAttribute,
+                                                 loop->readOps, loop->loop, loop->lineNum, loop->altLineNum, regionId, arrayLinksByFuncCalls);
+#else
+                dir = parDirective->genDirective();
+#endif
+
+#if __SPF
+                if (loop->lineNum < 0)
+                {
+                    SgStatement* result = new SgStatement(DVM_PARALLEL_ON_DIR, NULL, NULL, NULL, NULL, NULL);
+                    for (int i = 0; i < 3; ++i)
+                        if (dir.second[i])
+                            result->setExpression(i, *dir.second[i]);
+
+                    if (loop->altLineNum == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    SgStatement* local = NULL;
+                    local = SgStatement::getStatementByFileAndLine(loop->loop->fileName(), loop->lineNum);
+                    if (local == NULL)
+                        local = SgStatement::getStatementByFileAndLine(loop->loop->fileName(), loop->altLineNum);
+                    checkNull(local, convertFileName(__FILE__).c_str(), __LINE__);
+
+                    local->insertStmtBefore(*result, *local->controlParent());
+                    /*SgStatement* local = NULL;
+                    int line = loop->altLineNum + 1;
+                    while (local == NULL)
+                    {
+                        local = SgStatement::getStatementByFileAndLine(loop->loop->fileName(), line);
+                        ++line;
+                    }
+                    local->insertStmtBefore(*result, *local->controlParent());*/
+                }
+                else
+#endif
+                    toInsert.push_back(make_pair(loop->lineNum, dir));
+            }
+        }
+        else //TODO: add checker for indexing in this loop
+        {
+            if (loopGraph[i]->children.size() != 0)
+                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->children, mapLoopsByFile, mapFuncInfo,
+                    distribution, alignRules, toInsert, regionId, arrayLinksByFuncCalls,
+                    depInfoForLoopGraph, messages);
+        }
+    }
+}
 #undef PRINT_PROF_INFO
 #undef PRINT_DIR_RESULT 

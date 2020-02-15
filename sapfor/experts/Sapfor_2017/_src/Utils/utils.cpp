@@ -169,9 +169,9 @@ void printHelp(const char **passNames, const int lastPass)
     throw(-1);
 }
 
-void printVersion()
+void printVersion(const string pref)
 {
-    printf("SAPFOR version is %s, build date: %s %s\n", VERSION, __DATE__, __TIME__);
+    printf("%sSAPFOR version is %s, build date: %s %s\n", pref.c_str(), VERSION, __DATE__, __TIME__);
 }
 
 const string printVersionAsFortranComm()
@@ -203,7 +203,7 @@ void splitString(const string &strIn, const char delim, vector<string> &result, 
     ss.str(strIn);
 
     vector<string> tmp_result;
-    std::string item;    
+    string item;    
     while (std::getline(ss, item, delim))
         tmp_result.push_back(item);
     
@@ -244,6 +244,63 @@ void splitString(const string &strIn, const char delim, vector<string> &result, 
             }
             else if (quStarted)
                 item += " ";
+        }
+    }
+    else
+        result = tmp_result;
+}
+
+void splitString(const wstring& strIn, const char delim, vector<wstring>& result, bool withQuotes)
+{
+    std::wstringstream ss;
+    ss.str(strIn);
+
+    vector<wstring> tmp_result;
+    wstring item;
+    wchar_t buf[1024];
+    while (ss.good())
+    {        
+        ss.getline(buf, 1024, delim);
+        tmp_result.push_back(buf);
+    }
+
+    if (withQuotes)
+    {
+        bool quStarted = false;
+        item = L"";
+        for (auto& elem : tmp_result)
+        {
+            if (elem.size())
+            {
+                if (quStarted)
+                {
+                    item += elem;
+                    if (elem[elem.size() - 1] == L'"')
+                    {
+                        quStarted = false;
+                        result.push_back(item.erase(item.size() - 1, 1));
+                    }
+                }
+                else
+                {
+                    if (elem[0] == '"')
+                    {
+                        quStarted = true;
+                        item = elem.erase(0, 1);
+
+                        if (item[item.size() - 1] == L'"')
+                        {
+                            quStarted = false;
+                            result.push_back(item.erase(item.size() - 1, 1));
+                        }
+                    }
+                    else
+                        result.push_back(elem);
+
+                }
+            }
+            else if (quStarted)
+                item += L" ";
         }
     }
     else

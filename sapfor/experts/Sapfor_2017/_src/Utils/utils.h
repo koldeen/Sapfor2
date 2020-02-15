@@ -20,7 +20,7 @@ void printHelp(const char **passNames, const int lastPass);
 void convertToLower(std::string &str);
 void convertToUpper(std::string &str);
 
-void printVersion();
+void printVersion(const std::string = "");
 const std::string printVersionAsFortranComm();
 std::string convertFileName(const char *file);
 void printBlanks(const int sizeOfBlank, const int countOfBlanks);
@@ -38,6 +38,7 @@ std::string splitDirective(const std::string &in);
 std::string splitDirectiveFull(const std::string &in_);
 
 void splitString(const std::string &strIn, const char delim, std::vector<std::string> &result, bool withQuotes = false);
+void splitString(const std::wstring& strIn, const char delim, std::vector<std::wstring>& result, bool withQuotes = false);
 
 bool isSPF_comment(const std::string& bufStr);
 bool isDVM_comment(const std::string& bufStr);
@@ -69,9 +70,11 @@ extern "C" void addToCollection(const int line, const char *file, void *pointer,
 #ifndef _WIN32
 inline void sendMessage_1lvl(const std::wstring &toSend);
 inline void sendMessage_2lvl(const std::wstring &toSend);
+inline void sendMessage_progress(const std::wstring& toSend);
 #else
 extern void sendMessage_1lvl(const std::wstring &toSend);
 extern void sendMessage_2lvl(const std::wstring &toSend);
+extern void sendMessage_progress(const std::wstring& toSend);
 #endif
 
 std::vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int regionId);

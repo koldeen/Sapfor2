@@ -218,14 +218,14 @@ int main(int argc, char *argv[]){
         //  ACC_program = 1;      
         else if (!strcmp(argv[0], "-noH"))
             ACC_program = 0;
+        else if (!strcmp(argv[0], "-noCudaType"))  /*ACC*/
+            undefined_Tcuda = 1;
         else if (!strcmp(argv[0], "-noCuda"))
             options.setOn(NO_CUDA);                /*ACC*/
         else if (!strcmp(argv[0], "-C_Cuda"))      /*ACC*/
             options.setOn(C_CUDA);
         else if (!strcmp(argv[0], "-FTN_Cuda") || !strcmp(argv[0], "-F_Cuda"))    /*ACC*/
             options.setOff(C_CUDA);
-        else if (!strcmp(argv[0], "-undef_cuda"))  /*ACC*/
-            undefined_Tcuda = 1;
         else if (!strcmp(argv[0], "-no_blocks_info") || !strcmp(argv[0], "-noBI"))
             options.setOn(NO_BL_INFO);             /*ACC*/
         else if (!strcmp(argv[0], "-cacheIdx"))
@@ -254,23 +254,23 @@ int main(int argc, char *argv[]){
             options.setOn(RTC);  //for NVRTC compilation and execution
         else if (!strcmp(argv[0], "-ffo"))
             out_free_form = 1;
-        else if (!strcmp(argv[0], "-upcase"))
+        else if (!strcmp(argv[0], "-upcase"))  
             out_upper_case = 1;
-        else if (!strcmp(argv[0], "-unlimLine"))  
+        else if (!strcmp(argv[0], "-noLimitLine"))  
             out_line_unlimit = 1; 
         else if (!strcmp(argv[0], "-lgstd"))
         {
             (void)fprintf(stderr, "Illegal option -lgstd \n");
             return 1;
         }
-        else if (!strcmp(argv[0], "-uf"))
+        else if (!strcmp(argv[0], "-byFunUnparse"))
             unparse_functions = 1;
         else if (!strncmp(argv[0], "-bufio", 6)) {
             if ((*argv)[6] != '\0' && (isz = is_integer_value(*argv + 6)))
                 IOBufSize = isz;
         }
-        else if (!strncmp(argv[0], "-ubuf", 5)) {
-            if ((*argv)[5] != '\0' && (isz = is_integer_value(*argv + 5)))
+        else if (!strncmp(argv[0], "-bufUnparser", 12)) {
+            if ((*argv)[12] != '\0' && (isz = is_integer_value(*argv + 12)))
                 UnparserBufSize = isz * 1024 * 1024;
         }
         else if (!strcmp(argv[0], "-ioRTS"))
@@ -552,7 +552,7 @@ void initialize()
     out_line_unlimit = 0;
     default_integer_size = 4;
     default_real_size = 4;
-    unparse_functions = 0; //set to 1 by option -uf
+    unparse_functions = 0; //set to 1 by option -byFunUnparse
     for (i = 0; i < Ndev; i++)      /*ACC*/
         device_flag[i] = 0;     // set by option and by TARGETS clause  of REGION directive
     ACC_program = 1;            /*ACC*/

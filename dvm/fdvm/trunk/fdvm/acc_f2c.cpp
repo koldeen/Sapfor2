@@ -256,6 +256,42 @@ static void addInListIfNeed(SgSymbol *tmp, int type, reduction_operation_list *t
     }
 }
 
+static void addRandStateIfNeeded(const string& name)
+{
+    SgExpression* list = private_list;
+    while (list)
+    {
+        if (list->lhs()->symbol()->identifier() == name)
+            return;
+        list = list->rhs();
+    }
+
+    SgSymbol* uint4_t = new SgSymbol(TYPE_NAME, "uint4", *(current_file->firstStatement()));
+
+    SgFieldSymb* sx = new SgFieldSymb("x", *SgTypeInt(), *uint4_t);
+    SgFieldSymb* sy = new SgFieldSymb("y", *SgTypeInt(), *uint4_t);
+    SgFieldSymb* sz = new SgFieldSymb("z", *SgTypeInt(), *uint4_t);
+    SgFieldSymb* sw = new SgFieldSymb("w", *SgTypeInt(), *uint4_t);
+
+    SYMB_NEXT_FIELD(sx->thesymb) = sy->thesymb;
+    SYMB_NEXT_FIELD(sy->thesymb) = sz->thesymb;
+    SYMB_NEXT_FIELD(sz->thesymb) = sw->thesymb;
+    SYMB_NEXT_FIELD(sw->thesymb) = NULL;
+
+    SgType* tstr = new SgType(T_STRUCT);
+    TYPE_COLL_FIRST_FIELD(tstr->thetype) = sx->thesymb;
+    uint4_t->setType(tstr);
+
+    SgType* td = new SgType(T_DERIVED_TYPE);
+    TYPE_SYMB_DERIVE(td->thetype) = uint4_t->thesymb;
+    TYPE_SYMB(td->thetype) = uint4_t->thesymb;
+
+    newVars.push_back(new SgSymbol(VARIABLE_NAME, name.c_str(), td, mod_gpu));
+    SgExprListExp* e = new SgExprListExp(*new SgVarRefExp(newVars.back()));
+    e->setRhs(private_list);
+    private_list = e;
+}
+
 void swapDimentionsInprivateList()
 {
     SgExpression *tmp = private_list;
@@ -2500,6 +2536,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
                 
                 //rand state
                 lhs->setRhs(new SgExpression(EXPR_LIST, new SgVarRefExp(*new SgSymbol(VARIABLE_NAME, "__dvmh_rand_state")), NULL));
+                addRandStateIfNeeded("__dvmh_rand_state");
 
                 retSt = new SgCExpStmt(*new SgFunctionCallExp(*new SgSymbol(VARIABLE_NAME, "__dvmh_rand"), *lhs));                
             }

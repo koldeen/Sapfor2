@@ -210,7 +210,6 @@ vector<tuple<DIST::Array*, int, pair<int, int>>>
         else
             retVal = allRuleForShadow[0];
     }
-
     return retVal;
 }
 

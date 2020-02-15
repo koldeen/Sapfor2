@@ -2651,11 +2651,14 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
         mapFiles[elem.fileName] = &elem;
 
     vector<string> errors;
+    int i = 1;
+    int N = listOfProject.size();
     for (auto& elem : listOfProject)
     {
+        sendMessage_progress(std::to_wstring((int)(((double)(i++) / N) * 100)));
+
         string file = elem.fileName;
         string options = elem.options;
-        //options += "-mp"; // OMP directives
 
         vector<string> optSplited = splitAndArgvCreate(options);
 

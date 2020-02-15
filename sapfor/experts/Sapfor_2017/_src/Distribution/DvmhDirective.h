@@ -11,6 +11,8 @@
 #include "../Utils/types.h"
 #include "../Utils/utils.h"
 
+extern int mpiProgram;
+
 namespace Distribution
 {
     template<typename vType, typename wType, typename attrType> class GraphCSR;
@@ -115,6 +117,7 @@ public:
         cloneOfTemplate = copyFrom.cloneOfTemplate;
     }
 
+    //for F_LANG;
     std::pair<std::string, std::vector<Expression*>> 
         genDirective(File *file, const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distribution,
                      const std::vector<AlignRule> &alignRules,
@@ -124,6 +127,10 @@ public:
                      const std::map<DIST::Array*, std::pair<std::vector<ArrayOp>, std::vector<bool>>> &readOps,
                      Statement *loop, const int line, const int altLine, const int regionId,
                      const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+
+    //for C_LANG;
+    std::pair<std::string, std::vector<Expression*>> 
+        genDirective();
 
     friend ParallelDirective* operator+(const ParallelDirective &first, const ParallelDirective &second);
 

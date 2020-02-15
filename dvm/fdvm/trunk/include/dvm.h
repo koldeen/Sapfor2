@@ -511,7 +511,7 @@ EXTERN int dbg_if_regim; //set by option -dbif
 EXTERN int deb_mpi; //set by option -dmpi
 EXTERN int d_no_index; //set by option -dnoind
 EXTERN  int IOBufSize; //set by option -bufio
-EXTERN  int UnparserBufSize; //set by option -ubuf
+EXTERN  int UnparserBufSize; //set by option -bufUnparser
 EXTERN  int collapse_loop_count; //set by option -collapse
 EXTERN SgSymbol *dbg_var;
 EXTERN int HPF_program;
