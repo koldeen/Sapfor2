@@ -115,7 +115,10 @@ static wstring utf8_decode(const string& str)
     return wstr;
 }
 
-int main()
+#define DEB 0
+#define SPF 1
+
+int main(int argc, char **argv)
 {
     SOCKET serverSoc, javaSoc;
     if (initServer(serverSoc, "127.0.0.1", 8889) != 0) // create server for Sapfor
@@ -127,6 +130,7 @@ int main()
     while (true)
     {
         int t = 0;
+#if DEB == 0
         while (initClient(javaSoc, "127.0.0.1", 8890) != 0) // connect to JAVA
         {
             ++t;
@@ -139,9 +143,12 @@ int main()
         }
 
         while (javaSoc != INVALID_SOCKET)
+#endif
         {
+#if SPF
             thread sapfor(runSapfor, string("Sapfor_F.exe -client"));
             sapfor.detach();
+#endif
 
             SOCKET ClientSocket = INVALID_SOCKET;
             ClientSocket = accept(serverSoc, NULL, NULL);
@@ -151,50 +158,64 @@ int main()
 
             while (ClientSocket != INVALID_SOCKET)
             {
+#if DEB == 0
                 string command = "";
                 err = recv(javaSoc, buf, 10000, 0);
                 if (err <= 0)
                 {
-                    printf("[SERVER] error recv from java\n");
+                    printf("[SERVER] error recv from java with code %d\n", err);
                     closesocket(javaSoc);
                     closesocket(ClientSocket);
+                    javaSoc = ClientSocket = INVALID_SOCKET;
                     break;
                 }
                 else
                 {
                     buf[err] = '\0';
                     command = buf;
-                    if (command == "restart: ")
+                    if (command.find("restart: ") == 0)
                     {
                         printf("[SERVER] restart sapfor\n");
                         closesocket(ClientSocket);
+                        ClientSocket = INVALID_SOCKET;
                         break;
                     }
-                    else if (command == "close: ")
+                    else if (command.find("close: ") == 0)
                     {
                         printf("[SERVER] shutdown\n");
                         closesocket(ClientSocket);
                         closesocket(javaSoc);
+                        javaSoc = ClientSocket = INVALID_SOCKET;
 
                         Sleep(500);
                         exit(0);
                         break;
                     }
+                    else 
+                        printf("[SERVER] recv command %s\n", command.c_str());
                 }
+#else
+
+                string command = "analysis:26 SPF_GetVersionAndBuildDate0 0 -1";
+#endif
 
                 err = send(ClientSocket, command.c_str(), command.size(), 0);
                 if (err != command.size())
                 {
                     printf("[SERVER] error send\n");
                     closesocket(ClientSocket);
+                    ClientSocket = INVALID_SOCKET;
                 }
-                
+                else
+                    printf("[SERVER] send command to client\n");
+
                 string retCode = "";
                 err = recv(ClientSocket, buf, 10000, 0);
                 if (err <= 0)
                 {
-                    printf("[SERVER] error recv\n");
+                    printf("[SERVER] error recv with code %d\n", err);
                     closesocket(ClientSocket);
+                    ClientSocket = INVALID_SOCKET;
                 }
                 else
                 {
@@ -204,18 +225,26 @@ int main()
                     {
                         printf("[SERVER] WRONG recv\n");
                         closesocket(ClientSocket);
+                        ClientSocket = INVALID_SOCKET;
                     }
+                    else
+                        printf("[SERVER] recv from client result\n");
                 }
-
+#if DEB == 0
                 err = send(javaSoc, retCode.c_str(), retCode.size(), 0);
                 if (err != retCode.size())
                 {
                     printf("[SERVER] error send to java\n");
                     closesocket(ClientSocket);
                     closesocket(javaSoc);
-                    closesocket(ClientSocket);
+                    javaSoc = ClientSocket = INVALID_SOCKET;
                     break;
                 }
+                else
+                    printf("[SERVER] send result to JAVA\n");
+#else
+                printf("%s\n", retCode.c_str());
+#endif
             }
             printf("[SERVER] invalid sapfor socket, try to restart next\n");
             Sleep(500);

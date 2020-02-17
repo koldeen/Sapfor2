@@ -1040,7 +1040,10 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
     for (int z = 0; z < nested; ++z)
     {
         deprecateToMatch.insert(tmpL->loopSymbol);
-        tmpL = tmpL->children[0];
+        if (tmpL->children.size())
+            tmpL = tmpL->children[0];
+        else if (z != nested - 1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
 
     tmpL = loop->parent;

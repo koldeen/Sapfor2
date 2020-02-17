@@ -904,6 +904,18 @@ static vector<int> fillBitsOfArgs(SgProgHedrStmt *hedr)
     return bitsOfArgs;
 }
 
+static bool isPrivate(const string& array)
+{
+    SgExpression* exp = private_list;
+    while (exp)
+    {
+        if (exp->lhs()->symbol()->identifier() == array)
+            return true;
+        exp = exp->rhs();
+    }
+    return false;
+}
+
 static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
 {
     bool ret = true;
@@ -963,7 +975,7 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
     
     if (canFoundinterface)
     {
-        bool found = false;        
+        bool found = false;
 
         //TODO: add support of many interfaces with the same count of parameters
         for (int k = 0; k < it->second.size(); ++k)
@@ -1025,7 +1037,7 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                     }
                     else
                     {
-                        //TODO: not supported yet                        
+                        //TODO: not supported yet
                         if (inCall && inProt)
                         {
                             if (inCall->dimension() != inProt->dimension()) // TODO
@@ -1035,17 +1047,28 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                             }
                             else
                             {
+                                const int arrayDim = isPrivate(argInCall->lhs()->symbol()->identifier()) ? inCall->dimension() : 1;
+
                                 if (isSgArrayType(typeInProt)) // inconsistency
                                     typeInCall = NULL;
-                                else if (inCall->dimension() - countOfSubscrInCall == 0)
+                                else if (arrayDim - countOfSubscrInCall == 0)
                                     typeInCall = typeInProt;
                                 else // TODO
                                     typeInCall = NULL;
                             }
                         }
-                        else if (isSgArrayType(typeInProt)) // inconsistency
+                        else if (inProt) // inconsistency
                             typeInCall = NULL;
-                    }                    
+                        else if (inCall)
+                        {
+                            const int arrayDim = isPrivate(argInCall->lhs()->symbol()->identifier()) ? inCall->dimension() : 1;
+
+                            if (arrayDim - countOfSubscrInCall == 0)
+                                typeInCall = typeInProt;
+                            else
+                                typeInCall = NULL;
+                        }
+                    }
                 }
                 else
                 {

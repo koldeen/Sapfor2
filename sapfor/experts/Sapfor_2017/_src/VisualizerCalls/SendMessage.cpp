@@ -25,7 +25,7 @@ static int decodeMessage(const string& message, vector<string>& pars, int &winH,
 
         string par = "";
 
-        for (z = 0; sI != message.size() && z < countElems; ++z, ++sI)
+        for (int z = 0; sI != message.size() && z < countElems; ++z, ++sI)
             par += message[sI];
         if (sI == message.size())
             return -3;
