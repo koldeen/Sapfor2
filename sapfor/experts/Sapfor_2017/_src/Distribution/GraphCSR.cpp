@@ -22,6 +22,7 @@ extern int passDone;
 #include "../Utils/errors.h"
 #include "../Utils/utils.h"
 #include "../VisualizerCalls/get_information.h"
+#include "../VisualizerCalls/SendMessage.h"
 
 #include "GraphCSR.h"
 
@@ -203,7 +204,7 @@ namespace Distribution
             return;
 
         color[V] = GREY;
-#if _WIN32 && NDEBUG
+#if _WIN32
         createNeededException();
 #endif
 
@@ -1659,7 +1660,7 @@ namespace Distribution
         {
             for (int i = 0; i < arrayVerts.size(); ++i)
             {
-                const vType currV = localIdx[arrayVerts[i]];
+                const vType currV = (arrayVerts[i] < localIdx.size()) ? localIdx[arrayVerts[i]] : -1;
                 // if current vertex has links
                 if (currV != -1)
                 {

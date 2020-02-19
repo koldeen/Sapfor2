@@ -41,9 +41,9 @@ extern int passDone;
 
 #include "../ExpressionTransform/expr_transform.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
-#ifdef _WIN32
+
 #include "../VisualizerCalls/get_information.h"
-#endif
+#include "../VisualizerCalls/SendMessage.h"
 
 #include "../LoopConverter/enddo_loop_converter.h"
 
@@ -1646,10 +1646,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
 
     for (int i = 0; i < funcNum; ++i)
     {
-#if _WIN32 && NDEBUG
+#if _WIN32
         createNeededException();
-#endif
-#ifdef _WIN32
+
         string fName = file->functions(i)->symbol()->identifier();
         if (file->functions(i)->variant() != MODULE_STMT)
             sendMessage_2lvl(wstring(L"обработка функции '") + wstring(fName.begin(), fName.end()) + L"'");
@@ -1713,7 +1712,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
         double currentWeight = 1.0;
         while (st != lastNode)
         {
-#if _WIN32 && NDEBUG
+#if _WIN32
             createNeededException();
 #endif
             if (st == NULL)
@@ -2137,7 +2136,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
             for (auto &loop : convertedLoopInfo)
             {
                 ++idx;
-#if _WIN32 && NDEBUG
+#if _WIN32
                 createNeededException();
 #endif
 
@@ -2396,7 +2395,7 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
         double currentWeight = 1.0;
         while (st != lastNode)
         {
-#if _WIN32 && NDEBUG
+#if _WIN32
             createNeededException();
 #endif
             if (st == NULL)

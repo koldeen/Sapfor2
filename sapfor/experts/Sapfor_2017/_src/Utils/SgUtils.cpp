@@ -39,6 +39,7 @@
 #include "../CreateInterTree/CreateInterTree.h"
 #include "../Predictor/PredictScheme.h"
 #include "../VisualizerCalls/get_information.h"
+#include "../VisualizerCalls/SendMessage.h"
 
 using std::map;
 using std::pair;
@@ -2751,7 +2752,7 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
         for (int z = 0; z <= optSplited.size(); ++z)
             delete toParse[z];
         delete[] toParse;
-#if _WIN32 && NDEBUG
+#if _WIN32
         createNeededException();
 #endif
     }
@@ -2987,7 +2988,7 @@ int parseFiles(const char* proj)
             if (iters != 0)
                 if (lastChanged <= changed)
                     break;
-#if _WIN32 && NDEBUG
+#if _WIN32
             createNeededException();
 #endif
             if (changed)

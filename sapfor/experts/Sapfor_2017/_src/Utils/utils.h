@@ -67,16 +67,6 @@ void findAndReplaceDimentions(std::vector<std::tuple<DIST::Array*, int, std::pai
 extern "C" void removeFromCollection(void *pointer);
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 
-#ifndef _WIN32
-inline void sendMessage_1lvl(const std::wstring &toSend);
-inline void sendMessage_2lvl(const std::wstring &toSend);
-inline void sendMessage_progress(const std::wstring& toSend);
-#else
-extern void sendMessage_1lvl(const std::wstring &toSend);
-extern void sendMessage_2lvl(const std::wstring &toSend);
-extern void sendMessage_progress(const std::wstring& toSend);
-#endif
-
 std::vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int regionId);
 #ifdef _WIN32
 void printStackTrace();

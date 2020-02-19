@@ -993,7 +993,7 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
     bool wereReplacements = true;
     while (wereReplacements)
     {
-#if _WIN32 && NDEBUG && __SPF 
+#if _WIN32 && __SPF 
         createNeededException();
 #endif
         __spf_print(PRINT_PROF_INFO_TIME, "New substitution iteration\n");

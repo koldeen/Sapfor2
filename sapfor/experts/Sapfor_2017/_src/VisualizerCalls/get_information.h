@@ -47,8 +47,13 @@ extern "C" { __declspec(dllexport) int SPF_SetDistributionFlagToArrays(void*& co
 #endif
 
 void createNeededException();
-#ifdef JAVA
+void RunSapforAsClient();
 
+const std::wstring Sapfor_RunAnalysis(const char* name, const char* options_c, const char* projName_c, int winHandler);
+const std::wstring Sapfor_RunTransformation(const char* name, const char* options_c, const char* projName_c, const char* folder_c, const char* addOpt_c, int winHandler);
+const std::wstring Sapfor_RunModification(const char* name, const char* options_c, const char* projName_c, const char* folder_c, const char* addOpt1_c, const char* addOpt2_c, int winHandler);
+
+#ifdef JAVA
 #include <jni.h>
 extern "C" 
 {    
@@ -56,10 +61,4 @@ extern "C"
     JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(JNIEnv*, jobject, jstring, jint, jstring, jstring, jstring, jstring);
     JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunModification  (JNIEnv*, jobject, jstring, jint, jstring, jstring, jstring, jstring, jstring);
 }
-
-const std::wstring Sapfor_RunAnalysis      (const char* name, const char* options_c, const char* projName_c, int winHandler);
-const std::wstring Sapfor_RunTransformation(const char* name, const char* options_c, const char* projName_c, const char* folder_c, const char* addOpt_c, int winHandler);
-const std::wstring Sapfor_RunModification  (const char* name, const char* options_c, const char* projName_c, const char* folder_c, const char* addOpt1_c, const char* addOpt2_c, int winHandler);
 #endif
-
-void RunSapforAsClient();

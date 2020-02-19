@@ -31,3 +31,7 @@ public:
     static void sendProgress(const std::wstring& str);
     static int init();
 };
+
+void sendMessage_1lvl(const std::wstring& toSend);
+void sendMessage_2lvl(const std::wstring& toSend);
+void sendMessage_progress(const std::wstring& toSend);

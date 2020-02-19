@@ -466,7 +466,7 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
 {
     for (auto it = loopInfo.begin(); it != loopInfo.end(); it++)
     {
-#if _WIN32 && NDEBUG
+#if _WIN32
         createNeededException();
 #endif
         ParallelRegion *currReg = it->first->region;

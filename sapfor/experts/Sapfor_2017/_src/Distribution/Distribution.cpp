@@ -35,6 +35,7 @@ using namespace std::chrono;
 #include "../Utils/types.h"
 #include "../Distribution/Cycle.h"
 #include "../VisualizerCalls/get_information.h"
+#include "../VisualizerCalls/SendMessage.h"
 
 extern int keepFiles;
 
@@ -222,7 +223,7 @@ namespace Distribution
             //sprintf(buf, "  global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
             printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
             //addToGlobalBufferAndPrint(buf);
-#if _WIN32 && NDEBUG
+#if _WIN32
             createNeededException();
 #endif
         }
@@ -260,7 +261,7 @@ namespace Distribution
                     }
                     else
                     {
-#if _WIN32 && NDEBUG
+#if _WIN32
                         createNeededException();
 #endif
                         break;

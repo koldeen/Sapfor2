@@ -718,7 +718,8 @@ static int getTemplateDemention(const string &val, const vector<pair<string, pai
 }
 
 bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DIST::GraphCSR<int, double, attrType> &G, 
-                                  DIST::Arrays<int> &allArrays, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+                                  DIST::Arrays<int> &allArrays, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls, 
+                                  const set<DIST::Array*>& alignedArrays, set<DIST::Array*>& addedArrays)
 {
     if (userDvmAlignDirs.size())
     {
@@ -787,6 +788,11 @@ bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DI
             else
                 return true;
 
+            string tmp;            
+            for (auto& elem : realAlignArrayRefsSet)
+                tmp += elem->GetName() + " ";
+            __spf_print(1, "align arrays from '%s' from user dir in line %d\n", tmp.c_str(), dir->lineNumber());
+
             for (int i = 0; i < alignTemplate.size(); ++i)
             {
                 if (alignTemplate[i].first != "*")
@@ -795,9 +801,20 @@ bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DI
                     if (dimT == -1)
                         continue;
                     
-                    for (auto &arrays : realAlignArrayRefsSet)
-                        if (!arrays->GetNonDistributeFlag())
-                            DIST::AddArrayAccess(G, allArrays, arrays, alignWithArray, make_pair(i, dimT), 1.0, make_pair(make_pair(1, 0), alignWithTemplate[dimT].second), WW_link);
+                    for (auto& array : realAlignArrayRefsSet)
+                    {
+                        if (!array->GetNonDistributeFlag())
+                        {
+                            if (alignWithArray->IsTemplate() && alignWithArray->GetShortName().find("_r") != string::npos)
+                                continue;
+
+                            //TODO:
+                            /*if (alignedArrays.find(array) != alignedArrays.end())
+                                continue;*/
+                            addedArrays.insert(array);
+                            DIST::AddArrayAccess(G, allArrays, array, alignWithArray, make_pair(i, dimT), 1.0, make_pair(make_pair(1, 0), alignWithTemplate[dimT].second), WW_link);
+                        }
+                    }
                 }
             }
         }

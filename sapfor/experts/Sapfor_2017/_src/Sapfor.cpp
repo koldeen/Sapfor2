@@ -62,6 +62,7 @@
 #include "Distribution/Array.h"
 #include "LoopConverter/swap_array_dims.h"
 #include "VisualizerCalls/get_information.h"
+#include "VisualizerCalls/SendMessage.h"
 
 #if RELEASE_CANDIDATE
 #include "Inliner/inliner.h"
@@ -476,7 +477,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
     for (int i = n - 1; i >= 0; --i)
     {
-#if _WIN32 && NDEBUG
+#if _WIN32
         createNeededException();
 #endif
         SgFile *file = &(project.file(i));
@@ -1075,21 +1076,31 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
             if (currReg->HasUserDvmDirs())
             {
+                set<DIST::Array*> alignedArrays;
+                set<DIST::Array*> addedArrays;
+
                 bool error = false;
                 if (currReg->GetUsersDirecites(DVM_REALIGN_DIR)->size())
                 {
-                    bool ret = buildGraphFromUserDirectives(*(currReg->GetUsersDirecites(DVM_REALIGN_DIR)), G, allArrays, arrayLinksByFuncCalls);
+                    bool ret = buildGraphFromUserDirectives(*(currReg->GetUsersDirecites(DVM_REALIGN_DIR)), G, allArrays, arrayLinksByFuncCalls, alignedArrays, addedArrays);
                     error = error || ret;
+                    alignedArrays.insert(addedArrays.begin(), addedArrays.end());
                 }
-                else if (currReg->GetUsersDirecites(DVM_ALIGN_DIR)->size())
+
+                if (currReg->GetUsersDirecites(DVM_ALIGN_DIR)->size())
                 {
-                    bool ret = buildGraphFromUserDirectives(*(currReg->GetUsersDirecites(DVM_ALIGN_DIR)), G, allArrays, arrayLinksByFuncCalls);
+                    bool ret = buildGraphFromUserDirectives(*(currReg->GetUsersDirecites(DVM_ALIGN_DIR)), G, allArrays, arrayLinksByFuncCalls, alignedArrays, addedArrays);
                     error = error || ret;
+                    alignedArrays.insert(addedArrays.begin(), addedArrays.end());
                 }
-                else if (currReg->GetUsersDirecites(DVM_DISTRIBUTE_DIR)->size())
+
+                if (currReg->GetUsersDirecites(DVM_DISTRIBUTE_DIR)->size())
                     error = false;
-                else
-                    error = true;
+                
+                if (error == false)
+                    error = (currReg->GetUsersDirecites(DVM_REALIGN_DIR)->size() == 0) && 
+                            (currReg->GetUsersDirecites(DVM_ALIGN_DIR)->size() == 0) &&
+                            (currReg->GetUsersDirecites(DVM_DISTRIBUTE_DIR)->size() == 0);
 
                 if (error)
                 {
@@ -1371,7 +1382,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             for (int i = n - 1; i >= 0; --i)
             {
-#if _WIN32 && NDEBUG
+#if _WIN32
                 createNeededException();
 #endif
                 SgFile *file = &(project.file(i));
@@ -1551,7 +1562,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
             for (int i = n - 1; i >= 0; --i)
             {
-#if _WIN32 && NDEBUG
+#if _WIN32
                 createNeededException();
 #endif
                 SgFile *file = &(project.file(i));
@@ -2243,6 +2254,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 extern "C" int parse_file(int argc, char* argv[], char* proj_name);
 extern int pppa_analyzer(int argv, char** argc);
 
+bool runAsClient = false;
 int main(int argc, char **argv)
 {
 #if _WIN32 && _DEBUG
@@ -2268,7 +2280,7 @@ int main(int argc, char **argv)
             const char* curr_arg = argv[i];
             if (string(curr_arg) == "-client")
             {
-                printVersion("[CLIENT]" );
+                printVersion("[CLIENT] " );
                 printed = true;
                 break;
             }
@@ -2285,7 +2297,6 @@ int main(int argc, char **argv)
         out_free_form = 0; // F90 style out
         out_upper_case = 1;
         bool printText = false;
-        bool runAsClient = false;
 
         for (int i = 0; i < argc; ++i)
         {
@@ -2439,6 +2450,7 @@ int main(int argc, char **argv)
                 {
                     runAsClient = true;
                     withDel = false;
+                    consoleMode = false;
                     break;
                 }
                 break;

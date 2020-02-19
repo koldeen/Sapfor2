@@ -1787,26 +1787,19 @@ void SPF_deleteAllAllocatedData(void*& context)
     deleteAllAllocatedData(true);
 }
 
+extern bool runAsClient;
 void createNeededException()
 {
     if (passDone == 2)
-        throw std::runtime_error("Interrupted by user\n");
+    {
+        if (runAsClient)
+            exit(-99);
+        else
+            throw std::runtime_error("Interrupted by user\n");
+    }
 }
 
-#ifdef JAVA
 static void* context = NULL;
-
-static jcharArray StringToJCharArray(const wstring& nativeString, JNIEnv* env)
-{
-    jcharArray arr = env->NewCharArray(nativeString.size());
-    unsigned short* tmpBuf = new unsigned short[nativeString.size()];
-    for (int z = 0; z < nativeString.size(); ++z)
-        tmpBuf[z] = nativeString[z];
-    env->SetCharArrayRegion(arr, 0, nativeString.size(), (jchar*)tmpBuf);
-    delete []tmpBuf;
-    return arr;
-}
-
 static short* toShort(const char* str)
 {
     int len = str != NULL ? strlen(str) : 0; 
@@ -1912,7 +1905,6 @@ static void fillInfo(const string& data, int64_t*& arr)
         arr[z] = std::stoll(splited[idx]);
 }
 
-
 const wstring Sapfor_RunAnalysis(const char* analysisName_c, const char* options_c, const char* projName_c, int winHandler)
 {
     const string whichRun = analysisName_c;
@@ -1969,6 +1961,16 @@ const wstring Sapfor_RunAnalysis(const char* analysisName_c, const char* options
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
         }
+        else if (whichRun == "SPF_ChangeDirectory")
+        {
+            if (options_c == NULL)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            if (chdir(options_c) != 0)
+            {
+                __spf_print(1, "can not change directory to '%s'\n", options_c);
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+        }
         else
         {
             if (showDebug)
@@ -1991,18 +1993,6 @@ const wstring Sapfor_RunAnalysis(const char* analysisName_c, const char* options
     const wstring codedResult = finishJniCall(retCode, result, output, outputSize, outputMessage, outputMessageSize);
     return codedResult;
 }
-
-JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunAnalysis(
-
-          JNIEnv* env, jobject obj, jstring analysisName, jint winHandler, jstring options, jstring projName)
-{
-    const char* analysisName_c = env->GetStringUTFChars(analysisName, NULL);
-    const char* options_c = env->GetStringUTFChars(options, NULL);
-    const char* projName_c = env->GetStringUTFChars(projName, NULL);
-
-    return StringToJCharArray(Sapfor_RunAnalysis(analysisName_c, options_c, projName_c, winHandler), env);
-}
-
 
 const wstring Sapfor_RunTransformation(const char* transformName_c, const char* options_c, const char* projName_c,
                                        const char* folder_c, const char* addOpt_c, int winHandler)
@@ -2078,19 +2068,6 @@ const wstring Sapfor_RunTransformation(const char* transformName_c, const char* 
     fflush(NULL);
     const wstring codedResult = finishJniCall(retCode, result, output, outputSize, outputMessage, outputMessageSize, predStats);
     return codedResult;
-}
-
-JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(
-
-        JNIEnv* env, jobject obj, jstring transformName, jint winHandler, jstring options, jstring projName, jstring folder, jstring addOptions)
-{
-    const char* transformName_c = env->GetStringUTFChars(transformName, NULL);
-    const char* options_c = env->GetStringUTFChars(options, NULL);
-    const char* projName_c = env->GetStringUTFChars(projName, NULL);
-    const char* folder_c = env->GetStringUTFChars(folder, NULL);
-    const char* addOpt_c = env->GetStringUTFChars(addOptions, NULL);
-    
-    return StringToJCharArray(Sapfor_RunTransformation(transformName_c, options_c, projName_c, folder_c, addOpt_c, winHandler), env);
 }
 
 const wstring Sapfor_RunModification(const char* modifyName_c, const char* options_c, const char* projName_c,
@@ -2180,9 +2157,42 @@ const wstring Sapfor_RunModification(const char* modifyName_c, const char* optio
     return codedResult;
 }
 
-JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunModification
+#ifdef JAVA
+static jcharArray StringToJCharArray(const wstring& nativeString, JNIEnv* env)
+{
+    jcharArray arr = env->NewCharArray(nativeString.size());
+    unsigned short* tmpBuf = new unsigned short[nativeString.size()];
+    for (int z = 0; z < nativeString.size(); ++z)
+        tmpBuf[z] = nativeString[z];
+    env->SetCharArrayRegion(arr, 0, nativeString.size(), (jchar*)tmpBuf);
+    delete []tmpBuf;
+    return arr;
+}
 
-        (JNIEnv* env, jobject obj, jstring modifyName, jint winHandler, jstring options, jstring projName, jstring folder, jstring addOpt1, jstring addOpt2)
+JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunAnalysis(
+          JNIEnv* env, jobject obj, jstring analysisName, jint winHandler, jstring options, jstring projName)
+{
+    const char* analysisName_c = env->GetStringUTFChars(analysisName, NULL);
+    const char* options_c = env->GetStringUTFChars(options, NULL);
+    const char* projName_c = env->GetStringUTFChars(projName, NULL);
+
+    return StringToJCharArray(Sapfor_RunAnalysis(analysisName_c, options_c, projName_c, winHandler), env);
+}
+
+JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(
+        JNIEnv* env, jobject obj, jstring transformName, jint winHandler, jstring options, jstring projName, jstring folder, jstring addOptions)
+{
+    const char* transformName_c = env->GetStringUTFChars(transformName, NULL);
+    const char* options_c = env->GetStringUTFChars(options, NULL);
+    const char* projName_c = env->GetStringUTFChars(projName, NULL);
+    const char* folder_c = env->GetStringUTFChars(folder, NULL);
+    const char* addOpt_c = env->GetStringUTFChars(addOptions, NULL);
+    
+    return StringToJCharArray(Sapfor_RunTransformation(transformName_c, options_c, projName_c, folder_c, addOpt_c, winHandler), env);
+}
+
+JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunModification(
+        JNIEnv* env, jobject obj, jstring modifyName, jint winHandler, jstring options, jstring projName, jstring folder, jstring addOpt1, jstring addOpt2)
 {
     const char* modifyName_c = env->GetStringUTFChars(modifyName, NULL);
     const char* options_c = env->GetStringUTFChars(options, NULL);

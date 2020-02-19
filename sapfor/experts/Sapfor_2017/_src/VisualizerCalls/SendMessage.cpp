@@ -1,11 +1,46 @@
 #include <string>
+#include <codecvt>
+#include <locale>
 #include <vector>
-#include "SendMessage.h"
 #include <iostream>
+
+#include "SendMessage.h"
+#include "../Utils/utils.h"
+#include "get_information.h"
+
+#ifdef _WIN32
+#include <Windows.h>
+#include <winsock.h>
+
+#define WM_USER        0x0400 //сообщения для обработчика сообщений
+#define STATUS_MESSAGE WM_USER + 16
+
+// link with Ws2_32.lib
+#pragma comment(lib,"Ws2_32.lib")
+
+#else
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#define SOCKET int
+#define INVALID_SOCKET (SOCKET)(~0)
+#define SOCKADDR sockaddr 
+#define closesocket close
+
+void WSACleanup() { }
+int  WSAGetLastError() { return 0; }
+void Sleep(int millisec) { usleep(millisec * 1000); }
+
+#endif
 
 using std::wstring;
 using std::string;
 using std::vector;
+
+static SOCKET clientSocket = INVALID_SOCKET;
 
 static int decodeMessage(const string& message, vector<string>& pars, int &winH, int countPars)
 {
@@ -41,36 +76,30 @@ static int decodeMessage(const string& message, vector<string>& pars, int &winH,
     return 0;
 }
 
-#ifdef WIN32
-#include <Windows.h>
-#include <winsock.h>
-
-#include "../Utils/utils.h"
-#include "get_information.h"
-
-// link with Ws2_32.lib
-#pragma comment(lib,"Ws2_32.lib")
-
-void sendMessage_1lvl(const wstring& toSend) { MessageManager::sendFirstLvl(toSend); }
-void sendMessage_2lvl(const wstring& toSend) { MessageManager::sendSecondLvl(toSend); }
-void sendMessage_progress(const wstring& toSend) { MessageManager::sendProgress(toSend); }
-
-
-#define WM_USER        0x0400 //сообщения для обработчика сообщений
-#define STATUS_MESSAGE WM_USER + 16
+void sendMessage_1lvl(const wstring& toSend)     { MessageManager::sendFirstLvl (toSend); }
+void sendMessage_2lvl(const wstring& toSend)     { MessageManager::sendSecondLvl(toSend); }
+void sendMessage_progress(const wstring& toSend) { MessageManager::sendProgress (toSend); }
 
 static string utf8_encode(const wstring& wstr)
 {
     if (wstr.empty())
         return string();
-
+#ifdef _WIN32
     int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
     string strTo(size_needed, 0);
     WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+#else
+    char* buf = NULL;
+    int size_needed = wcstombs(buf, wstr.c_str(), sizeof(char));
+    buf = new char[size_needed + 1];
+    buf[wcstombs(buf, wstr.c_str(), sizeof(char))] = '\0';
+    string strTo(buf);
+    delete[] buf;
+#endif
     return strTo;
 }
 
-static wstring utf8_decode(const string& str)
+/*static wstring utf8_decode(const string& str)
 {
     if (str.empty())
         return wstring();
@@ -80,11 +109,37 @@ static wstring utf8_decode(const string& str)
     wstr.resize(size_needed, 0);
     MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), &wstr[0], size_needed);
     return wstr;
+}*/
+
+void MessageManager::sendMessage(const wstring& toSend)
+{
+    if (WinHandler > 0) //to C#
+    {
+#ifdef _WIN32
+        cachedMessages.push_back(toSend);
+        PostMessage((HWND)WinHandler, STATUS_MESSAGE, (WPARAM)(cachedMessages.back().c_str()), (LPARAM)cachedMessages.back().size());
+#endif
+    }
+    else if (WinHandler == -2) // to JAVA
+    {
+        vector<wstring> splited;
+        splitString(toSend, '\n', splited);
+
+        int i = 1;
+        for (auto& elem : splited)
+        {
+            string result = utf8_encode(L"message_" + std::to_wstring(i++) + L":" + elem + L"\n");
+            const char* ret = result.c_str();
+
+            int size = result.size();
+            int iResult = send(clientSocket, ret, size, 0);
+            if (iResult < 0)
+                printf("Wrong send is %d\n", iResult);
+        }
+    }
 }
 
-static SOCKET clientSocket = INVALID_SOCKET;
-
-static int connectAndCreate(SOCKET &socket_t, string address, int port)
+static int connectAndCreate(SOCKET& socket_t, string address, int port)
 {
     socket_t = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_t == INVALID_SOCKET)
@@ -107,47 +162,7 @@ static int connectAndCreate(SOCKET &socket_t, string address, int port)
     return 0;
 }
 
-void MessageManager::sendProgress(const std::wstring& str)
-{
-    if (WinHandler == -2) // to JAVA
-    {
-        string result = utf8_encode(L"progress:" + str + L"\n");
-        const char* ret = result.c_str();
-
-        int size = result.size();
-        int iResult = send(clientSocket, ret, size, 0);
-        if (iResult == SOCKET_ERROR)
-            printf("Wrong send is %d\n", iResult);
-    }
-}
-
-void MessageManager::sendMessage(const wstring& toSend)
-{
-    if (WinHandler > 0)
-    {
-        cachedMessages.push_back(toSend);
-        PostMessage((HWND)WinHandler, STATUS_MESSAGE, (WPARAM)(cachedMessages.back().c_str()), (LPARAM)cachedMessages.back().size());
-    }
-    else if (WinHandler == -2) // to JAVA
-    {        
-        vector<wstring> splited;
-        splitString(toSend, '\n', splited);
-        
-        int i = 1;
-        for (auto& elem : splited)
-        {
-            string result = utf8_encode(L"message_" + std::to_wstring(i++) + L":" + elem + L"\n");
-            const char* ret = result.c_str();
-
-            int size = result.size();
-            int iResult = send(clientSocket, ret, size, 0);
-            if (iResult == SOCKET_ERROR)
-                printf("Wrong send is %d\n", iResult);
-        }
-    }
-}
-
-void MessageManager::setWinHandler(const int winH) 
+void MessageManager::setWinHandler(const int winH)
 {
     if (winH == -2) // to JAVA
     {
@@ -175,8 +190,62 @@ void MessageManager::setWinHandler(const int winH)
     WinHandler = winH;
 }
 
+static int send(SOCKET& client, const wstring& messageIn)
+{
+    wstring message = messageIn;
+    for (int z = 0; z < message.size(); ++z)
+        if (message[z] == L'\n')
+            message[z] = L'\t';
+    message += L"\n";
+
+    string result = utf8_encode(message);
+    string size = std::to_string(result.size());
+
+    int err = send(client, size.c_str(), size.size(), 0);
+    printf("[CLIENT] send size: %d\n", (int)result.size());
+    if (err != size.size())
+    {
+        printf("[CLIENT] wrong send: %d\n", err); // exit
+        return -1;
+    }
+
+    char buf;
+    recv(client, &buf, 1, 0);
+
+    err = send(client, result.c_str(), result.size(), 0);
+    printf("[CLIENT] send message\n");
+    if (err != result.size())
+    {
+        printf("[CLIENT] wrong send: %d\n", err); // exit
+        return -1;
+    }
+    else
+    {
+        err = recv(client, &buf, 1, 0);
+        if (err != 1)
+            return -1;
+        else
+            return 0;
+    }
+}
+
+void MessageManager::sendProgress(const std::wstring& str)
+{
+    if (WinHandler == -2) // to JAVA
+    {
+        string result = utf8_encode(L"progress:" + str + L"\n");
+        const char* ret = result.c_str();
+
+        int size = result.size();
+        int iResult = send(clientSocket, ret, size, 0);
+        if (iResult == -1)
+            printf("Wrong send is %d\n", iResult);
+    }
+}
+
 int MessageManager::init()
 {
+#if _WIN32	
     if (Started == -1)
     {
         WSADATA wsaData = { 0 };
@@ -188,29 +257,11 @@ int MessageManager::init()
         }
         else
             Started = 0;
-    }
+    }    
+#else
+    Started = 0;
+#endif
     return Started;
-}
-
-vector<wstring> MessageManager::cachedMessages = vector<wstring>();
-int MessageManager::WinHandler = -1;
-wstring MessageManager::firstLvlMessage = L"";
-wstring MessageManager::secondLvlMessage = L"";
-
-#undef WM_USER
-#undef STATUS_MESSAGE
-
-static int send(SOCKET &client, const wstring& message)
-{
-    string result = utf8_encode(message);
-    int err = send(client, result.c_str(), result.size(), 0);
-    if (err != result.size())
-    {
-        printf("[CLIENT] wrong send: %d\n", err); // exit
-        return -1;
-    }
-    else
-        return 0;
 }
 
 void RunSapforAsClient()
@@ -256,7 +307,6 @@ void RunSapforAsClient()
             }
 
             message = message.substr(z);
-            
 
             vector<string> pars;
             int winHandler = -1;
@@ -264,6 +314,7 @@ void RunSapforAsClient()
             if (code == "analysis")
             {
                 int err = decodeMessage(message, pars, winHandler, 3);
+
                 if (err == 0)
                     result = Sapfor_RunAnalysis(pars[0].c_str(), pars[1].c_str(), pars[2].c_str(), winHandler);
                 else
@@ -311,22 +362,8 @@ void RunSapforAsClient()
     }
 }
 
-
-#else
-
-void sendMessage_1lvl(const wstring& toSend) { }
-void sendMessage_2lvl(const wstring& toSend) { }
-void sendMessage_progress(const wstring& toSend) { }
-
 vector<wstring> MessageManager::cachedMessages = vector<wstring>();
 int MessageManager::WinHandler = -1;
 wstring MessageManager::firstLvlMessage = L"";
 wstring MessageManager::secondLvlMessage = L"";
-void MessageManager::sendMessage(const wstring& toSend) { }
-void MessageManager::setWinHandler(const int winH) { WinHandler = winH; }
-int MessageManager::init() { }
-
-void RunSapforAsClient() { }
-#endif
-
 int MessageManager::Started = -1;
