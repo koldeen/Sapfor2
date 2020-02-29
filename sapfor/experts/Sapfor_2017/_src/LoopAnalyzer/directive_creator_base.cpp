@@ -643,9 +643,9 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                                     wstring bufE, bufR;
                                     __spf_printToLongBuf(bufE, L"arrays '%s' and '%s' have different align rules in this loop according to their write accesses",
                                                          to_wstring(array1->GetShortName()).c_str(), to_wstring(array2->GetShortName()).c_str());
-#ifdef  _WIN32
+
                                     __spf_printToLongBuf(bufR, R132, to_wstring(array1->GetShortName()).c_str(), to_wstring(array2->GetShortName()).c_str());
-#endif 
+
 
                                     messages.push_back(Messages(WARR, loopInfo.first->lineNum, bufR, bufE, 3011));
                                     sortedLoopGraph[loopInfo.first->lineNum]->hasDifferentAlignRules = true;
@@ -1290,9 +1290,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
             {
                 wstring bufE, bufR;
                 __spf_printToLongBuf(bufE, L"Can not create distributed link");
-#ifdef _WIN32
                 __spf_printToLongBuf(bufR, R127);
-#endif
 
                 messages.push_back(Messages(ERROR, loopLine, bufR, bufE, 3007));
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -1317,10 +1315,9 @@ static bool checkCorrectness(const ParallelDirective &dir,
                     wstring bufE, bufR;
                     __spf_printToLongBuf(bufE, L"Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'", 
                                          to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
-#ifdef _WIN32
+
                     __spf_printToLongBuf(bufR, R126,
                                          to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
-#endif
 
                     messages.push_back(Messages(ERROR, loopLine, bufR, bufE, 3007));
 
@@ -1535,7 +1532,7 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
                                        DIST::GraphCSR<int, double, attrType>& reducedG,
                                        DIST::Arrays<int>& allArrays,
                                        const vector<LoopGraph*>& loopGraph,
-                                       const map<int, LoopGraph*>& mapLoopsByFile,
+                                       const map<int, LoopGraph*>& mapLoopsInFile,
                                        const map<string, FuncInfo*>& mapFuncInfo,
                                        const vector<pair<DIST::Array*, const DistrVariant*>>& distribution,
                                        const vector<AlignRule>& alignRules,
@@ -1587,7 +1584,7 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
                     {
                         if (!tryToResolveUnmatchedDims(dimsNotMatch, loop, regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls, distribution, mapFuncInfo))
 #if __SPF
-                            needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsByFile, parDirective, regionId, messages, arrayLinksByFuncCalls);
+                            needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsInFile, parDirective, regionId, messages, arrayLinksByFuncCalls);
 #else
 #error 'TODO: addRedistributionDirs'
                             needToContinue = true;
@@ -1596,7 +1593,7 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
                 }
                 else
 #if __SPF
-                    needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsByFile, parDirective, regionId, messages, arrayLinksByFuncCalls);
+                    needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsInFile, parDirective, regionId, messages, arrayLinksByFuncCalls);
 #else
 #error 'TODO: addRedistributionDirs'
                     needToContinue = true;
@@ -1611,8 +1608,7 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
                 // insert parallel dir
                 pair<string, vector<Expression*>> dir;
 #if __SPF
-                dir = parDirective->genDirective(file, newRules, alignRules, reducedG, allArrays, loop->acrossOutAttribute,
-                                                 loop->readOps, loop->loop, loop->lineNum, loop->altLineNum, regionId, arrayLinksByFuncCalls);
+                dir = parDirective->genDirective(file, newRules, alignRules, loop, reducedG, allArrays, regionId, arrayLinksByFuncCalls);
 #else
                 dir = parDirective->genDirective();
 #endif
@@ -1652,7 +1648,7 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
         else //TODO: add checker for indexing in this loop
         {
             if (loopGraph[i]->children.size() != 0)
-                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->children, mapLoopsByFile, mapFuncInfo,
+                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->children, mapLoopsInFile, mapFuncInfo,
                     distribution, alignRules, toInsert, regionId, arrayLinksByFuncCalls,
                     depInfoForLoopGraph, messages);
         }

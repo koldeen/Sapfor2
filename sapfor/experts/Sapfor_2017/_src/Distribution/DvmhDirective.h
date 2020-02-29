@@ -13,6 +13,8 @@
 
 extern int mpiProgram;
 
+struct LoopGraph;
+
 namespace Distribution
 {
     template<typename vType, typename wType, typename attrType> class GraphCSR;
@@ -121,11 +123,10 @@ public:
     std::pair<std::string, std::vector<Expression*>> 
         genDirective(File *file, const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distribution,
                      const std::vector<AlignRule> &alignRules,
+                     const LoopGraph* currLoop,
                      DIST::GraphCSR<int, double, attrType> &reducedG,
                      DIST::Arrays<int> &allArrays,
-                     const std::set<DIST::Array*> &acrossOutAttribute, 
-                     const std::map<DIST::Array*, std::pair<std::vector<ArrayOp>, std::vector<bool>>> &readOps,
-                     Statement *loop, const int line, const int altLine, const int regionId,
+                     const int regionId,
                      const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
     //for C_LANG;

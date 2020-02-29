@@ -361,9 +361,8 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
 
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"unknown scalar dependencies by '%s' (try to specify its type)", to_wstring(unknownScalarDep[k]->varin->symbol()->identifier()).c_str());
-#ifdef _WIN32
                     __spf_printToLongBuf(messageR, R112, to_wstring(unknownScalarDep[k]->varin->symbol()->identifier()).c_str());
-#endif
+
                     currMessages->push_back(Messages(WARR, unknownScalarDep[k]->stmtin->lineNumber(), messageR, messageE, 3005));
 
                     currLoop->linesOfScalarDep.push_back(unknownScalarDep[k]->stmtin->lineNumber());

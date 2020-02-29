@@ -358,9 +358,7 @@ static bool hasIndirectChildLoops(LoopGraph* parentGraph, vector<Messages> &mess
        
     if(directLoops != parentGraph->children.size())
     {
-#ifdef _WIN32
         messages.push_back(Messages(ERROR, parentGraph->loop->GetOriginal()->lineNumber(), R105, L"This loop has indirect child loops and can not be splitted", 2010));
-#endif
         __spf_print(1, "This loop has indirect child loops and can not be splitted on line %d\n", parentGraph->lineNum);
         return true;
     }
@@ -406,9 +404,7 @@ static bool hasUnexpectedDependencies(LoopGraph* parentGraph, depGraph* parentDe
 
                     wstring strR, strE;
                     __spf_printToLongBuf(strE, L"Can not split this loop because of dependecy: %s", to_wstring(node->displayDepToStr()).c_str());
-#ifdef _WIN32
                     __spf_printToLongBuf(strR, R104, to_wstring(node->displayDepToStr()).c_str());
-#endif
                     messages.push_back(Messages(WARR, parentGraph->lineNum, strR, strE, 2009));
                 }
             }
@@ -439,12 +435,10 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     depGraph *lowestParentDepGraph = getDependenciesGraph(lowestParentGraph, current_file, &privVars);
     if (lowestParentGraph->hasLimitsToSplit())
     {
-#ifdef _WIN32
         messages.push_back(Messages(ERROR, loopGraph->lineNum,
                             R106 + std::to_wstring(lowestParentGraph->lineNum) + L")",
                             L"This loop has limits to parallel (reason: loop on line " + std::to_wstring(lowestParentGraph->lineNum) + L")",
                             2010));
-#endif
         __spf_print(1, "%d loop has limits to parallel (reason: loop on line %d)\n", loopGraph->lineNum, lowestParentGraph->lineNum);
         return -1;
     }
@@ -452,12 +446,10 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     map<SgExpression*, string> collection;
     if (hasUnexpectedDependencies(lowestParentGraph, lowestParentDepGraph, messages))
     {
-#ifdef _WIN32
         messages.push_back(Messages(ERROR, loopGraph->lineNum, 
                            R107 + std::to_wstring(lowestParentGraph->lineNum) + L")", 
                            L"This loop has unexpected dependencies and can not be splitted (reason: loop on line " + std::to_wstring(lowestParentGraph->lineNum) + L")",
                            2010));
-#endif
         __spf_print(1, "%d loop has unexpected dependencies and can not be splitted (reason: loop on line %d)\n", loopGraph->lineNum, lowestParentGraph->lineNum);
         return -1;
     }

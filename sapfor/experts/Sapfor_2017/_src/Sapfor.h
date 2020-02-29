@@ -15,6 +15,7 @@ extern int ignoreIO;
 
 extern "C" int out_free_form;
 extern "C" int out_upper_case;
+extern "C" int out_line_unlimit;
 
 enum passes {
     UNROLL_LOOPS, //ordinal == 0
@@ -125,6 +126,9 @@ enum passes {
     PPPA_ANALYZER,
     SET_TO_ALL_DECL_INIT_ZERO,
     DUMP_DECLS_WITH_INIT,
+    
+    CREATE_CHECKPOINTS,
+    CONVERT_SAVE_TO_MODULE,
     EMPTY_PASS
 };
 
@@ -256,6 +260,8 @@ static void setPassValues()
     passNames[PPPA_ANALYZER] = "PPPA_ANALYZER";
     passNames[SET_TO_ALL_DECL_INIT_ZERO] = "SET_TO_ALL_DECL_INIT_ZERO";
     passNames[DUMP_DECLS_WITH_INIT] = "DUMP_DECLS_WITH_INIT";    
+    passNames[CREATE_CHECKPOINTS] = "CREATE_CHEKPOINTS";
+    passNames[CONVERT_SAVE_TO_MODULE] = "CONVERT_SAVE_TO_MODULE";
 }
 
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

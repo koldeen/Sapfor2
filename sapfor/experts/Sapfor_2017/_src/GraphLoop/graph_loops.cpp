@@ -269,9 +269,8 @@ bool checkRegionEntries(SgStatement *begin,
 
         wstring messageE, messageR;
         __spf_printToLongBuf(messageE, L"wrong parallel region position: there are several entries in fragment '%s' caused by GOTO", to_wstring(regIdent->identifier()).c_str());
-#ifdef _WIN32
         __spf_printToLongBuf(messageR, R11, to_wstring(regIdent->identifier()).c_str());
-#endif
+
         getObjectForFileFromMap(begin->fileName(), SPF_messages).push_back(Messages(ERROR, begin->lineNumber(), messageR, messageE, 1001));
 
         noError = false;
@@ -292,9 +291,8 @@ bool checkRegionEntries(SgStatement *begin,
 
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY", to_wstring(reg->GetName()).c_str());
-#ifdef _WIN32
                 __spf_printToLongBuf(messageR, R10, to_wstring(reg->GetName()).c_str());
-#endif
+
                 getObjectForFileFromMap(func->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, funcSt->lineNumber(), messageR, messageE, 1001));
 
                 noError = false;
@@ -416,9 +414,8 @@ static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops, vec
     {
         wstring bufE, bufR;
         __spf_printToLongBuf(bufE, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
-#ifdef _WIN32
         __spf_printToLongBuf(bufR, R91, to_wstring(array->GetShortName()).c_str());
-#endif
+
         messages.push_back(Messages(NOTE, st->lineNumber(), bufR, bufE, 1047));
         array->SetNonDistributeFlag(DIST::SPF_PRIV);
     }
@@ -628,9 +625,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                     newLoop->executionTimeInSec = itTime->second->exec_time / itTime->second->exec_count;
                 else if (mapIntervals.size())
                 {
-#ifdef _WIN32
                     //messages.push_back(Messages(NOTE, newLoop->lineNum, R137, L"Can not find execution time in statistic", 3016));
-#endif
                 }
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);

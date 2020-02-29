@@ -101,10 +101,11 @@
 #define ACC_END_REGION_DIR               901     /* ACC Fortran */
 #define ACC_CALL_STMT                    907     /* ACC Fortran */
 #define ACC_KERNEL_HEDR                  908     /* ACC Fortran */
-#define ACC_GET_ACTUAL_DIR               909      /* ACC Fortran */
-#define ACC_ACTUAL_DIR                   910      /* ACC Fortran */
-#define ACC_CHECKSECTION_DIR             911      /* ACC Fortran */
-#define ACC_END_CHECKSECTION_DIR         912      /* ACC Fortran */
+#define ACC_GET_ACTUAL_DIR               909     /* ACC Fortran */
+#define ACC_ACTUAL_DIR                   910     /* ACC Fortran */
+#define ACC_CHECKSECTION_DIR             911     /* ACC Fortran */
+#define ACC_END_CHECKSECTION_DIR         912     /* ACC Fortran */
+#define ACC_ROUTINE_DIR                  913     /* ACC Fortran */
                             
 #define ACC_INLOCAL_OP                   931     /* ACC Fortran */
 #define ACC_INOUT_OP                     932     /* ACC Fortran */
@@ -138,3 +139,12 @@
 #define SPF_PRIVATES_EXPANSION_OP        957     /* SAPFOR */
 #define SPF_FISSION_OP                   958     /* SAPFOR */ 
 #define SPF_SHRINK_OP                    959     /* SAPFOR */
+#define SPF_CHECPOINT_DIR                960     /* SAPFOR */
+#define SPF_TYPE_OP                      961     /* SAPFOR */
+#define SPF_VARLIST_OP                   962     /* SAPFOR */
+#define SPF_EXCEPT_OP                    963     /* SAPFOR */
+#define SPF_FILES_COUNT_OP               964     /* SAPFOR */
+#define SPF_INTERVAL_OP                  965     /* SAPFOR */
+#define SPF_TIME_OP                      966     /* SAPFOR */
+#define SPF_ITER_OP                      967     /* SAPFOR */
+#define SPF_FLEXIBLE_OP                  968     /* SAPFOR */

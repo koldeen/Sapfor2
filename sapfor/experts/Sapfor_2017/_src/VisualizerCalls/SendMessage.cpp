@@ -1,5 +1,4 @@
 #include <string>
-#include <codecvt>
 #include <locale>
 #include <vector>
 #include <iostream>
@@ -89,12 +88,16 @@ static string utf8_encode(const wstring& wstr)
     string strTo(size_needed, 0);
     WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
 #else
-    char* buf = NULL;
+    /*char* buf = NULL;
     int size_needed = wcstombs(buf, wstr.c_str(), sizeof(char));
     buf = new char[size_needed + 1];
     buf[wcstombs(buf, wstr.c_str(), sizeof(char))] = '\0';
     string strTo(buf);
-    delete[] buf;
+    delete[] buf;*/
+
+    string strTo(wstr.size(), 0);
+    for (int z = 0; z < wstr.size(); ++z)
+        strTo[z] = wstr[z];
 #endif
     return strTo;
 }
@@ -264,12 +267,21 @@ int MessageManager::init()
     return Started;
 }
 
+SOCKET client = INVALID_SOCKET;
+
+void sendErrorCode(const wstring& message)
+{
+    send(client, message);
+    closesocket(client);
+    client = INVALID_SOCKET;
+}
+
 void RunSapforAsClient()
 {
     if (MessageManager::init() != 0)
         return;
 
-    SOCKET client = INVALID_SOCKET;
+    client = INVALID_SOCKET;
     if (connectAndCreate(client, "127.0.0.1", 8889) != 0)
         return;
  
@@ -283,6 +295,8 @@ void RunSapforAsClient()
             buf[count] = '\0';
             string message = buf;
             string code;
+
+            printf("[CLIENT] recv message: '%s'\n", message.c_str());
 
             int z = 0;
             for (; z < message.size(); ++z)
@@ -298,7 +312,7 @@ void RunSapforAsClient()
 
             if (z == message.size()) // wrong message
             {
-                printf("[CLIENT] wrong messages: %s\n", message.c_str());
+                printf("[CLIENT] wrong message\n");
 
                 int err = send(client, L"WRONG");
                 if (err != 0)
@@ -351,11 +365,13 @@ void RunSapforAsClient()
         }
         else if (count == 0) // close and exit
         {
+            closesocket(client);
             printf("[CLIENT] socket was closed\n");
             break;
         }
         else // error
         {
+            closesocket(client);
             printf("[CLIENT] recv return error code %d\n", count);
             break;
         }

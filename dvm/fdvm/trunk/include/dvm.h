@@ -1781,6 +1781,11 @@ SgExpression *DvmhConnected(SgExpression *unit, SgExpression *failIfYes);
 SgExpression *DvmhStringVariable(SgExpression *v); 
 SgExpression *DvmhVariable(SgExpression *v);
 SgExpression *VarGenHeader(SgExpression *item); 
+SgStatement *SaveCheckpointFilenames(SgExpression *cpName, std::vector<SgExpression *> filenames);
+SgStatement *CheckFilename(SgExpression *cpName, SgExpression *filename);
+SgStatement *GetNextFilename(SgExpression *cpName, SgExpression *lastFile, SgExpression *currentFile);
+SgStatement *CpWait(SgExpression *cpName, SgExpression *statusVar);
+SgStatement *CpSaveAsyncUnit(SgExpression *cpName, SgExpression *file, SgExpression *unit);
 SgStatement *Dvmh_Line(int line, SgStatement *stmt);
 SgStatement *DvmhArrayCreate(SgSymbol *das, SgExpression *array_header, int rank, SgExpression *arglist);
 SgStatement *DvmhTemplateCreate(SgSymbol *das, SgExpression *array_header, int rank, SgExpression *arglist);
@@ -1899,6 +1904,12 @@ int hasEndErrControlSpecifier(SgStatement *stmt, SgExpression *ioEnd[] );
 void ChangeSpecifierByIOSTAT(SgExpression *e);
 void ChangeControlList(SgStatement *stmt, SgExpression *ioEnd[] );
 void ReplaceStatementWithEndErrSpecifier(SgStatement *stmt, SgExpression *ioEnd[] );
+
+/* checkpoint.cpp */
+void CP_Create_Statement(SgStatement *st, int error_msg);
+void CP_Save_Statement(SgStatement *st, int error_msg);
+void CP_Load_Statement(SgStatement *st, int error_msg);
+void CP_Wait(SgStatement *stmt, int error_msg);
 
 /*  debug.cpp   */
 void D_AddToDoList (int Nloop, int Nline, SgLabel *lab, SgSymbol *var);

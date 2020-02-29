@@ -560,9 +560,8 @@ static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*
 
             wstring bufE, bufR;
             __spf_printToLongBuf(bufE, L"Added remote access for array ref '%s' can significantly reduce performance", to_wstring(remoteExp).c_str());
-#ifdef _WIN32
             __spf_printToLongBuf(bufR, R129, to_wstring(remoteExp).c_str());
-#endif
+
             messages.push_back(Messages(WARR, line, bufR, bufE, 3009));
         }
     }

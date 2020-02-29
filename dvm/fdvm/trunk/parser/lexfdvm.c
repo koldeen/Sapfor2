@@ -428,14 +428,17 @@ struct Keylist keys[] = {
         {"eqv", EQV},
         {"err", ERR},
 /*!!!        {"event", EVENT},*/
+        {"except", SPF_EXCEPT}, /*SPF*/
         {"exit", EXIT},
 /*        {"extended", EXTENDED},*/
 /*        {"extend", EXTEND},*/
 	{"external", EXTERNAL},
+        {"files_count",SPF_FILES_COUNT}, /*SPF*/
         {"files",FILES},
 	{"find", FIND},
-        {"fission",SPF_FISSION},
+        {"fission",SPF_FISSION}, /*SPF*/
         {"firstprivate", OMPDVM_FIRSTPRIVATE},/*OMP*/
+        {"flexible", SPF_FLEXIBLE}, /*SPF*/
         {"forall", FORALL},
 	{"format", FORMAT},
 /*        {"from", FROM}, */
@@ -464,12 +467,14 @@ struct Keylist keys[] = {
 	{"interfaceassignment", INTERFACEASSIGNMENT},
 	{"interfaceoperator", INTERFACEOPERATOR},
 	{"interface", INTERFACE},
+        {"interval", SPF_INTERVAL}, /*SPF*/
 	{"intrinsic", INTRINSIC},
 	{"in", IN},
 	{"iand", IAND},/*OMP*/
 	{"ieor", IEOR},/*OMP*/
 	{"ior", IOR},/*OMP*/
         {"iostat", IOSTAT},
+        {"iter", SPF_ITER}, /*SPF*/
         {"lastprivate", OMPDVM_LASTPRIVATE},/*OMP*/
 /*        {"location", LOCATION},*/
 /*        {"lock", LOCK},*/
@@ -492,7 +497,7 @@ struct Keylist keys[] = {
         {"neqv", NEQV},
         {"new_value", NEW_VALUE},
         {"new", NEW},
-        {"noinline", SPF_NOINLINE},
+        {"noinline", SPF_NOINLINE}, /*SPF*/
         {"nowait", OMPDVM_NOWAIT},/*OMP*/
         {"none", OMPDVM_NONE},/*OMP*/
         {"nullify", NULLIFY},
@@ -520,7 +525,7 @@ struct Keylist keys[] = {
 /*        {"port", PORT},*/
 /*       {"post", POST}, */
 	{"print", PRINT},
-        {"privates_expansion",SPF_PRIVATES_EXPANSION},
+        {"privates_expansion",SPF_PRIVATES_EXPANSION}, /*SPF*/
         {"private", PRIVATE}, 
 /*!!!        {"probe", PROBE}, */
 /*!!!        {"procedure", PROCEDURE},*/
@@ -570,7 +575,7 @@ struct Keylist keys[] = {
         {"shared", OMPDVM_SHARED},/*OMP*/
 /*        {"singleprocess", SINGLEPROCESS},*/
 /*        {"skippasteof", SKIPPASTEOF},*/
-        {"shrink",SPF_SHRINK},
+        {"shrink",SPF_SHRINK}, /*SPF*/
         {"stage", STAGE},
         {"static", STATIC},
         {"status", STATUS}, 
@@ -585,6 +590,7 @@ struct Keylist keys[] = {
         {"targets", ACC_TARGETS},  /*ACC*/
         {"target", TARGET},
         {"template", HPF_TEMPLATE},
+        {"time", SPF_TIME}, /*SPF*/
 	{"then", THEN},
 	{"to", TO},
 	{"type", TYPE},
@@ -2101,6 +2107,9 @@ analyz()
              }  else if (eqn(9, nextch, "transform")) {
                 stkey = SPF_TRANSFORM;    
                 nextch += 9;
+             }  else if (eqn(10, nextch, "checkpoint")) {
+                stkey = SPF_CHECKPOINT;    
+                nextch += 10;
 
              }  else
                 stkey = UNKNOWN;
@@ -2170,7 +2179,10 @@ analyz()
              }  else if (eqn(6, nextch, "region")) {  /*ACC*/
                 stkey = ACC_REGION;  
                 nextch += 6;
-             }  else
+             }  else if (eqn(7, nextch, "routine")) { /*ACC*/
+                stkey = ACC_ROUTINE;  
+                nextch += 7; 
+            }  else
                 stkey = UNKNOWN;
              break;
           case 'd':

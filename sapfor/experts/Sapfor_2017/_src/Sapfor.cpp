@@ -16,7 +16,7 @@
 #endif
 
 #define DEBUG_LVL1 true
-#define RELEASE_CANDIDATE 0 //_WIN32
+#define RELEASE_CANDIDATE 0
 
 #include "ParallelizationRegions/ParRegions_func.h"
 #include "ParallelizationRegions/resolve_par_reg_conflicts.h"
@@ -63,12 +63,7 @@
 #include "LoopConverter/swap_array_dims.h"
 #include "VisualizerCalls/get_information.h"
 #include "VisualizerCalls/SendMessage.h"
-
-#if RELEASE_CANDIDATE
-#include "Inliner/inliner.h"
-#endif
-
-
+#include "LoopConverter/checkpoints.h"
 
 #include "dvm.h"
 #include "Sapfor.h"
@@ -157,9 +152,7 @@ static inline void printDvmActiveDirsErrors()
         for (auto &code : err.second)
         {
             __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet\n", code);
-#ifdef _WIN32
             currMessages.push_back(Messages(ERROR, code, R53, L"Active DVM directives are not supported (turn on DVM-directive support option)", 1020));
-#endif
         }
     }
 }
@@ -261,9 +254,7 @@ static string unparseProjectIfNeed(SgFile* file, const int curr_regime, const bo
         if (newVer == NULL)
         {
             __spf_print(1, "  ERROR: null file addition name\n");
-#ifdef _WIN32
             getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, R102, L"Internal error during unparsing process has occurred", 2007));
-#endif
             throw(-1);
         }
 
@@ -303,9 +294,7 @@ static string unparseProjectIfNeed(SgFile* file, const int curr_regime, const bo
             else
             {
                 __spf_print(1, "ERROR: can not create file '%s'\n", fout_name.c_str());
-#ifdef _WIN32
                 getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, R103, L"Internal error during unparsing process has occurred", 2007));
-#endif
                 throw(-1);
             }
         }
@@ -437,6 +426,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     auto toSendStrMessage = string(passNames[curr_regime]);
 #ifdef _WIN32
     sendMessage_1lvl(wstring(L"выполняется проход '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
+#else
+    sendMessage_1lvl(wstring(L"running pass '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
 #endif
 
     const int n = project.numberOfFiles();
@@ -455,9 +446,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     // **********************************  ///
     /// FIRST STEP - RUN ANALYSIS BY FILES ///
     // **********************************  ///
-#if _WIN32
     auto timeForPass = high_resolution_clock::now();
-#endif
     
     sgStats.clear();
     sgExprs.clear();
@@ -477,14 +466,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
     for (int i = n - 1; i >= 0; --i)
     {
-#if _WIN32
         createNeededException();
-#endif
         SgFile *file = &(project.file(i));
 
         toSendStrMessage = file->filename();
 #ifdef _WIN32
         sendMessage_2lvl(wstring(L"обработка файла '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
+#else 
+        sendMessage_2lvl(wstring(L"processing file '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
 #endif
         sendMessage_progress(std::to_wstring((int)(((double)(n - i) / n) * 100)));
 
@@ -564,10 +553,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CREATE_PARALLEL_DIRS)
         {
-            auto &loopsByFile = getObjectForFileFromMap(file_name, loopGraph);
+            auto &loopsInFile = getObjectForFileFromMap(file_name, loopGraph);
 
-            map<int, LoopGraph*> mapLoopsByFile;
-            createMapLoopGraph(loopsByFile, mapLoopsByFile);
+            map<int, LoopGraph*> mapLoopsInFile;
+            createMapLoopGraph(loopsInFile, mapLoopsInFile);
 
             map<string, FuncInfo*> mapFuncInfo;
             createMapOfFunc(allFuncInfo, mapFuncInfo);
@@ -590,7 +579,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 for (auto& elem : depInfoForLoopGraph)
                     depInfoForLoopGraphV[elem.first] = elem.second;
 
-                selectParallelDirectiveForVariant(new File(file), parallelRegions[z], reducedG, allArrays, loopsByFile, mapLoopsByFile, mapFuncInfo, currentVar,
+                selectParallelDirectiveForVariant(new File(file), parallelRegions[z], reducedG, allArrays, loopsInFile, mapLoopsInFile, mapFuncInfo, currentVar,
                                                   dataDirectives.alignRules, toInsert, parallelRegions[z]->GetId(), arrayLinksByFuncCalls,
                                                   depInfoForLoopGraphV, getObjectForFileFromMap(file_name, SPF_messages));
 
@@ -1044,6 +1033,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             setAllDeclsWithInitZero(file);
         else if (curr_regime == DUMP_DECLS_WITH_INIT)
             dumpAllDeclsWithInit(file, (i == n - 1));
+        else if (curr_regime == CREATE_CHECKPOINTS)
+            createCheckpoints(file, commonBlocks);
+        else if (curr_regime == CONVERT_SAVE_TO_MODULE)
+            convertSaveToModule(file);
 
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, allIncludeFiles);
     } // end of FOR by files
@@ -1051,10 +1044,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     if (internalExit != 0)
         throw -1;
 
-
-#ifdef _WIN32
     sendMessage_2lvl(wstring(L""));
-#endif
     // **********************************  ///
     /// SECOND AGGREGATION STEP            ///
     // **********************************  ///
@@ -1106,9 +1096,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 {
                     wstring messageR, messageE;
                     __spf_printToLongBuf(messageE, L"Can not build align graph from user's DVM directives in this region");
-#ifdef _WIN32
                     __spf_printToLongBuf(messageR, R67);
-#endif
+
                     for (auto &lines : currReg->GetAllLines())
                     {
                         const auto &vecLines = lines.second;
@@ -1219,9 +1208,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 {
                     wstring bufE, bufR;
                     __spf_printToLongBuf(bufE, L"Can not find arrays or free loops for distribution in this project");
-#ifdef _WIN32
                     __spf_printToLongBuf(bufR, R130);
-#endif
+
                     for (auto &funcByFile : allFuncInfo)
                     {
                         vector<Messages> &fileM = getObjectForFileFromMap(funcByFile.first.c_str(), SPF_messages);
@@ -1237,9 +1225,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 {
                     wstring bufE, bufR;
                     __spf_printToLongBuf(bufE, L"Can not find arrays or free loops for distribution in this region");
-#ifdef _WIN32
                     __spf_printToLongBuf(bufR, R131);
-#endif
+
                     for (auto &linesByFile : parallelRegions[z]->GetAllLines())
                     {
                         vector<Messages> &fileM = getObjectForFileFromMap(linesByFile.first.c_str(), SPF_messages);
@@ -1382,9 +1369,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             for (int i = n - 1; i >= 0; --i)
             {
-#if _WIN32
                 createNeededException();
-#endif
                 SgFile *file = &(project.file(i));
 
                 auto funcForFile = allFuncInfo.find(file->filename());
@@ -1454,10 +1439,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                             wstring messageE, messageR;
                             __spf_printToLongBuf(messageE, L"distributed array '%s' in common block '%s' must have declaration in main unit", 
                                                  to_wstring(array->GetShortName()).c_str(), to_wstring(nameOfCommon).c_str());
-#ifdef _WIN32
                             __spf_printToLongBuf(messageR, R75,
                                                  to_wstring(array->GetShortName()).c_str(), to_wstring(nameOfCommon).c_str());
-#endif
                             currMessages.push_back(Messages(ERROR, place.second, messageR, messageE, 1042));
                         }
                         internalExit = 1;
@@ -1562,9 +1545,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
             for (int i = n - 1; i >= 0; --i)
             {
-#if _WIN32
                 createNeededException();
-#endif
+
                 SgFile *file = &(project.file(i));
                 if (file->mainProgram())
                 {
@@ -2204,6 +2186,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case INSERT_INTER_TREE:
     case REMOVE_DVM_INTERVALS:
     case SET_TO_ALL_DECL_INIT_ZERO:
+    case CREATE_CHECKPOINTS:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
     case INLINE_PROCEDURES:
@@ -2296,6 +2279,8 @@ int main(int argc, char **argv)
 
         out_free_form = 0; // F90 style out
         out_upper_case = 1;
+        out_line_unlimit = 0;
+
         bool printText = false;
 
         for (int i = 0; i < argc; ++i)
@@ -2387,7 +2372,10 @@ int main(int argc, char **argv)
                 else if (string(curr_arg) == "-leak")
                     leakMemDump = 1;
                 else if (string(curr_arg) == "-f90")
+                {
                     out_free_form = 1;
+                    out_line_unlimit = 1;
+                }
                 /*else if (string(curr_arg) == "-sh")
                     staticShadowAnalysis = 1;*/
                 else if (string(curr_arg) == "-priv")
@@ -2451,6 +2439,9 @@ int main(int argc, char **argv)
                     runAsClient = true;
                     withDel = false;
                     consoleMode = false;
+#ifndef _WIN32
+                    langOfMessages = 0;
+#endif
                     break;
                 }
                 break;

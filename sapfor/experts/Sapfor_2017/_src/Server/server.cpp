@@ -8,11 +8,18 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#if _WIN32
 #include <filesystem>
+namespace fs = std::filesystem;
+#else 
+//с++14 unix + -lstdc++fs
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#endif
 #include <stdlib.h>
 #include <string.h>
 
-namespace fs = std::filesystem;
+
 using namespace std;
 
 #if _WIN32
@@ -49,7 +56,7 @@ void Sleep(int millisec) { usleep(millisec * 1000); }
 
 #endif
 
-int initServer(SOCKET& listenSocket, const string& address, int port)
+static int initServer(SOCKET& listenSocket, const string& address, int port)
 {
     int iResult;
 #if _WIN32	
@@ -90,6 +97,16 @@ int initServer(SOCKET& listenSocket, const string& address, int port)
         return 1;
     }
 
+	linger lin;
+    lin.l_onoff = 1;
+    lin.l_linger = 2;
+    iResult = setsockopt(listenSocket, SOL_SOCKET, SO_LINGER, (char*)(&lin), sizeof(lin));
+    if (iResult != 0)
+    {
+        printf("Wrong setsockopt %d\n", iResult);
+        return 1;
+    }
+	
 #if _WIN32
     iResult = bind(listenSocket, result->ai_addr, result->ai_addrlen);
 #else
@@ -122,12 +139,23 @@ int initServer(SOCKET& listenSocket, const string& address, int port)
 static int initClient(SOCKET& javaSocket, const string& address, int port)
 {
     javaSocket = socket(AF_INET, SOCK_STREAM, 0);
+	
     if (javaSocket == INVALID_SOCKET)
     {
         printf("[SERVER] Wrnog java socket\n");
         return -1;
     }
 
+	linger lin;
+    lin.l_onoff = 1;
+    lin.l_linger = 2;
+    int iResult = setsockopt(javaSocket, SOL_SOCKET, SO_LINGER, (char*)(&lin), sizeof(lin));
+    if (iResult != 0)
+    {
+        printf("Wrong setsockopt %d\n", iResult);
+        return 1;
+    }
+	
     sockaddr_in clientService;
     clientService.sin_family = AF_INET;
     clientService.sin_addr.s_addr = inet_addr(address.c_str());
@@ -234,7 +262,7 @@ static bool doCommand(SOCKET& clientSoc, SOCKET& javaSoc, const string& command,
 
 int main(int argc, char** argv)
 {
-    SOCKET serverSoc, javaSoc;
+    SOCKET serverSoc = INVALID_SOCKET, javaSoc = INVALID_SOCKET;
     if (initServer(serverSoc, "127.0.0.1", 8889) != 0) // create server for Sapfor
         return -1;
 
@@ -423,6 +451,7 @@ int main(int argc, char** argv)
                     printf("[SERVER] send result to JAVA %d\n", (int)retCode.size());
 #else
                 printf("%s\n", retCode.c_str());
+                Sleep(1000);
 #endif
             }
             printf("[SERVER] invalid sapfor socket, try to restart\n");

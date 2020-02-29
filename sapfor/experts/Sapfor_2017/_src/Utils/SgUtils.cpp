@@ -2202,24 +2202,41 @@ SgExpression* makeExprList(const vector<SgExpression*>& items)
     return list;
 }
 
-SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& s)
+SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& s, vector<SgExpression*>* inits)
 {
     if (s.size() == 0)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-    SgVarDeclStmt* decl = s[0]->makeVarDeclStmt();    
-    for (auto& elem : s)
-        if (s[0] != elem)
-            decl->addVar(*new SgVarRefExp(elem));
+    SgVarDeclStmt* decl = s[0]->makeVarDeclStmt();
+    if (inits)
+    {
+        if ((*inits)[0])
+            decl->expr(0)->setLhs(new SgExpression(ASSGN_OP, new SgVarRefExp(s[0]), (*inits)[0]));
+    }
+
+    for (int z = 1; z < s.size(); ++z)
+    {
+        if (inits)
+        {
+            if ((*inits)[z])
+                decl->addVar(*new SgExpression(ASSGN_OP, new SgVarRefExp(s[z]), (*inits)[z]));
+            else
+                decl->addVar(*new SgVarRefExp(s[z]));
+        }
+        else
+            decl->addVar(*new SgVarRefExp(s[z]));
+    }
 
     SgStatement* place = curr;
-    while (isSgProgHedrStmt(place) == NULL)
-        place = place->controlParent();
-    auto scope = place;
-    while (isSgExecutableStatement(place) == NULL)
-        place = place->lexNext();
-    place->insertStmtBefore(*decl, *scope);
-
+    if (place)
+    {
+        while (isSgProgHedrStmt(place) == NULL)
+            place = place->controlParent();
+        auto scope = place;
+        while (isSgExecutableStatement(place) == NULL)
+            place = place->lexNext();
+        place->insertStmtBefore(*decl, *scope);
+    }
     decl->setVariant(VAR_DECL_90);
     return decl;
 }
@@ -2707,6 +2724,8 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
 
 #ifdef _WIN32
         sendMessage_2lvl(L" обработка файла '" + to_wstring(file) + L"'");
+#else 
+        sendMessage_2lvl(L" processing file '" + to_wstring(file) + L"'");
 #endif        
         StdCapture::Init();
         string errorMessage = "";
@@ -2752,9 +2771,8 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
         for (int z = 0; z <= optSplited.size(); ++z)
             delete toParse[z];
         delete[] toParse;
-#if _WIN32
+
         createNeededException();
-#endif
     }
     return errors;
 }
@@ -2982,15 +3000,17 @@ int parseFiles(const char* proj)
         {
 #ifdef _WIN32
             sendMessage_1lvl(L"выполняется " + std::to_wstring((iters + 1)) + L" итерация синтаксического анализа");
+#else
+            sendMessage_1lvl(L"running " + std::to_wstring((iters + 1)) + L" iteration of syntax analisys");
 #endif
             errors = parseList(listOfProject, iters != 0, mapModuleDeps, moduleDelc, modDirectOrder);
             changed = createMapOfUse(errors, listOfProject, mapModuleDeps);
             if (iters != 0)
                 if (lastChanged <= changed)
                     break;
-#if _WIN32
+
             createNeededException();
-#endif
+
             if (changed)
             {
                 vector<string> files;

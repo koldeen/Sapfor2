@@ -252,17 +252,23 @@ static SgStatement* getModuleScope(const string& origFull, vector<SgStatement*>&
     return local;
 }
 
-
+/*
+(file, newRules, alignRules, reducedG, allArrays, loop->acrossOutAttribute,
+ loop->readOps, loop->loop, loop->lineNum, loop->altLineNum, regionId, arrayLinksByFuncCalls, loop);
+*/
 pair<string, vector<Expression*>> 
 ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, const DistrVariant*>>& distribution,
                                 const vector<AlignRule>& alignRules,
+                                const LoopGraph* currLoop,
                                 DIST::GraphCSR<int, double, attrType>& reducedG,
-                                DIST::Arrays<int>& allArrays,
-                                const set<DIST::Array*>& acrossOutAttribute,
-                                const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>>& readOps,
-                                Statement* loop, const int line, const int altLine, const int regionId,
+                                DIST::Arrays<int>& allArrays, const int regionId,
                                 const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls)
 {
+    const set<DIST::Array*>& acrossOutAttribute = currLoop->acrossOutAttribute;
+    const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>>& readOps = currLoop->readOps;
+
+    Statement* loop = currLoop->loop;
+
     string directive = "";
     vector<Expression*> dirStatement = { NULL, NULL, NULL };
 
@@ -272,8 +278,9 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
     vector<SgStatement*> moduleList;
     findModulesInFile(file, moduleList);
 
-    SgStatement* parentFunc = getFuncStat(getRealStat(loop, file->filename(), line, altLine));
-    map<string, set<SgSymbol*>> byUseInFunc = moduleRefsByUseInFunction(getRealStat(loop, file->filename(), line, altLine));
+    SgStatement* realStat = getRealStat(loop, file->filename(), currLoop->lineNum, currLoop->altLineNum);
+    SgStatement* parentFunc = getFuncStat(realStat);
+    const map<string, set<SgSymbol*>> byUseInFunc = moduleRefsByUseInFunction(realStat);
     const int nested = loopG->isPerfectLoopNest();
     vector<SgSymbol*> loopSymbs;
     for (int z = 0; z < nested; ++z)

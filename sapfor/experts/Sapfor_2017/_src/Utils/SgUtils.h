@@ -71,7 +71,7 @@ void filterModuleUse(std::map<std::string, std::set<std::string>>& moduleUses, s
 SgExpression* makeExprList(const std::vector<SgExpression*>& items);
 std::string unparseProjectToString(SgFile* file, const int curr_regime);
 
-SgStatement* makeDeclaration(SgStatement* curr, const std::vector<SgSymbol*>& s);
+SgStatement* makeDeclaration(SgStatement* curr, const std::vector<SgSymbol*>& s, std::vector<SgExpression*>* inits = NULL);
 
 int parseFiles(const char* proj);
 int pppaAnalyzer(const char* options);

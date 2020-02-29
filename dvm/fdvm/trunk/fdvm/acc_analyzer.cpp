@@ -14,7 +14,7 @@ using std::make_pair;
 using std::set;
 using std::pair;
 
-#if __SPF && _WIN32
+#if __SPF
 using std::wstring;
 #include "../_src/Utils/AstWrapper.h"
 #include "../_src/Utils/utils.h"
@@ -24,7 +24,11 @@ static pair<wstring, string> getText(const char *s, const wchar_t *s1, const cha
     pair<wstring, string> ret;
 
     wchar_t bufW[1024];
+#if _WIN32
     swprintf(bufW, s1, to_wstring(t).c_str());
+#else
+    swprintf(bufW, 1024, s1, to_wstring(t).c_str());
+#endif
     ret.first = bufW;
 
     char buf[1024];
@@ -38,14 +42,22 @@ static pair<wstring, string> getText(const char *s, const wchar_t *s1, const cha
         if (stmt->variant() == DVM_PARALLEL_ON_DIR)
         {
             line = stmt->lexNext()->lineNumber();
+#if _WIN32
             ret.first += L" дл€ этого цикла";
+#else
+            ret.first += L"";
+#endif
             ret.second += " for this loop";
         }
     }
 
     if (stmt->variant() == SPF_ANALYSIS_DIR)
     {
+#if _WIN32
         ret.first += L" дл€ этого цикла";
+#else
+        ret.first += L"";
+#endif
         ret.second += " for this loop";
     }
 
@@ -111,8 +123,6 @@ inline void Note(const char *s, const wchar_t *s1, const char *t, int num, SgSta
     auto retVal = getText(s, s1, t, num, stmt, line);
     printLowLevelNote(stmt->fileName(), line, retVal.first.c_str(), retVal.second.c_str(), 1030);
 }
-#elif __SPF
-inline void Warning(const char *s, const char *t, int num, SgStatement *stmt) { }
 #endif
 
 // local functions
@@ -930,8 +940,13 @@ ActualDelayedData* ControlFlowGraph::ProcessDelayedPrivates(CommonData* commons,
         if (i->el == call) 
         {
             //TODO: add name of common
-#if __SPF && _WIN32
-            Warning("Recursion is not analyzed for privates in common blocks '%s'", L"–екурси€ не анализируетс€ дл€ приватных переменных в коммон блоке '%s'",
+#if __SPF
+#if _WIN32
+            const wchar_t* rus = L"–екурси€ не анализируетс€ дл€ приватных переменных в коммон блоке '%s'";
+#else
+            const wchar_t* rus = L"";
+#endif
+            Warning("Recursion is not analyzed for privates in common blocks '%s'", rus,
                     "TODO!", PRIVATE_ANALYSIS_NO_RECURSION_ANALYSIS, call->header);
 #else
             Warning("Recursion is not analyzed for privates in common blocks '%s'", "TODO!", PRIVATE_ANALYSIS_NO_RECURSION_ANALYSIS, call->header);
@@ -2118,8 +2133,13 @@ bool ControlFlowGraph::ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlo
         }
         else
             expanded_log = is_correct;
-#if __SPF && _WIN32
-        Warning("Private analysis is not conducted for loop: '%s'", L"јнализ приватных переменных невозможен дл€ данного цикла из-за: '%s'", 
+#if __SPF
+#if _WIN32
+        const wchar_t* rus = L"јнализ приватных переменных невозможен дл€ данного цикла из-за: '%s'";
+#else
+        const wchar_t* rus = L"";
+#endif
+        Warning("Private analysis is not conducted for loop: '%s'", rus, 
                  expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
 #else
         Warning("Private analysis is not conducted for loop: '%s'", expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
@@ -2163,8 +2183,13 @@ bool ControlFlowGraph::ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlo
             else
                 expanded_log = is_correct;
 
-#if __SPF && _WIN32
-            Warning("Private analysis is not conducted for loop: '%s'", L"јнализ приватных переменных невозможен дл€ данного цикла из-за: '%s'", 
+#if __SPF
+#if _WIN32
+            const wchar_t* rus = L"јнализ приватных переменных невозможен дл€ данного цикла из-за: '%s'";
+#else
+            const wchar_t* rus = L"";
+#endif
+            Warning("Private analysis is not conducted for loop: '%s'", rus, 
                      expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
 #else
             Warning("Private analysis is not conducted for loop: '%s'", expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
@@ -2365,8 +2390,13 @@ void PrivateDelayedItem::PrintWarnings()
         int stored_fid = SwitchFile(change_fid);
         if (syb->GetVarType() != VAR_REF_ARRAY_EXP)
         {
-#if __SPF && _WIN32
-            Warning("var '%s' from private list wasn't classified as private", L"ѕеременна€ '%s' из списка приватных переменных не может быть классифицирована как приватна€",
+#if __SPF
+#if _WIN32
+            const wchar_t* rus = L"ѕеременна€ '%s' из списка приватных переменных не может быть классифицирована как приватна€";
+#else
+            const wchar_t* rus = L"";
+#endif
+            Warning("var '%s' from private list wasn't classified as private", rus,
                      syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_REMOVE_VAR, lstart->getPrivateListStatement());
 #else
             Warning("var '%s' from private list wasn't classified as private", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_REMOVE_VAR, lstart->getPrivateListStatement());
@@ -2377,8 +2407,13 @@ void PrivateDelayedItem::PrintWarnings()
             CArrayVarEntryInfo* tt = (CArrayVarEntryInfo*)syb;
             if (tt->HasActiveElements())
             {
-#if __SPF && _WIN32
-                Warning("array '%s' from private list wasn't classified as private", L"ћассив '%s' из списка приватных переменных не может быть классифицирована как приватный",
+#if __SPF
+#if _WIN32
+                const wchar_t* rus = L"ћассив '%s' из списка приватных переменных не может быть классифицирована как приватный";
+#else
+                const wchar_t* rus = L"";
+#endif
+                Warning("array '%s' from private list wasn't classified as private", rus,
                          syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_REMOVE_VAR, lstart->getPrivateListStatement());
 #else
                 Warning("array '%s' from private list wasn't classified as private", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_REMOVE_VAR, lstart->getPrivateListStatement());
@@ -2398,8 +2433,13 @@ void PrivateDelayedItem::PrintWarnings()
         test1->remove(var->var);
         int stored_fid = SwitchFile(change_fid);
         if (syb->GetVarType() != VAR_REF_ARRAY_EXP) {
-#if __SPF && _WIN32
-            Note("add private scalar '%s'", L"ƒобавлена приватна€ переменна€ '%s'", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
+#if __SPF
+#if _WIN32
+            const wchar_t* rus = L"ƒобавлена приватна€ переменна€ '%s'";
+#else
+            const wchar_t* rus = L"";
+#endif
+            Note("add private scalar '%s'", rus, syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
 #else
             Warning("var '%s' was added to private list", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
 #endif
@@ -2414,8 +2454,13 @@ void PrivateDelayedItem::PrintWarnings()
             CArrayVarEntryInfo* tt = (CArrayVarEntryInfo*)syb;
             if (tt->HasActiveElements()) 
             {
-#if __SPF && _WIN32
-                Note("add private array '%s'", L"ƒобавлена приватна€ переменна€ по массиву '%s'", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
+#if __SPF
+#if _WIN32
+                const wchar_t* rus = L"ƒобавлена приватна€ переменна€ по массиву '%s'";
+#else
+                const wchar_t* rus = L"";
+#endif
+                Note("add private array '%s'", rus, syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
 #else
                 Warning("var '%s' was added to private list", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
 #endif

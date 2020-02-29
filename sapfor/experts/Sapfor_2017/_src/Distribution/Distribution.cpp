@@ -223,9 +223,8 @@ namespace Distribution
             //sprintf(buf, "  global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
             printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
             //addToGlobalBufferAndPrint(buf);
-#if _WIN32
             createNeededException();
-#endif
+
         }
         else
         {
@@ -261,9 +260,7 @@ namespace Distribution
                     }
                     else
                     {
-#if _WIN32
                         createNeededException();
-#endif
                         break;
                     }
                 }
@@ -428,13 +425,17 @@ namespace Distribution
                 }
             }
 
-#ifdef _WIN32
             if (needPrint)
             {
+#if _WIN32
                 wstring treeM = L"разрешение конфликтов, обработка группы " + std::to_wstring(k + 1) + L"/" + std::to_wstring(AllCycles.size());
-                sendMessage_2lvl(treeM);
-            }
+#else
+                wstring treeM = L"conflict resolution, processing group " + std::to_wstring(k + 1) + L"/" + std::to_wstring(AllCycles.size());
 #endif
+                sendMessage_2lvl(treeM);
+
+            }
+
             auto timeR = steady_clock::now();
             if (countConflicts != 0)
             {
@@ -485,10 +486,9 @@ namespace Distribution
             delete []fastCache;
         }
 
-#ifdef _WIN32
         if (needPrint)
             sendMessage_2lvl(L"");
-#endif
+
         return make_pair(allOnlySecondType, globalSum);
     }
 
@@ -608,8 +608,11 @@ namespace Distribution
 
 #ifdef _WIN32
                 wstring treeM = L"разрешение конфликтов, обработка массива " + std::to_wstring(z + 1) + L"/" + std::to_wstring(arrays.size());
-                sendMessage_2lvl(treeM);
+#else
+                wstring treeM = L"conflict resolution, processing array " + std::to_wstring(z + 1) + L"/" + std::to_wstring(arrays.size());
 #endif
+                sendMessage_2lvl(treeM);
+
                 vector<vType> verts;
 
                 if (array->GetDimSize() == 1)
@@ -635,10 +638,7 @@ namespace Distribution
                     }
                 }
             }
-#ifdef _WIN32
             sendMessage_2lvl(L"");
-#endif
-
 #if TEST
             if (needToReSave)
             {

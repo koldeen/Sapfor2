@@ -1253,7 +1253,7 @@ public:
   inline SgProcHedrStmt(int variant);
   inline SgProcHedrStmt(SgSymbol &name, SgStatement &Body);
   inline SgProcHedrStmt(SgSymbol &name);
-  inline SgProcHedrStmt(char *name);
+  inline SgProcHedrStmt(const char *name);
   inline void AddArg(SgExpression &arg); 
   SgExpression * AddArg(char *name, SgType &t); // returns decl expr created.
   SgExpression * AddArg(char *name, SgType &t, SgExpression &initializer);
@@ -5751,7 +5751,7 @@ inline SgProcHedrStmt::SgProcHedrStmt(SgSymbol &name):SgProgHedrStmt(PROC_HEDR)
 	}
 }
 
-inline SgProcHedrStmt::SgProcHedrStmt(char *name):SgProgHedrStmt(PROC_HEDR)
+inline SgProcHedrStmt::SgProcHedrStmt(const char *name):SgProgHedrStmt(PROC_HEDR)
 {
   SgSymbol *proc;
   proc = new SgSymbol(PROCEDURE_NAME, name); 

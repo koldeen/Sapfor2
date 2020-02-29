@@ -5,6 +5,8 @@
 #endif
 enum typeMessage { WARR, ERROR, NOTE };
 
+//Р“Р°Р№Рґ РїРѕ СЂСѓСЃРёС„РёРєР°С†РёРё СЃРѕРѕР±С‰РµРЅРёР№ СЃРјРѕС‚СЂРё РЅРёР¶Рµ.
+
 // GROUP:
 // 10xx - analysis
 // 20xx - transform
@@ -118,19 +120,7 @@ private:
         value = value_;
         //check for \n at the end
         if (value[value.size() - 1] == '\n')
-            value.erase(value.begin() + value.size() - 1);
-        //check for '.' at the end
-        if (value[value.size() - 1] != '.')
-            value += '.';
-        //check for capital letter
-#ifdef _WIN32
-        const wchar_t fS = value[0];
-        if (fS >= L'a' && fS <= L'z')
-            value[0] = L'A' + (value[0] - L'a');
-        if (fS >= L'а' && fS <= L'я')
-            value[0] = L'А' + (value[0] - L'а');
-#endif
-        //TODO: convert to upper case for test between '___'
+            value.erase(value.begin() + value.size() - 1);                
     }
 public:
     explicit Messages(const typeMessage type, const int line, const std::wstring &rus, const std::wstring &eng, const int group) : 
@@ -247,263 +237,275 @@ static void printStackTrace() { };
     } \
 } while (0)
 
+// РЎРІРѕРґРѕР±РЅС‹Р№ - R158
+// Р“Р°Р№Рґ РїРѕ СЂСѓСЃРёС„РёРєР°С†РёРё СЃРѕРѕР±С‰РµРЅРёР№: РџСЂРё РґРѕР±Р°РІР»РµРЅРёРё РЅРѕРІРѕРіРѕ СЃРѕРѕР±С‰РµРЅРёСЏ, РјРµРЅСЏРµС‚СЃСЏ РїРѕСЃР»РµРґРЅРёР№ СЃРІРѕРґРѕР±РЅС‹Р№ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ.
+// Р’ СЌС‚РѕРј С„Р°Р№Р»Рµ РѕСЃС‚Р°СЋС‚СЃСЏ С‚РѕР»СЊРєРѕ СЃРїРµС†РёС„РёРєР°С‚РѕСЂС‹, РґР»СЏ РєРѕС‚РѕСЂС‹С… Р±СѓРґРµС‚ Р·Р°РїРѕР»РЅРµРЅ С‚РµРєСЃС‚. РџРѕР»РЅС‹Р№ С‚РµРєСЃС‚ РїРёС€РµС‚СЃСЏ РІ С„Р°Р№Р»Рµ
+// russian_errors_text.txt. РЎРїРµС†РёРёРєР°С‚РѕСЂС‹ С‚Р°Рј С‚РѕР¶Рµ СЃРѕС…СЂР°РЅСЏСЋС‚СЃСЏ, РїРѕ РЅРёРј РІ РІРёР·СѓР°Р»РёР·Р°С‚РѕСЂРµ Р±СѓРґРµС‚ РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ 
+// Р·Р°РєРѕРґРёСЂРѕРІР°РЅРЅС‹Р№ С‚РµРєСЃС‚.
+
 //russian messages
-#ifdef _WIN32
 //1001
-static const wchar_t *R1 = L"Неверное расположение директивы: можно располагать только %ls %ls %ls";
-static const wchar_t *R2 = L"Неверное выражение: слишком много переменных цикла";
-static const wchar_t *R3 = L"Неверное выражение: возможно только вида a * i + b";
-static const wchar_t *R4 = L"Неверное расположение директивы: для области '%s' ожидается 'SPF END PARALLEL_REG_DIR', а была получена 'SPF PARALLEL_REG_DIR'";
-static const wchar_t *R5 = L"Неверное расположение директивы: для области '%s' ожидается 'SPF END PARALLEL_REG_DIR'";
-static const wchar_t *R6 = L"Неверное расположение директивы: для области '%s' ожидается 'SPF END PARALLEL_REG_DIR'";
-static const wchar_t *R7 = L"Неверное расположение директивы: ожидается 'SPF PARALLEL_REG_DIR', а была получена 'SPF END PARALLEL_REG_DIR'";
-static const wchar_t *R8 = L"Неверное расположение директивы: ожидается 'SPF PARALLEL_REG_DIR' в той же области видимости";
-static const wchar_t *R9 = L"Неверное расположение директивы: ожидается 'SPF PARALLEL_REG_DIR'";
-static const wchar_t *R10 = L"Не правильная расстановка области распараллеливания: есть несколько входов во фрагмент '%s', вызванные оператором ENTRY";
-static const wchar_t *R11 = L"Не правильная расстановка области распараллеливания: есть несколько входов во фрагмент '%s', вызванные оператором GOTO";
-static const wchar_t *R12 = L"Неправильное расположение строк: можно выбирать строки только в исполняемой части кода";
-static const wchar_t *R13 = L"Неправильное расположение строк: начало не может быть больше конца";
-static const wchar_t *R14 = L"Неправильное расположение строк: начало и конец при расширении не могут лежать в разных областях";
-static const wchar_t *R15 = L"Неправильное положение строки: начало и конец не могут быть в неявных фрагментах";
-static const wchar_t *R16 = L"Неправильное положение строк: начало и конец не могут быть в разных функциях";
-static const wchar_t *R17 = L"Неправильное расположение строк: выделенный фрагмент при расширении не должен включать фрагменты разных областей";
-static const wchar_t *R18 = L"Неправильное расположение строк: начало и конец должны быть в одной области видимости";
-static const wchar_t *R19 = L"Неправильное расположение строк %d-%d: нельзя объединить фрагменты в разных областях видимости";
-static const wchar_t *R20 = L"Неправильное расположение строк: начало и конец должны быть в одной области видимости";
+static const wchar_t *R1 = L"R1:%ls#%ls#%ls";
+static const wchar_t* RR1_1 = L"RR1_1:";
+static const wchar_t* RR1_2 = L"RR1_2:";
+static const wchar_t* RR1_3 = L"RR1_3:";
+static const wchar_t* RR1_4 = L"RR1_4:";
+static const wchar_t* RR1_5 = L"RR1_5:";
+static const wchar_t* RR1_6 = L"RR1_6:";
+static const wchar_t* RR1_7 = L"RR1_7:";
+static const wchar_t* RR1_8 = L"RR1_8:";
+
+static const wchar_t *R2 = L"R2:";
+static const wchar_t *R3 = L"R3:";
+static const wchar_t *R4 = L"R4:%s";
+static const wchar_t *R5 = L"R5:%s";
+static const wchar_t *R6 = L"R6:%s";
+static const wchar_t *R7 = L"R7:";
+static const wchar_t *R8 = L"R8:";
+static const wchar_t *R9 = L"R9:";
+static const wchar_t *R10 = L"R10:%s";
+static const wchar_t *R11 = L"R11:%s";
+static const wchar_t *R12 = L"R12:";
+static const wchar_t *R13 = L"R13:";
+static const wchar_t *R14 = L"R14:";
+static const wchar_t *R15 = L"R15:";
+static const wchar_t *R16 = L"R16:";
+static const wchar_t *R17 = L"R17:";
+static const wchar_t *R18 = L"R18:";
+static const wchar_t *R19 = L"R19:%d#%d";
+static const wchar_t *R20 = L"R20:";
 //1002
-static const wchar_t *R21 = L"Переменная '%s' не используется в цикле";
-static const wchar_t *R22 = L"Переменная '%s' не используется в цикле";
+static const wchar_t *R21 = L"R21:%s";
+static const wchar_t *R22 = L"R22:%s";
 //1003
-static const wchar_t *R23 = L"Переменная '%s' не изменяется в цикле";
-static const wchar_t *R24 = L"Переменная '%s' не изменяется в цикле";
+static const wchar_t *R23 = L"R23:%s";
+static const wchar_t *R24 = L"R24:%s";
 //1004
-static const wchar_t *R25 = L"Размерность массива '%s' %d, а должна быть 1";
+static const wchar_t *R25 = L"R25:%s#%d";
 //1005
-static const wchar_t *R26 = L"Тип массива '%s' должен быть INTEGER";
+static const wchar_t *R26 = L"R26:%s";
 //1006
-static const wchar_t *R27 = L"Типом переменной '%s' должен быть массив";
-static const wchar_t *R28 = L"Переменная '%s' не является массивом";
-static const wchar_t *R29 = L"Переменная '%s' не является массивом";
+static const wchar_t *R27 = L"R27:%s";
+static const wchar_t *R28 = L"R28:%s";
+static const wchar_t *R29 = L"R29:%s";
 //1007
-static const wchar_t *R30 = L"Размер массива не может быть вычислен";
+static const wchar_t *R30 = L"R30:";
 //1008
-static const wchar_t *R31 = L"Размер массива '%s' %d, а вы вводите %d";
-static const wchar_t *R32 = L"Размерность массива '%s' %d, а вы вводите %d";
+static const wchar_t *R31 = L"R31:%s#%d#%d";
+static const wchar_t *R32 = L"R32:%s#%d#%d";
 //1009
-static const wchar_t *R33 = L"Массив '%s' является приватным";
-static const wchar_t *R34 = L"Массив '%s' является приватным";
+static const wchar_t *R33 = L"R33:%s";
+static const wchar_t *R34 = L"R34:%s";
 //1010
-static const wchar_t *R35 = L"Разрешены только положительные числа";
+static const wchar_t *R35 = L"R35:";
 //1011
-static const wchar_t *R36 = L"Нет такого выражения '%s' в цикле";
+static const wchar_t *R36 = L"R36:%s";
 //1012
-static const wchar_t *R37 = L"Невозможно определить размеры массива '%s'";
-static const wchar_t* R149 = L"Невозможно определить размеры цикла '%s'";
+static const wchar_t *R37 = L"R37:%s";
+static const wchar_t* R149 = L"R149:%s";
 //1013
-static const wchar_t *R38 = L"Отличается количество формальных и фактических параметров для функции '%s'"; //Требуется выполнить подстановку функции '%s', так как 
-static const wchar_t *R39 = L"Отличается тип фактического (%s : %s) и формального (%s : %s) %d-го параметра для функции '%s'"; //Требуется выполнить подстановку функции '%s', так как 
-static const wchar_t *R40 = L"Требуется выполнить подстановку функции '%s', так как можно передавать массивы только целиком";
-static const wchar_t *R41 = L"Требуется выполнить подстановку функции '%s' из-за обращения к неприватному массиву '%s' в цикле на строке %d %s";
-static const wchar_t *R42 = L"Требуется выполнить подстановку функции '%s' из-за обращения к неприватному массиву '%s' %s";
-static const wchar_t *R43 = L"Требуется подставить функцию '%s' из-за разной размерности массива %s', передаваемого в качестве параметра: размерность формального параметра = %d и фактического параметра = %d";
-static const wchar_t *R44 = L"Обнаружено несоответствие типов в функции '%s' в формальном и фактическом параметре для массива '%s'\n";
-static const wchar_t *R45 = L"Необходимо подставить функцию '%s', так как через параметр %d передается итерационная переменная цикла на строке %d и она используется в индексном выражении в обращении к массиву в теле этой функции";
+static const wchar_t *R38 = L"R38:%s";
+static const wchar_t *R39 = L"R39:%s#%s#%s#%s#%d#%s";
+static const wchar_t *R40 = L"R40:%s";
+static const wchar_t *R41 = L"R41:%s#%s#%d#%s";
+static const wchar_t *R42 = L"R42:%s#%s#%s";
+static const wchar_t *R43 = L"R43:%s#%s#%d#%d";
+static const wchar_t *R44 = L"R44:%s#%s";
+static const wchar_t *R45 = L"R45:%s#%d#%d";
 //1014
-static const wchar_t *R46 = L"Была найдена рекурсивная цепочка вызовов: %s, данная функция исключена из рассмотрения";
+static const wchar_t *R46 = L"R46:%s";
 //1015
-static const wchar_t *R47 = L"Данная функция не вызывается в данном проекте";
+static const wchar_t *R47 = L"R47:";
 //1016
-static const wchar_t *R48 = L"Невозможно вычислить количество итераций данного цикла, информация о количестве итераций для всех остальных циклов в области распараллеливания '%s' будет проигнорирована";
+static const wchar_t *R48 = L"R48:%s";
 //1017
-static const wchar_t *R49 = L"Невозможно найти определение для символа '%s' в данной области видимости";
+static const wchar_t *R49 = L"R49:%s";
 //1018
-static const wchar_t *R50 = L"Данный цикл не в END DO формате";
-static const wchar_t *R51 = L"Данный цикл не в END DO формате";
+static const wchar_t *R50 = L"R50:";
+static const wchar_t *R51 = L"R51:";
 //1019
-static const wchar_t *R52 = L"Включаемый файл '%s' содержит исполняемые операторы, что запрещено к распараллеливанию в системе SAPFOR";
+static const wchar_t *R52 = L"R52:%s";
 //1020
-static const wchar_t *R53 = L"Активные DVM-директивы не поддерживаются (необходимо включить опцию <<Учитывать DVM-директивы>>)";
+static const wchar_t *R53 = L"R53:";
 //1021
-static const wchar_t *R54 = L"Обращение к массиву '%s' содержит более одной индексной переменной циклов";
-static const wchar_t *R55 = L"Обращение к массиву '%s' не содержит итерационных переменных циклов";
+static const wchar_t *R54 = L"R54:%s";
+static const wchar_t *R55 = L"R55:%s";
 //1022
-static const wchar_t *R56 = L"Обращение к массиву '%s' имеет косвенную адресацию";
+static const wchar_t *R56 = L"R56:%s";
 //1023
-static const wchar_t *R57 = L"Невозможно вычислить индексное выражение в обращении к массиву '%s'";
+static const wchar_t *R57 = L"R57:%s";
 //1024
-static const wchar_t *R58 = L"Коэффициент A в линейном обращении A*x+B к массиву '%s' не может быть отрицательным, так как инверсное распределение не поддерживается";
+static const wchar_t *R58 = L"R58:%s";
 //1025
-static const wchar_t *R59 = L"Невозможно сопоставить обращение к массиву на запись '%s' с данными циклом";
+static const wchar_t *R59 = L"R59:%s";
 //1026
-static const wchar_t *R60 = L"Обнаружен оператор записи в нераспределенный массив '%s', связанный с данным циклом";
-static const wchar_t *R61 = L"Обнаружен оператор записи в нераспределенный массив '%s', связанный с данным циклом";
+static const wchar_t *R60 = L"R60:%s";
+static const wchar_t *R61 = L"R61:%s";
 //1027
 //--- FREE
 //1028
-static const wchar_t *R62 = L"Описание модуля '%s' должно находиться в данном файле";
+static const wchar_t *R62 = L"R62:%s";
 //1029
 //--- TODO
 //1030
 //--- TODO
 //1031
-static const wchar_t *R63 = L"Неверное имя области: имя '%s' уже объявлено на строке %d";
+static const wchar_t *R63 = L"R63:%s#%d";
 //1032
-static const wchar_t *R64 = L"Неверное имя области: имя '%s' уже объявлено в common-блоке '%s'";
+static const wchar_t *R64 = L"R64:%s#%s";
 //1033
-static const wchar_t *R65 = L"Область распараллеливания '%s' включает саму себя в файле '%s'";
+static const wchar_t *R65 = L"R65:%s#%s";
 //1034
-static const wchar_t *R66 = L"Неверное расположение области: не существует common-блока в файле %s со следующими массивами:%s";
+static const wchar_t *R66 = L"R66:%s#%s";
 //1035
 //--- TODO
 //1036
-static const wchar_t *R67 = L"Невозможно построить дерево выравнивания в данной области распараллеливания, используя пользовательские DVM-директивы";
+static const wchar_t *R67 = L"R67:";
 //1037
-static const wchar_t *R68 = L"Массив '%s' не может быть распределен из-за ограничений ввода/вывода, накладываемых DVM системой";
+static const wchar_t *R68 = L"R68:%s";
 //1038
-static const wchar_t *R69 = L"Оператор PAUSE является запрещенным в параллельной программе";
-static const wchar_t *R70 = L"Оператор EQUIVALENCE не поддерживается на данный момент";
+static const wchar_t *R69 = L"R69:";
+static const wchar_t *R70 = L"R70:";
 //1039
-static const wchar_t *R71 = L"Переменные '%s' и '%s' находятся в одной области ассоциации (common block '%s'), но имеют разные типы (файлы - %s:%d и %s:%d)";
+static const wchar_t *R71 = L"R71:%s#%s#%s#%s#%d#%s#%d";
 //1040
-static const wchar_t *R72 = L"Первые %d измерений массива '%s' запрещены к распределению из-за передачи к функцию '%s'";
-static const wchar_t *R73 = L"Первое измерение массива '%s' запрещено к распределению из-за передачи в функцию '%s'";
+static const wchar_t *R72 = L"R72:%d#%s#%s";
+static const wchar_t *R73 = L"R73:%s#%s";
 //1041
-static const wchar_t *R74 = L"Область распараллеливания '%s'содержит строку, которая включена в другую область";
+static const wchar_t *R74 = L"R74:%s";
 //1042
-static const wchar_t *R75 = L"Распределенный массив '%s' состоящий в common блоке '%s' должен иметь описание в главной программной единице";
+static const wchar_t *R75 = L"R75:%s#%s";
 //1043
-static const wchar_t *R76 = L"Неверное выражение в директиве: ожидается список переменных";
-static const wchar_t *R77 = L"Неверное выражение в директиве: ожидается %d тесно-вложенных циклов на строке %d, но их всего %d";
-static const wchar_t *R78 = L"Неверное выражение в директиве: ожидается переменная '%s' на позиции %d";
+static const wchar_t *R76 = L"R76:";
+static const wchar_t *R77 = L"R77:%d#%d#%d";
+static const wchar_t *R78 = L"R78:%s#%d";
 //1044
-static const wchar_t *R79 = L"Поддерживаются функции только без побочных эффектов";
-static const wchar_t *R80 = L"Поддерживаются функции только без побочных эффектов";
+static const wchar_t *R79 = L"R79:";
+static const wchar_t *R80 = L"R80:";
 //1045
-static const wchar_t *R81 = L"Аргумент '%s' функции '%s' не имеет оператора описания";
+static const wchar_t *R81 = L"R81:%s#%s";
 //1046
-static const wchar_t *R82 = L"Количество формальных и фактических параметров не одинаково для вызова данной функции '%s'";
-static const wchar_t *R83 = L"Количество формальных и фактических параметров не одинаково для вызова данной функции '%s'";
-static const wchar_t *R84 = L"Количество формальных и фактических параметров не одинаково для вызова данной функции '%s'";
+static const wchar_t *R82 = L"R82:%s";
+static const wchar_t *R83 = L"R83:%s";
+static const wchar_t *R84 = L"R84:%s";
 //1047
-static const wchar_t *R85 = L"%d измерение массива '%s' не может быть распределено из-за различных отображений на циклы в операциях присваиваний";
-static const wchar_t *R86 = L"Массив '%s' не может быть распределен, так как все его измерения запрещены к распределению";
-static const wchar_t *R87 = L"Массив '%s' не может быть распределен";
-static const wchar_t *R88 = L"Массив '%s' не может быть распределен";
-static const wchar_t *R89 = L"Массив '%s' не может быть распределен";
-static const wchar_t *R90 = L"Массив '%s' не может быть распределен из-за использования RESHAPE";
-static const wchar_t *R91 = L"Массив '%s' не может быть распределен";
+static const wchar_t *R85 = L"R85:%d#%s";
+static const wchar_t *R86 = L"R86:%s";
+static const wchar_t *R87 = L"R87:%s";
+static const wchar_t *R88 = L"R88:%s";
+static const wchar_t *R89 = L"R89:%s";
+static const wchar_t *R90 = L"R90:%s";
+static const wchar_t *R91 = L"R91:%s";
 //1048
-static const wchar_t *R92 = L"Функция '%s' с одинаковым именем была объявлена в более, чем одном месте: в файле '%s':%d и '%s':%d";
+static const wchar_t *R92 = L"R92:%s#%s#%d#%s#%d";
 //1049
-static const wchar_t *R93 = L"Функция не является чистой (без побочных эффектов) из-за наличия данного оператора";
+static const wchar_t *R93 = L"R93:";
 //1050
-static const wchar_t *R146 = L"Найдена более, чем одна главная программная единица (PROGRAM)";
-static const wchar_t *R147 = L"Не найдена ни одна главная программная единица (PROGRAM)";
+static const wchar_t *R146 = L"R146:";
+static const wchar_t *R147 = L"R147:";
 //1051
-static const wchar_t *R148 = L"Обнаружены вызовы MPI-функций, включен режим специальный режим распараллеливания MPI-программ";
+static const wchar_t *R148 = L"R148:";
 //1052
-static const wchar_t *R150 = L"Ошибка в расстановке пользовательских интервалов - не удалось найти конец интервала";
+static const wchar_t *R150 = L"R150:";
 //1053
-static const wchar_t *R154 = L"Ошибка в выражении SHRINK клаузы: переменная должна быть массивом в файле '%s'";
+static const wchar_t *R154 = L"R154:%s";
 //1054
-static const wchar_t *R155 = L"Длина маски для массива '%s' должна быть равна %d, но указано только %d измерений в файле '%s'";
+static const wchar_t *R155 = L"R155:%s#%d#%d#%s";
 //1055
-static const wchar_t *R156 = L"Ошибка в выражении маски на %d позиции массива '%s': в качестве значения могут быть только 0 и 1 в файле '%s'";
+static const wchar_t *R156 = L"R156:%d#%s#%s";
 //1056
-static const wchar_t *R157 = L"Массив '%s' в клаузе shrink также должен быть объявлен в клаузе private в файле '%s'";
+static const wchar_t *R157 = L"R157:%s#%s";
 
 //2001
-static const wchar_t *R94 = L"Невозможно автоматически преобразовать данное присваивание к циклу";
-static const wchar_t *R95 = L"Невозможно автоматически преобразовать данное присваивание к циклу";
+static const wchar_t *R94 = L"R94:";
+static const wchar_t *R95 = L"R95:";
 //2002
-static const wchar_t *R96 = L"Арифметический IF был преобразован в IF-ENDIF";
-static const wchar_t *R97 = L"Вычисляемый GOTO был преобразован в IF-ENDIF";
+static const wchar_t *R96 = L"R96:";
+static const wchar_t *R97 = L"R97:";
 //2003
-static const wchar_t *R98 = L"Невозможно автоматически преобразовать цикл в END DO формат";
+static const wchar_t *R98 = L"R98:";
 //2004
-static const wchar_t *R99 = L"Цикл был преобразован в END DO формат";
+static const wchar_t *R99 = L"R99:";
 //2005
-static const wchar_t *R100 = L"Циклы в строке %d и в строке %d были объединены";
+static const wchar_t *R100 = L"R100:%d#%d";
 //2006
-static const wchar_t *R101 = L"Была выполнена подстановка макроса с именем '%s'";
+static const wchar_t *R101 = L"R101:%s";
 //2007
-static const wchar_t *R102 = L"Возникла непредвиденная ситуация во время генерации выходного текста";
-static const wchar_t *R103 = L"Возникла непредвиденная ситуация во время генерации выходного текста";
+static const wchar_t *R102 = L"R102:";
+static const wchar_t *R103 = L"R103:";
 //2008
 // -- TODO 
 //2009
-static const wchar_t *R104 = L"Невозможно разделить данный цикл из-за следующей зависимости: %s";
+static const wchar_t *R104 = L"R104:%s";
 //2010
-static const wchar_t *R105 = L"Данный цикл содержит косвенные подциклы, поэтому не может быть разделен";
-static const wchar_t *R106 = L"У данного цикла есть ограничение на распараллеливание (в строке ";
-static const wchar_t *R107 = L"У данного цикла есть зависимости, которые нельзя проанализировать, поэтому он не может быть разделен (в строке ";
+static const wchar_t *R105 = L"R105:";
+static const wchar_t *R106 = L"R106:%s";
+static const wchar_t *R107 = L"R107:%s";
 //2011
 
 //3001
-static const wchar_t *R108 = L"Добавлена across-зависимость к массиву '%s' в цикле";
+static const wchar_t *R108 = L"R108:%s";
 //3002
-static const wchar_t *R109 = L"Добавлена приватная переменная '%s' к циклу на строке %d";
+static const wchar_t *R109 = L"R109:%s#%d";
 //3003
-static const wchar_t *R110 = L"Добавлена редукционная переменная '%s' с типом операции '%s' к циклу на строке %d";
+static const wchar_t *R110 = L"R110:%s#%s#%d";
 //3004
-static const wchar_t *R111 = L"Неизвестный тип редукционной операции по скаляру '%s'";
+static const wchar_t *R111 = L"R111:%s";
 //3005
-static const wchar_t *R112 = L"Неизвестная зависимость по скалярной переменной '%s' (попробуйте вручную специфицировать ее тип)";
+static const wchar_t *R112 = L"R112:%s";
 //3006
-static const wchar_t *R113 = L"Неизвестная зависимость по массиву препятствует распараллеливанию данного цикла";
-static const wchar_t *R114 = L"Неизвестная зависимость по скаляру препятствует распараллеливанию данного цикла";
-static const wchar_t *R115 = L"Внешние или внутренние операторы перехода (GOTO) препятствуют распараллеливанию данного цикла";
-static const wchar_t *R116 = L"Операторы ввода/вывода препятствуют распараллеливанию данного цикла";
-static const wchar_t *R117 = L"Операторы STOP препятствуют распараллеливанию данного цикла";
-static const wchar_t *R118 = L"Обнаружены конфликтные присваивания, которые препятствуют распараллеливанию данного цикла";
-static const wchar_t *R119 = L"Невозможность сопоставить обращение к массиву на запись препятствует распараллеливанию данного цикла";
-static const wchar_t *R120 = L"Косвенная адресация по распределяемому массиву препятствует распараллеливанию данного цикла";
-static const wchar_t *R121 = L"Обращение к нераспределенному массиву на запись препятствует распараллеливанию данного цикла";
-static const wchar_t *R122 = L"Найдены различные правила выравнивания массивов, используемых на запись в данном цикле, препятствует распараллеливанию";
-static const wchar_t *R123 = L"Процедуры с побочным эффектном препятствуют распараллеливанию данного цикла";
-static const wchar_t *R144 = L"Обнаружено не прямоугольное пространство итераций, что препятствует распараллеливанию данного цикла";
-static const wchar_t *R145 = L"Обнаружены DVM интервалы внутри цикла, что препятствует распараллеливанию данного цикла";
-//--TODO R124 R125 про неопределенную длину зависимости 
+static const wchar_t *R113 = L"R113:";
+static const wchar_t *R114 = L"R114:";
+static const wchar_t *R115 = L"R115:";
+static const wchar_t *R116 = L"R116:";
+static const wchar_t *R117 = L"R117:";
+static const wchar_t *R118 = L"R118:";
+static const wchar_t *R119 = L"R119:";
+static const wchar_t *R120 = L"R120:";
+static const wchar_t *R121 = L"R121:";
+static const wchar_t *R122 = L"R122:";
+static const wchar_t *R123 = L"R123:";
+static const wchar_t *R144 = L"R144:";
+static const wchar_t *R145 = L"R145:";
+//--TODO R124 R125 РїСЂРѕ РЅРµРѕРїСЂРµРґРµР»РµРЅРЅСѓСЋ РґР»РёРЅСѓ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё 
 //3007
-static const wchar_t *R126 = L"Невозможно создать с шаблоном для массива '%s': размерность массива '%d' и это не равно '%d'";
-static const wchar_t *R127 = L"Невозможно сопоставить выравнивания массивов, передаваемых в процедуру";
+static const wchar_t *R126 = L"R126:%s#%d#%d";
+static const wchar_t *R127 = L"R127:";
 //3008
-static const wchar_t *R128 = L"Внутренняя ошибка анализа, распараллеливание не будет выполнено для данного файла!";
+static const wchar_t *R128 = L"R128:";
 //3009
-static const wchar_t *R129 = L"Добавленный REMOTE_ACCESS для обращения к массиву '%s' может привести к сильному замедлению";
+static const wchar_t *R129 = L"R129:%s";
 //3010
-static const wchar_t *R130 = L"Не обнаружены массивы или свободные циклы для распределения в данном проекте";
-static const wchar_t *R131 = L"Не обнаружены массивы или свободные циклы для распределения в данной области распараллеливания";
+static const wchar_t *R130 = L"R130:";
+static const wchar_t *R131 = L"R131:";
 //3011
-static const wchar_t *R132 = L"У массивов '%s' и '%s' разные правила выравнивания согласно обращению на запись в в данном цикле";
+static const wchar_t *R132 = L"R132:%s#%s";
 //3012
-static const wchar_t *R133 = L"Области распараллеливания %sимеют общую используемую функцию '%s'";
+static const wchar_t *R133 = L"R133:%s#%s";
 //3013
-static const wchar_t *R134 = L"Области распараллеливания %sимеют общий используемый локальный массив '%s'";
-static const wchar_t *R152 = L"Области распараллеливания %sимеют общий используемый массив из модуля '%s'";
+static const wchar_t *R134 = L"R134:%s#%s";
+static const wchar_t *R152 = L"R152:%s#%s";
 //3014
-static const wchar_t *R135 = L"Область распараллеливания '%s' содержит common-массив '%s', используемый в области и вне её";
+static const wchar_t *R135 = L"R135:%s#%s";
 //3015
-static const wchar_t *R136 = L"Область распараллеливания '%s' не имеет DVM-интервала для фрагмента";
+static const wchar_t *R136 = L"R136:%s";
 //3016
-static const wchar_t *R137 = L"Невозможно считать DVM-статистику для получения времен";
+static const wchar_t *R137 = L"R137:";
 //3017
-static const wchar_t *R138 = L"Область распараллеливания '%s' не содержит копирования массива '%s' в DVM-интервале";
+static const wchar_t *R138 = L"R138:%s#%s";
 //3018
-static const wchar_t *R139 = L"Область распараллеливания '%s' не содержит копирования массива '%s' в DVM-интервале";
+static const wchar_t *R139 = L"R139:%s#%s";
 //3019
-//--- TODO предиктор
+//--- TODO РїСЂРµРґРёРєС‚РѕСЂ
 //3020
-static const wchar_t *R140 = L"Обнаружен массив '%s', являющийся параметром функции, в которую передаются как распределенные, так и не распределенные массивы. Возможно, стоит запретить к распределению обнаруженные массивы, либо продублировать соответствующую функцию.\n";
-static const wchar_t *R141 = L"Обнаружен распределяемый массив '%s', передаваемый в качестве параметра в процедуру\n";
-static const wchar_t* R153 = L"Обнаружен не распределяемый массив '%s', передаваемый в качестве параметра в процедуру\n";
-static const wchar_t *R142 = L"Для массива '%s' не удается найти единого распределения, внутренняя ошибка системы.\n";
+static const wchar_t *R140 = L"R140:%s";
+static const wchar_t *R141 = L"R141:%s";
+static const wchar_t* R153 = L"R153:%s";
+static const wchar_t *R142 = L"R142:%s";
 //3021
-static const wchar_t* R151 = L"Пустые области распараллеливания недопускаются.\n";
+static const wchar_t* R151 = L"R151:";
 
 //4001
-//---TODO ошибки из SAGE
+//---TODO РѕС€РёР±РєРё РёР· SAGE
 //4002
-static const wchar_t *R143 = L"Неверное объявление PURE функции - отсутствуют операторы INTENT";
-
-#endif
+static const wchar_t *R143 = L"R143:";

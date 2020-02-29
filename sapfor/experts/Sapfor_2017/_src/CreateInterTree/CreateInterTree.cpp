@@ -340,9 +340,8 @@ static void findUserIntervals(SgStatement *startSt, vector<SpfInterval*> &userIn
         {
             wstring messageR, messageE;
             __spf_printToLongBuf(messageE, L"Can not find end of DVM's interval");
-#ifdef _WIN32
             __spf_printToLongBuf(messageR, R150);
-#endif
+
             messages.push_back(Messages(ERROR, inter->userIntervalLine, messageR, messageE, 1052));
             error = true;
         }

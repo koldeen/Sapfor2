@@ -1234,7 +1234,7 @@ dvm_new_value: NEW_VALUE  end_spec
              ;
 
 
-dvm_parallel_on: PARALLEL end_spec LEFTPAR loop_var_list RIGHTPAR opt_on opt_spec 
+dvm_parallel_on: PARALLEL end_spec LEFTPAR ident_list RIGHTPAR opt_on opt_spec 
  
 
                  {  if($6 &&  $6->entry.Template.symbol->attr & TASK_BIT)
@@ -1245,14 +1245,11 @@ dvm_parallel_on: PARALLEL end_spec LEFTPAR loop_var_list RIGHTPAR opt_on opt_spe
                ;
 
 
-loop_var_list: loop_var
+ident_list: ident
 	    { $$ = set_ll_list($1,LLNULL,EXPR_LIST); }
-             | loop_var_list COMMA loop_var
+             | ident_list COMMA ident
 	    { $$ = set_ll_list($1,$3,EXPR_LIST); }	    
 	;
-
-loop_var: ident
-        
 
 opt_on:   opt_key_word ON distribute_cycles 
           { $$ = $3;}
@@ -2239,12 +2236,7 @@ template_list: array_element
                { $$ = set_ll_list($1, $3, EXPR_LIST); }
              ;
 
-dvm_template_delete: TEMPLATE_DELETE end_spec  LEFTPAR  template_ident_list RIGHTPAR
+dvm_template_delete: TEMPLATE_DELETE end_spec  LEFTPAR ident_list RIGHTPAR
                      { $$ = get_bfnd(fi,DVM_TEMPLATE_DELETE_DIR,SMNULL,$4,LLNULL,LLNULL); }
                    ;
 
-template_ident_list: ident
-	       { $$ = set_ll_list($1, LLNULL, EXPR_LIST); }
-	     | template_ident_list COMMA ident
-               { $$ = set_ll_list($1, $3, EXPR_LIST); }
-             ;

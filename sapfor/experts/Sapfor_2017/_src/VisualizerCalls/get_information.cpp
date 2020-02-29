@@ -42,7 +42,7 @@
 #include <direct.h>
 #else
 #include <unistd.h>
-#define _sleep usleep
+#define _sleep(x) usleep(x * 1000)
 #endif
 
 using std::string;
@@ -147,7 +147,11 @@ static void setOptions(const short *options)
     parallizeFreeLoops = (mpiProgram == 1) ? 0 : intOptions[PARALLIZE_FREE_LOOPS];
     maxShadowWidth = intOptions[MAX_SHADOW_WIDTH];
     out_upper_case = intOptions[OUTPUT_UPPER];
+#if _WIN32
     langOfMessages = intOptions[TRANSLATE_MESSAGES];
+#else
+    langOfMessages = 0;
+#endif
     removeNestedIntervals = (intOptions[KEEP_LOOPS_CLOSE_NESTING] == 1);
     showDebug = (intOptions[DEBUG_PRINT_ON] == 1);
     //mpiProgram = intOptions[MPI_PROGRAM];
@@ -1788,12 +1792,21 @@ void SPF_deleteAllAllocatedData(void*& context)
 }
 
 extern bool runAsClient;
+static wstring finishJniCall(int retCode, const short* result, const short* output, const int* outputSize,
+                             const short* outputMessage, const int* outputMessageSize, const short* predictorStats = NULL);
 void createNeededException()
 {
     if (passDone == 2)
     {
         if (runAsClient)
+        {
+            printf("[CLIENT]: send error code -99\n");
+            sendErrorCode(finishJniCall(-99, NULL, NULL, NULL, NULL, NULL, NULL));
+            printf("[CLIENT]: wait 1 second\n");
+            _sleep(1000);
+            printf("[CLIENT]: exit with -99 code\n");
             exit(-99);
+        }
         else
             throw std::runtime_error("Interrupted by user\n");
     }
@@ -1843,7 +1856,7 @@ static void codeInfo(wstring& total, const wstring& toAdd)
 }
 
 static wstring finishJniCall(int retCode, const short* result, const short* output, const int* outputSize, 
-                             const short* outputMessage, const int* outputMessageSize, const short* predictorStats = NULL)
+                             const short* outputMessage, const int* outputMessageSize, const short* predictorStats)
 { 
     wstring codedResult = L"";
 

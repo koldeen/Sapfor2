@@ -204,9 +204,7 @@ namespace Distribution
             return;
 
         color[V] = GREY;
-#if _WIN32
         createNeededException();
-#endif
 
         for (vType i = neighbors[V]; i < neighbors[V + 1]; ++i)
         {
@@ -820,11 +818,10 @@ namespace Distribution
                 if (needPrint)
                     printf("SAPFOR: [TREE %d], arrays num %d, maxLoopDim %d, maxChainLen %d\n", t, vertArraySize, maxLoopDim, maxChainLen);
 
-#ifdef _WIN32
                 wstring treeM;
                 if (needPrint)
                     treeM = std::to_wstring(t + 1) + L"/" + std::to_wstring(vertByTrees.size());
-#endif
+
                 for (int k = 0; k < vertByTrees[t].size(); ++k)
                 {
                     const vType i = vertByTrees[t][k];
@@ -849,10 +846,9 @@ namespace Distribution
                 maxChainLen = wasMaxChainLen;
                 maxLoopDim = wasMaxLoopDim;
             }
-#ifdef _WIN32
+
             if (needPrint)
                 sendMessage_2lvl(L"");
-#endif
         }
         catch (int code)
         {

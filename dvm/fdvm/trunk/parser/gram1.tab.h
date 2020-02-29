@@ -357,29 +357,37 @@
      ACC_LOCAL = 316,
      ACC_INLOCAL = 317,
      ACC_CUDA_BLOCK = 318,
-     BY = 319,
-     IO_MODE = 320,
-     CP_CREATE = 321,
-     CP_LOAD = 322,
-     CP_SAVE = 323,
-     CP_WAIT = 324,
-     FILES = 325,
-     VARLIST = 326,
-     STATUS = 327,
-     EXITINTERVAL = 328,
-     TEMPLATE_CREATE = 329,
-     TEMPLATE_DELETE = 330,
-     SPF_ANALYSIS = 331,
-     SPF_PARALLEL = 332,
-     SPF_TRANSFORM = 333,
-     SPF_NOINLINE = 334,
-     SPF_PARALLEL_REG = 335,
-     SPF_END_PARALLEL_REG = 336,
-     SPF_PRIVATES_EXPANSION = 337,
-     SPF_FISSION = 338,
-     SPF_SHRINK = 339,
-     BINARY_OP = 342,
-     UNARY_OP = 343
+     ACC_ROUTINE = 319,
+     BY = 320,
+     IO_MODE = 321,
+     CP_CREATE = 322,
+     CP_LOAD = 323,
+     CP_SAVE = 324,
+     CP_WAIT = 325,
+     FILES = 326,
+     VARLIST = 327,
+     STATUS = 328,
+     EXITINTERVAL = 329,
+     TEMPLATE_CREATE = 330,
+     TEMPLATE_DELETE = 331,
+     SPF_ANALYSIS = 332,
+     SPF_PARALLEL = 333,
+     SPF_TRANSFORM = 334,
+     SPF_NOINLINE = 335,
+     SPF_PARALLEL_REG = 336,
+     SPF_END_PARALLEL_REG = 337,
+     SPF_PRIVATES_EXPANSION = 338,
+     SPF_FISSION = 339,
+     SPF_SHRINK = 340,
+     SPF_CHECKPOINT = 341,
+     SPF_EXCEPT = 342,
+     SPF_FILES_COUNT = 343,
+     SPF_INTERVAL = 344,
+     SPF_TIME = 345,
+     SPF_ITER = 346,
+     SPF_FLEXIBLE = 347,
+     BINARY_OP = 350,
+     UNARY_OP = 351
    };
 #endif
 /* Tokens.  */
@@ -701,36 +709,44 @@
 #define ACC_LOCAL 316
 #define ACC_INLOCAL 317
 #define ACC_CUDA_BLOCK 318
-#define BY 319
-#define IO_MODE 320
-#define CP_CREATE 321
-#define CP_LOAD 322
-#define CP_SAVE 323
-#define CP_WAIT 324
-#define FILES 325
-#define VARLIST 326
-#define STATUS 327
-#define EXITINTERVAL 328
-#define TEMPLATE_CREATE 329
-#define TEMPLATE_DELETE 330
-#define SPF_ANALYSIS 331
-#define SPF_PARALLEL 332
-#define SPF_TRANSFORM 333
-#define SPF_NOINLINE 334
-#define SPF_PARALLEL_REG 335
-#define SPF_END_PARALLEL_REG 336
-#define SPF_PRIVATES_EXPANSION 337
-#define SPF_FISSION 338
-#define SPF_SHRINK 339
-#define BINARY_OP 342
-#define UNARY_OP 343
+#define ACC_ROUTINE 319
+#define BY 320
+#define IO_MODE 321
+#define CP_CREATE 322
+#define CP_LOAD 323
+#define CP_SAVE 324
+#define CP_WAIT 325
+#define FILES 326
+#define VARLIST 327
+#define STATUS 328
+#define EXITINTERVAL 329
+#define TEMPLATE_CREATE 330
+#define TEMPLATE_DELETE 331
+#define SPF_ANALYSIS 332
+#define SPF_PARALLEL 333
+#define SPF_TRANSFORM 334
+#define SPF_NOINLINE 335
+#define SPF_PARALLEL_REG 336
+#define SPF_END_PARALLEL_REG 337
+#define SPF_PRIVATES_EXPANSION 338
+#define SPF_FISSION 339
+#define SPF_SHRINK 340
+#define SPF_CHECKPOINT 341
+#define SPF_EXCEPT 342
+#define SPF_FILES_COUNT 343
+#define SPF_INTERVAL 344
+#define SPF_TIME 345
+#define SPF_ITER 346
+#define SPF_FLEXIBLE 347
+#define BINARY_OP 350
+#define UNARY_OP 351
 
 
 
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 422 "gram1.y"
+#line 430 "gram1.y"
 {
     int token;
     char charv;
@@ -743,7 +759,7 @@ typedef union YYSTYPE
     PTR_LABEL label;
 }
 /* Line 1489 of yacc.c.  */
-#line 747 "gram1.tab.h"
+#line 763 "gram1.tab.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1

@@ -216,7 +216,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <ll_node> dim_ident_list dim_ident align_subscript 
 %type <ll_node> realignee_list alignee realignee
 %type <ll_node> dummy_array_name_list dummy_array_name 
-%type <ll_node> loop_var loop_var_list sh_array_name 
+%type <ll_node> ident_list sh_array_name 
 %type <ll_node> shadow_attr_stuff sh_width  sh_width_list
 %type <ll_node> pointer_var pointer_var_list dimension_list
 %type <ll_node> interval_number fragment_number
@@ -230,7 +230,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <ll_node> derived_subscript derived_subscript_list opt_plus_shadow plus_shadow shadow_id
 %type <ll_node> template_ref template_obj shadow_axis shadow_axis_list opt_include_to 
 %type <ll_node> localize_target target_subscript target_subscript_list aster_expr dummy_ident 
-%type <ll_node> template_list template_ident_list
+%type <ll_node> template_list
 %type <symbol> processors_name align_base_name 
 %type <symbol> shadow_group_name reduction_group_name reduction_group  indirect_group_name task_name
 %type <symbol> remote_group_name group_name array_name async_ident consistent_group_name consistent_group
@@ -270,18 +270,20 @@ static int in_vec = NO;	      /* set if processing array constructor */
 
 /* FORTRAN ACC */
 %type <bf_node> acc_directive acc_region acc_end_region acc_checksection acc_end_checksection
-%type <bf_node> acc_get_actual acc_actual 
+%type <bf_node> acc_get_actual acc_actual acc_routine
 %type <ll_node> opt_clause acc_clause_list acc_clause data_clause async_clause targets_clause
-%type <ll_node> acc_var_list computer_list computer 
+%type <ll_node> acc_var_list computer_list computer opt_targets_clause
 
 /* new clauses for PARALLEL directive */
 %type <ll_node> private_spec cuda_block_spec sizelist 
 
 /* SAPFOR */
 %type <bf_node> spf_directive spf_analysis spf_parallel spf_transform spf_parallel_reg spf_end_parallel_reg
+%type <bf_node> spf_checkpoint
 %type <ll_node> analysis_spec_list analysis_spec analysis_reduction_spec analysis_private_spec
 %type <ll_node> parallel_spec_list parallel_spec parallel_shadow_spec parallel_across_spec parallel_remote_access_spec
 %type <ll_node> transform_spec_list transform_spec array_element_list
+%type <ll_node> checkpoint_spec checkpoint_spec_list spf_type_list spf_type interval_spec
 %type <symbol>  region_name 
 
 %{
@@ -2231,7 +2233,7 @@ rename_name: name POINT_TO name
 	         if(copyhash && copyhash->id_attr && copyhash->id_attr->entry.Template.tag==module_scope->id)
                  {
                     delete_symbol(copyhash->id_attr);
-                    copyhash->id_attr == SMNULL;
+                    copyhash->id_attr = SMNULL;
                  }
                    newsym = make_local_entity($1, oldsym->variant, oldsym->type, LOCAL);
 	           /* copies data in entry.Template structure and attr */

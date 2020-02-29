@@ -397,14 +397,8 @@ void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo,
                 itM = allMessages.insert(itM, make_pair(currF, vector<Messages>()));
 
             for (auto& func : it.second)
-            {
                 if (func->deadFunction)
-                {
-#ifdef _WIN32
-                    itM->second.push_back(Messages(NOTE, func->linesNum.first, R47, L"This function is not called in current project", 1015));
-#endif
-                }
-            }
+                    itM->second.push_back(Messages(NOTE, func->linesNum.first, R47, L"This function is not called in current project", 1015));            
         }
     }
 
@@ -485,9 +479,8 @@ static bool propagateUp(DIST::Array *from, set<DIST::Array*> to, DIST::distFlag 
                     {
                         wstring messageE, messageR;
                         __spf_printToLongBuf(messageE, L"Array '%s' can not be distributed because of DVM's I/O constraints", to_wstring(realRef->GetShortName()).c_str());
-#ifdef _WIN32
                         __spf_printToLongBuf(messageR, R68, to_wstring(realRef->GetShortName()).c_str());
-#endif
+
                         auto places = realRef->GetDeclInfo();
                         for (auto& place : places)
                             getObjectForFileFromMap(place.first.c_str(), SPF_messages).push_back(Messages(WARR, place.second, messageR, messageE, 1037));
@@ -768,9 +761,8 @@ bool detectMpiCalls(const map<string, vector<FuncInfo*>>& allFuncInfo, map<strin
 
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"Detected mpi call, turn on special regime of paralyzing");
-#ifdef _WIN32
                     __spf_printToLongBuf(messageR, R148);
-#endif
+
                     SPF_messages[byFile.first].push_back(Messages(NOTE, callsFromThis.second, messageR, messageE, 1051));
                 }
             }

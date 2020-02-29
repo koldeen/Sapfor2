@@ -169,7 +169,9 @@ set(LOOP_CONV _src/LoopConverter/array_assign_to_loop.cpp
         _src/LoopConverter/swap_array_dims.cpp
 		_src/LoopConverter/swap_array_dims.h
 		_src/LoopConverter/uniq_call_chain_dup.cpp
-		_src/LoopConverter/uniq_call_chain_dup.h)
+		_src/LoopConverter/uniq_call_chain_dup.h
+		_src/LoopConverter/checkpoints.cpp
+		_src/LoopConverter/checkpoints.h)
 		
 set(CFG _src/CFGraph/CFG_BasicBlock.cpp
 		_src/CFGraph/CFG_BasicBlock.h

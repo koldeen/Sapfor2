@@ -128,7 +128,9 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     Pass(MACRO_EXPANSION) <= Pass(CALL_GRAPH);
 
-    Pass(FILL_COMMON_BLOCKS) <= Pass(VERIFY_COMMON);
+    list({ FILL_COMMON_BLOCKS, GET_ALL_ARRAY_DECL }) <= Pass(VERIFY_COMMON) <= Pass(CREATE_CHECKPOINTS);
+
+    Pass(CONVERT_SAVE_TO_MODULE) <= Pass(CREATE_CHECKPOINTS);
 
     Pass(FILL_PAR_REGIONS_LINES) <= Pass(VERIFY_EQUIVALENCE);
     

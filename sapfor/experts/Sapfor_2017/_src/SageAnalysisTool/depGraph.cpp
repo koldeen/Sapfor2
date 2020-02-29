@@ -369,9 +369,9 @@ depGraph::depGraph(SgFile *fi, SgStatement *f, SgStatement *l, const set<string>
         perfectNestedLevel = doloop->isPerfectLoopNest();
         // We now compute the dependence Graph;
         arrayRef = loopArrayAccessAnalysis(func, loop, tsymb, &induc, privVars);
-#if __SPF && __WIN32
+
         createNeededException();        
-#endif        
+
         computeLoopDependencies(func, arrayRef, tsymb, induc);      
         scalarRefAnalysis(loop);
     }

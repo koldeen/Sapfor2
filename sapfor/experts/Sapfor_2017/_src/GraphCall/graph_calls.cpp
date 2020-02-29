@@ -313,9 +313,7 @@ static void processActualParams(SgExpression *parList, const map<string, vector<
                     if (result != ex->lhs())
                     {
                         currParams->parameters[num] = new int[1];
-#ifdef _WIN32
                         addToCollection(__LINE__, __FILE__, currParams->parameters[num], 2);
-#endif                    
                         ((int*)currParams->parameters[num])[0] = result->valueInteger();
                     }
                 }
@@ -419,9 +417,7 @@ static void doMacroExpand(SgStatement *parent, SgExpression *parentEx, SgExpress
 
             wstring messageE, messageR;
             __spf_printToLongBuf(messageE, L"substitute statement function with name '%s'", to_wstring(funcName).c_str());
-#ifdef _WIN32
             __spf_printToLongBuf(messageR, R101, to_wstring(funcName).c_str());
-#endif
             messages.push_back(Messages(NOTE, parent->lineNumber(), messageR, messageE, 2006));
         }
 
@@ -750,9 +746,7 @@ static void fillFunctionPureStatus(SgStatement *header, FuncInfo *currInfo, vect
 
         if (declaratedAsPure && !hasIntent && ((SgProgHedrStmt*)header)->numberOfParameters())
         {
-#if _WIN32
             messagesForFile.push_back(Messages(ERROR, header->lineNumber(), R143, L"Wrong pure declaration - INTENT mismatch", 4002));
-#endif
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
 
@@ -765,11 +759,7 @@ static void fillFunctionPureStatus(SgStatement *header, FuncInfo *currInfo, vect
             else
             {
                 for (auto &line : lines)
-                {
-#if _WIN32
                     messagesForFile.push_back(Messages(WARR, line, R93, L"Function is impure due to this operator usage", 1049));
-#endif
-                }
             }
         }
         else if (declaratedAsPure)            
@@ -1090,9 +1080,7 @@ static bool matchCallAndDefinition(const FuncParam &funcParDef, const FuncParam&
     {
         wstring bufR, bufE;
         __spf_printToLongBuf(bufE, L"Function '%s': count of call parameters are not enouth", to_wstring(funcName).c_str());
-#ifdef _WIN32
         __spf_printToLongBuf(bufR, R38, to_wstring(funcName).c_str());
-#endif
         //if (needToAddErrors)
         {
             messages[file].push_back(Messages(ERROR, line, bufR, bufE, 1013));
@@ -1112,12 +1100,12 @@ static bool matchCallAndDefinition(const FuncParam &funcParDef, const FuncParam&
                     __spf_printToLongBuf(bufE, L"Different type of call (%s : %s) and def (%s : %s) parameter %d for function '%s'",                         
                                          to_wstring(funcParCall.identificators[i]).c_str(), to_wstring(paramNames[typesCall[i]]).c_str(), 
                                          to_wstring(funcParDef.identificators[i]).c_str(), to_wstring(paramNames[typesDef[i]]).c_str(), i + 1, to_wstring(funcName).c_str());
-#ifdef _WIN32
+
                     __spf_printToLongBuf(bufR, R39, 
                                          to_wstring(funcParCall.identificators[i]).c_str(), to_wstring(paramNames[typesCall[i]]).c_str(), 
                                          to_wstring(funcParDef.identificators[i]).c_str(), to_wstring(paramNames[typesDef[i]]).c_str(), 
                                          i + 1, to_wstring(funcName).c_str());
-#endif
+
                     //if (needToAddErrors)
                     {
                         messages[file].push_back(Messages(ERROR, line, bufR, bufE, 1013));
@@ -1132,9 +1120,8 @@ static bool matchCallAndDefinition(const FuncParam &funcParDef, const FuncParam&
                 {
                     wstring bufR, bufE;
                     __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined, only full array passing was supported", to_wstring(def->funcName).c_str());
-#ifdef _WIN32
                     __spf_printToLongBuf(bufR, R40, to_wstring(def->funcName).c_str());
-#endif
+
                     //if (needToAddErrors)
                     {
                         messages[file].push_back(Messages(ERROR, line, bufR, bufE, 1013));
@@ -1237,25 +1224,19 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                         if (type1)
                         {
                             add += "(as out argument";
-#ifdef _WIN32
                             addW += L"(как выходной аргумент";
-#endif
                         }
                         if (type2)
                         {
                             if (type1)
                             {
                                 add += ", as array in function)";
-#ifdef _WIN32
                                 addW += L", как массив в функции)";
-#endif
                             }
                             else
                             {
                                 add += "(as array in function)";
-#ifdef _WIN32
                                 addW += L"(как массив в функции)";
-#endif
                             }
                         }
                         else
@@ -1274,10 +1255,10 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                         wstring bufE, bufR;
                                         __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s", 
                                                              to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), loop->lineNumber(), to_wstring(add).c_str());
-#ifdef _WIN32
+
                                         __spf_printToLongBuf(bufR, R41,
                                                              to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), loop->lineNumber(), addW.c_str());
-#endif
+
                                         messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
                                         __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s\n", func->funcName.c_str(), symb->identifier(), loop->lineNumber(), add.c_str());
                                     }
@@ -1286,10 +1267,10 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                         wstring bufE, bufR;
                                         __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to non private array reference '%s' %s", 
                                                              to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), to_wstring(add).c_str());
-#ifdef _WIN32
+
                                         __spf_printToLongBuf(bufR, R42,
                                                              to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), addW.c_str());
-#endif
+
                                         messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
                                         __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' %s\n", func->funcName.c_str(), symb->identifier(), add.c_str());
                                     }
@@ -1328,14 +1309,14 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                     else
                                         __spf_printToLongBuf(bufE, L"First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'", 
                                                              inFunction->GetDimSize(), to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
-#ifdef _WIN32
+
                                     if (inFunction->GetDimSize() == 1)                                    
                                         __spf_printToLongBuf(bufR, R73, 
                                                              to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
                                     else
                                         __spf_printToLongBuf(bufR, R72, 
                                                              inFunction->GetDimSize(), to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
-#endif
+
                                     messages.push_back(Messages(NOTE, statLine, bufR, bufE, 1040));
                                 }
                             }
@@ -1356,10 +1337,10 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                     wstring bufE, bufR;
                                     __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'", 
                                                          to_wstring(func->funcName).c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), to_wstring(symb->identifier()).c_str());
-#ifdef _WIN32
+
                                     __spf_printToLongBuf(bufR, R43,
                                                          to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), inFunction->GetDimSize(), mainArray->GetDimSize());
-#endif
+
                                     messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
                                     __spf_print(1, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'\n", 
                                                     func->funcName.c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), symb->identifier());
@@ -1371,10 +1352,10 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                 wstring bufE, bufR;
                                 __spf_printToLongBuf(bufE, L"Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", 
                                                      to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str());
-#ifdef _WIN32
+
                                 __spf_printToLongBuf(bufR, R44,
                                                      to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str());
-#endif
+
                                 messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
                                 __spf_print(1, "Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", func->funcName.c_str(), symb->identifier());
                                 ret = true;
@@ -1458,10 +1439,10 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
             wstring bufE, bufR;
             __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to use of loop's symbol on line %d as index of an array inside this call, in parameter num %d", 
                                  to_wstring(func->funcName).c_str(), loop->lineNumber(), idx);
-#if _WIN32
+
             __spf_printToLongBuf(bufR, R45,
                 to_wstring(func->funcName).c_str(), idx, loop->lineNumber());
-#endif
+
             if (needToAddErrors)
             {
                 messages.push_back(Messages(ERROR, funcOnLine, bufR, bufE, 1013));
@@ -1843,9 +1824,8 @@ static bool hasRecursionChain(vector<FuncInfo*> currentChainCalls, const FuncInf
 
                 wstring bufE, bufR;
                 __spf_printToLongBuf(bufE, L"Found recursive chain calls: %s, this function will be ignored", to_wstring(chain).c_str());
-#ifdef _WIN32
                 __spf_printToLongBuf(bufR, R46, to_wstring(chain).c_str());
-#endif
+
                 messagesForFile.push_back(Messages(ERROR, currentChainCalls[0]->linesNum.first, bufR, bufE, 1014));
                 break;
             }

@@ -63,12 +63,12 @@ void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string, vecto
                         
                         std::wstring bufE, bufR;
                         __spf_printToLongBuf(bufE, L"More information is required about sizes of array '%s'", to_wstring(array->GetShortName()).c_str());
-#ifdef _WIN32
+
                         if (array->IsLoopArray())
                             __spf_printToLongBuf(bufR, R149, to_wstring(array->GetShortName()).c_str());
                         else
                             __spf_printToLongBuf(bufR, R37, to_wstring(array->GetShortName()).c_str());
-#endif
+
                         getObjectForFileFromMap(declF.c_str(), allMessages).push_back(Messages(ERROR, declL, bufR, bufE, 1012));
                     }
                 }
@@ -508,9 +508,8 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, const DIST:
                     {
                         std::wstring bufE, bufR;
                         __spf_printToLongBuf(bufE, L"detected distributed and non distributed array links by function's calls for array '%s'\n", to_wstring(array->GetShortName()).c_str());
-#ifdef _WIN32
                         __spf_printToLongBuf(bufR, R140, to_wstring(array->GetShortName()).c_str());
-#endif
+
                         getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufR, bufE, 3020));
                     }
                     
@@ -525,16 +524,12 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, const DIST:
                                 if (realR->GetNonDistributeFlag())
                                 {
                                     __spf_printToLongBuf(bufE, L"detected non distributed array '%s'\n", to_wstring(realR->GetShortName()).c_str());
-#ifdef _WIN32
                                     __spf_printToLongBuf(bufR, R153, to_wstring(realR->GetShortName()).c_str());
-#endif
                                 }
                                 else
                                 {
                                     __spf_printToLongBuf(bufE, L"detected distributed array '%s'\n", to_wstring(realR->GetShortName()).c_str());
-#ifdef _WIN32
                                     __spf_printToLongBuf(bufR, R141, to_wstring(realR->GetShortName()).c_str());
-#endif
                                 }
                                 getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufR, bufE, 3020));
                             }
@@ -566,9 +561,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, const DIST:
 
                 std::wstring bufE, bufR;
                 __spf_printToLongBuf(bufE, L"different align rules for array %s were found\n", to_wstring(array.first->GetShortName()).c_str());
-#ifdef _WIN32
                 __spf_printToLongBuf(bufR, R142, to_wstring(array.first->GetShortName()).c_str());
-#endif
                 for (auto &declPlace : array.first->GetDeclInfo())
                     getObjectForFileFromMap(declPlace.first.c_str(), SPF_messages).push_back(Messages(ERROR, declPlace.second, bufR, bufE, 3020));
             }

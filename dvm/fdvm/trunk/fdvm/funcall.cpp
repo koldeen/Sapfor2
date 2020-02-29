@@ -2954,6 +2954,58 @@ SgExpression *CalculateLinear(SgExpression *ar_header, int n, SgExpression *inde
 
 }
 
+SgStatement *SaveCheckpointFilenames(SgExpression *cpName, std::vector<SgExpression *> filenames) {
+  fmask[CP_SAVE_FILENAMES] = 2;
+  SgCallStmt *callStmt = new SgCallStmt(*fdvm[CP_SAVE_FILENAMES]);
+  callStmt->addArg(*DvmhString(cpName));
+  
+  SgExpression *filenamesLength = DvmType_Ref(new SgValueExp((int) filenames.size()));
+  callStmt->addArg(*filenamesLength);
+  
+  std::vector<SgExpression *>::iterator it = filenames.begin();
+  for (; it != filenames.end(); it++) {
+    callStmt->addArg(*DvmhString(*it));
+  }
+  return callStmt;
+}
+
+
+SgStatement *CheckFilename(SgExpression *cpName, SgExpression *filename) {
+  fmask[CP_CHECK_FILENAME] = 2;
+  SgCallStmt *callStmt = new SgCallStmt(*fdvm[CP_CHECK_FILENAME]);
+  callStmt->addArg(*DvmhString(cpName));
+  callStmt->addArg(*DvmhString(filename));
+  
+  return callStmt;
+  
+}
+
+SgStatement *CpWait(SgExpression *cpName, SgExpression *statusVar) {
+  fmask[CP_WAIT] = 2;
+  SgCallStmt *callStmt = new SgCallStmt(*fdvm[CP_WAIT]);
+  callStmt->addArg(*DvmhString(cpName));
+  callStmt->addArg(*DvmhVariable(statusVar));
+  return callStmt;
+}
+
+SgStatement *CpSaveAsyncUnit(SgExpression *cpName, SgExpression *file, SgExpression *unit) {
+  fmask[CP_SAVE_ASYNC_UNIT] = 2;
+  SgCallStmt *callStmt = new SgCallStmt(*fdvm[CP_SAVE_ASYNC_UNIT]);
+  callStmt->addArg(*DvmhString(cpName));
+  callStmt->addArg(*DvmhString(file));
+  callStmt->addArg(*DvmType_Ref(unit));
+  return callStmt;
+}
+
+SgStatement *GetNextFilename(SgExpression *cpName, SgExpression *lastFile, SgExpression *currentFile) {
+  fmask[CP_NEXT_FILENAME] = 2;
+  SgCallStmt *callStmt = new SgCallStmt(*fdvm[CP_NEXT_FILENAME]);
+  callStmt->addArg(*DvmhString(cpName));
+  callStmt->addArg(*DvmhString(lastFile));
+  callStmt->addArg(*DvmhStringVariable(currentFile));
+  
+  return callStmt;
+}
 
 /*
 SgStatement *RegisterBufferArray(int irgn, SgSymbol *c_intent, SgExpression *bufref, int ilow, int ihigh)

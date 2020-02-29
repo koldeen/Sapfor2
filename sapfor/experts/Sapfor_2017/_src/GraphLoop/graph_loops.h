@@ -94,7 +94,6 @@ public:
 
     void addConflictMessages(std::vector<Messages> *messages)
     {
-#ifdef _WIN32
         const int line = altLineNum > 0 ? altLineNum : lineNum;
         if (hasUnknownArrayDep)
             messages->push_back(Messages(NOTE, line, R113, L"unknown array dependency prevents parallelization of this loop", 3006));
@@ -134,7 +133,6 @@ public:
 
         if (hasDvmIntervals)
             messages->push_back(Messages(NOTE, line, R145, L"DVM intervals prevent parallelization of this loop", 3006));
-#endif
     }
 
     void setNewRedistributeRules(const std::vector<std::pair<DIST::Array*, DistrVariant*>> &newRedistributeRules)

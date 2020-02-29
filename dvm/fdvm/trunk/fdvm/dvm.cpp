@@ -4043,8 +4043,8 @@ EXEC_PART_:
             ReadWritePrint_Statement(stmt,WITH_ERR_MSG);
             stmt = cur_st;
             break;
-/*
-       case DVM_CP_CREATE_DIR:
+
+       case DVM_CP_CREATE_DIR:     /*Check Point*/
             CP_Create_Statement(stmt, WITH_ERR_MSG);
             stmt = cur_st;
             break;
@@ -4055,8 +4055,12 @@ EXEC_PART_:
        case DVM_CP_LOAD_DIR:
             CP_Load_Statement(stmt, WITH_ERR_MSG);
             stmt = cur_st;
-            break;
-*/           
+            break;                 
+      case DVM_CP_WAIT_DIR:
+            CP_Wait(stmt, WITH_ERR_MSG);
+            stmt = cur_st;
+            break;                /*Check Point*/
+           
        case FOR_NODE:
             if(inasynchr){ //inside the range  of ASYNCHRONOUS construct
 	      pstmt = addToStmtList(pstmt, stmt); // add to list of extracted statements
@@ -10923,6 +10927,23 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
             if(perf_analysis)  
               stmt = Any_IO_Statement(stmt); 
             break;
+       case DVM_CP_CREATE_DIR:  /*Chek Point*/
+            CP_Create_Statement(stmt, WITH_ERR_MSG);
+            stmt = cur_st;
+            break;
+       case DVM_CP_SAVE_DIR:
+            CP_Save_Statement(stmt, WITH_ERR_MSG);
+            stmt = cur_st;
+            break;
+       case DVM_CP_LOAD_DIR:
+            CP_Load_Statement(stmt, WITH_ERR_MSG);
+            stmt = cur_st;
+            break;
+      case DVM_CP_WAIT_DIR:
+            CP_Wait(stmt, WITH_ERR_MSG);
+            stmt = cur_st;
+            break;            /*Chek Point*/
+
        default:
             break;     
     }
@@ -13916,6 +13937,18 @@ void TranslateFromTo(SgStatement *first, SgStatement *last, int error_msg)
             Any_IO_Statement(stmt);
             ReadWritePrint_Statement(stmt, error_msg);
             break;
+       case DVM_CP_CREATE_DIR:      /*Check Point*/
+            CP_Create_Statement(stmt, error_msg);
+            break;
+       case DVM_CP_SAVE_DIR:
+            CP_Save_Statement(stmt, error_msg);
+            break;
+       case DVM_CP_LOAD_DIR:
+            CP_Load_Statement(stmt, error_msg);
+            break;
+       case DVM_CP_WAIT_DIR:
+            CP_Wait(stmt, error_msg);
+            break;                   /*Check Point*/
        case FOR_NODE:
             ChangeDistArrayRef(stmt->expr(0));
             ChangeDistArrayRef(stmt->expr(1));

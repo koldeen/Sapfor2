@@ -726,9 +726,8 @@ Set *computeLoopDependencies(SgStatement *func, Set *inset, SgSymbol **tsymb, Se
     int countOfNodes = currentDepGraph->getNodes().size();
     for (i = 0; i < inset->size(); i++)
     {
-#if __SPF && __WIN32
         createNeededException();
-#endif
+
         el1 = (PT_ACCESSARRAY)inset->getElement(i);
         if (el1)
         {
