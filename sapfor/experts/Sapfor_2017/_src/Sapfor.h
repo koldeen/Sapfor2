@@ -129,6 +129,8 @@ enum passes {
     
     CREATE_CHECKPOINTS,
     CONVERT_SAVE_TO_MODULE,
+    PROCESS_IO,
+
     EMPTY_PASS
 };
 
@@ -262,6 +264,7 @@ static void setPassValues()
     passNames[DUMP_DECLS_WITH_INIT] = "DUMP_DECLS_WITH_INIT";    
     passNames[CREATE_CHECKPOINTS] = "CREATE_CHEKPOINTS";
     passNames[CONVERT_SAVE_TO_MODULE] = "CONVERT_SAVE_TO_MODULE";
+    passNames[PROCESS_IO] = "PROCESS_IO";
 }
 
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

@@ -1034,9 +1034,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == DUMP_DECLS_WITH_INIT)
             dumpAllDeclsWithInit(file, (i == n - 1));
         else if (curr_regime == CREATE_CHECKPOINTS)
-            createCheckpoints(file, commonBlocks);
+            createCheckpoints(file, commonBlocks, filesInfo);
         else if (curr_regime == CONVERT_SAVE_TO_MODULE)
             convertSaveToModule(file);
+        else if (curr_regime == PROCESS_IO)
+            preprocessOpenOperators(file, filesInfo);
 
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, allIncludeFiles);
     } // end of FOR by files
@@ -2263,7 +2265,7 @@ int main(int argc, char **argv)
             const char* curr_arg = argv[i];
             if (string(curr_arg) == "-client")
             {
-                printVersion("[CLIENT] " );
+                printVersion("[SAPFOR]: ");
                 printed = true;
                 break;
             }
@@ -2452,7 +2454,7 @@ int main(int argc, char **argv)
 
         if (runAsClient)
         {
-            printf("[CLIENT] started as client\n");
+            printf("[SAPFOR]: Started as client\n");
             RunSapforAsClient();
         }
         else

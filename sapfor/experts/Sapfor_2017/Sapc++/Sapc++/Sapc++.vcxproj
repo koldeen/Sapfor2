@@ -151,6 +151,7 @@
     <ClInclude Include="..\..\_src\ParallelizationRegions\ParRegions.h" />
     <ClInclude Include="..\..\_src\Sapfor.h" />
     <ClInclude Include="..\..\_src\Utils\utils.h" />
+    <ClInclude Include="..\..\_src\VisualizerCalls\SendMessage.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

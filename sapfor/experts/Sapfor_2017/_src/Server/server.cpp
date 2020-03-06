@@ -56,6 +56,13 @@ void Sleep(int millisec) { usleep(millisec * 1000); }
 
 #endif
 
+#define __print(prefix, format, ...) do {\
+   printf((string("%s: ") + format + string("\n")).c_str(), prefix, ##__VA_ARGS__); \
+   fflush(NULL); \
+} while (0)
+
+#define SERV "[SERVER]"
+
 static int initServer(SOCKET& listenSocket, const string& address, int port)
 {
     int iResult;
@@ -64,7 +71,7 @@ static int initServer(SOCKET& listenSocket, const string& address, int port)
     int resultc = WSAStartup(MAKEWORD(2, 0), &wsaData);
     if (resultc != 0)
     {
-        printf("result of WSAStartup is %d\n", resultc);
+        __print(SERV, "result of WSAStartup is %d", resultc);
         return 1;
     }
 #endif
@@ -80,7 +87,7 @@ static int initServer(SOCKET& listenSocket, const string& address, int port)
     iResult = getaddrinfo(address.c_str(), to_string(port).c_str(), &hints, &result);
     if (iResult != 0)
     {
-        cout << "Ошибка getaddrinfo: " << iResult;
+        __print(SERV, "Error of getaddrinfo(): %d", iResult);
         WSACleanup();
         return 1;
     }
@@ -92,7 +99,7 @@ static int initServer(SOCKET& listenSocket, const string& address, int port)
 #endif
     if (listenSocket < 0)
     {
-        cout << "Error at socket(): " << listenSocket;
+        __print(SERV, "Error of socket(): %d", listenSocket);
         WSACleanup();
         return 1;
     }
@@ -103,7 +110,7 @@ static int initServer(SOCKET& listenSocket, const string& address, int port)
     iResult = setsockopt(listenSocket, SOL_SOCKET, SO_LINGER, (char*)(&lin), sizeof(lin));
     if (iResult != 0)
     {
-        printf("Wrong setsockopt %d\n", iResult);
+        __print(SERV, "Error of setsockopt(): %d", iResult);
         return 1;
     }
 	
@@ -119,7 +126,7 @@ static int initServer(SOCKET& listenSocket, const string& address, int port)
 #endif
     if (iResult < 0)
     {
-        cout << "Bind failed with error: " << iResult;
+        __print(SERV, "Bind failed with error: %d", iResult);
         closesocket(listenSocket);
         WSACleanup();
         return 1;
@@ -128,7 +135,7 @@ static int initServer(SOCKET& listenSocket, const string& address, int port)
     iResult = listen(listenSocket, 1);
     if (iResult < 0)
     {
-        cout << "Listen failed with error: " << iResult;
+        __print(SERV, "Listen failed with error: %d", iResult);
         closesocket(listenSocket);
         WSACleanup();
         return 1;
@@ -142,7 +149,7 @@ static int initClient(SOCKET& javaSocket, const string& address, int port)
 	
     if (javaSocket == INVALID_SOCKET)
     {
-        printf("[SERVER] Wrnog java socket\n");
+        __print(SERV, "Error of creating java socket");
         return -1;
     }
 
@@ -152,7 +159,7 @@ static int initClient(SOCKET& javaSocket, const string& address, int port)
     int iResult = setsockopt(javaSocket, SOL_SOCKET, SO_LINGER, (char*)(&lin), sizeof(lin));
     if (iResult != 0)
     {
-        printf("Wrong setsockopt %d\n", iResult);
+        __print(SERV, "Error of setsockopt(): %d", iResult);
         return 1;
     }
 	
@@ -163,7 +170,7 @@ static int initClient(SOCKET& javaSocket, const string& address, int port)
     int result = connect(javaSocket, (SOCKADDR*)(&clientService), sizeof(clientService));
 
     if (result != 0)
-        printf("[SERVER] Error %d of connect to socket %s:%d\n", WSAGetLastError(), address.c_str(), port);
+        __print(SERV, "Error %d of connect to socket %s: %d", WSAGetLastError(), address.c_str(), port);
 
     return result;
 }
@@ -172,9 +179,9 @@ static bool spfRun = false;
 static void runSapfor(const string command)
 {
     spfRun = true;
-    printf("[SERVER-th1] try to start sapfor\n");
+    __print("[SERVER-th1]", "Try to start sapfor");
     int id = system(command.c_str());
-    printf("[SERVER-th1] sapfor done with exit code %d\n", id);
+    __print("[SERVER-th1]", "SAPFOR done with exit code %d", id);
     spfRun = false;
 }
 
@@ -182,9 +189,9 @@ static bool vizRun = false;
 static void runVisulizer(const string command)
 {
     vizRun = true;
-    printf("[SERVER-th2] try to start visualizer\n");
+    __print("[SERVER-th2]", "Try to start Visualizer");
     int id = system(command.c_str());
-    printf("[SERVER-th2] visualizer done with exit code %d\n", id);
+    __print("[SERVER-th2]", "Visualizer done with exit code %d", id);
     vizRun = false;
 }
 
@@ -192,14 +199,19 @@ static bool doCommand(SOCKET& clientSoc, SOCKET& javaSoc, const string& command,
 {
     if (command.find("restart:") == 0)
     {
-        printf("[SERVER] restart sapfor\n");
+        __print(SERV, "Restart SAPFOR");
         closesocket(clientSoc);
         clientSoc = INVALID_SOCKET;
+
+        //wait shutdown of spf
+        while (spfRun)
+            ;
+
         return true;
     }
     else if (command.find("close:") == 0)
     {
-        printf("[SERVER] shutdown\n");
+        __print(SERV, "Shutdown");
         closesocket(clientSoc);
         closesocket(javaSoc);
         javaSoc = clientSoc = INVALID_SOCKET;
@@ -209,7 +221,7 @@ static bool doCommand(SOCKET& clientSoc, SOCKET& javaSoc, const string& command,
     }
     else if (command.find("update:") == 0)
     {
-        printf("[SERVER] update visualizer\n");
+        __print(SERV, "Update Visualizer");
         closesocket(clientSoc);
         closesocket(javaSoc);
         javaSoc = clientSoc = INVALID_SOCKET;
@@ -222,17 +234,17 @@ static bool doCommand(SOCKET& clientSoc, SOCKET& javaSoc, const string& command,
         if (fs::exists(VIZ_NAME_NEW))
         {
             error_code err;
-            fs::copy_file(VIZ_NAME_NEW, VIZ_NAME, err);
-            printf("[SERVER] updated with error code %d: %s\n", err.value(), err.message().c_str());
+            fs::copy_file(VIZ_NAME_NEW, VIZ_NAME, fs::copy_options::overwrite_existing, err);
+            __print(SERV, "Updated with error code %d: %s", err.value(), err.message().c_str());
         }
         else
-            printf("[SERVER] can not find new version of visualizer in '%s' path\n", VIZ_NAME_NEW);
+            __print(SERV, "Can not find new version of Visualizer in '%s' path", VIZ_NAME_NEW);
         //restart
         return true;
     }
     else if (command.find("update_spf:") == 0)
     {
-        printf("[SERVER] update sapfor\n");
+        __print(SERV, "Update SAPFOR");
         closesocket(clientSoc);
         clientSoc = INVALID_SOCKET;
 
@@ -243,16 +255,21 @@ static bool doCommand(SOCKET& clientSoc, SOCKET& javaSoc, const string& command,
         if (fs::exists(SPF_NAME_NEW))
         {
             error_code err;
-            fs::copy_file(SPF_NAME_NEW, SPF_NAME, err);
-            printf("[SERVER] updated with error code %d: %s\n", err.value(), err.message().c_str());
+            fs::copy_file(SPF_NAME_NEW, SPF_NAME, fs::copy_options::overwrite_existing, err);
+            __print(SERV, "Updated with error code %d: %s", err.value(), err.message().c_str());
         }
         else
-            printf("[SERVER] can not find new version of sapfor in '%s' path\n", SPF_NAME_NEW);
+            __print(SERV, "Can not find new version of sapfor in '%s' path", SPF_NAME_NEW);
         //restart
         return true;
     }
     else
-        printf("[SERVER] recv command %s\n", command.c_str());
+    {
+        string copy = command;
+        if (copy.back() == '\n')
+            copy = copy.erase(copy.size() - 1);
+        __print(SERV, "Recv command %s", copy.c_str());
+    }
 
     return false;
 }
@@ -262,6 +279,7 @@ static bool doCommand(SOCKET& clientSoc, SOCKET& javaSoc, const string& command,
 
 int main(int argc, char** argv)
 {
+    setlocale(LC_ALL, "Russian");
     SOCKET serverSoc = INVALID_SOCKET, javaSoc = INVALID_SOCKET;
     if (initServer(serverSoc, "127.0.0.1", 8889) != 0) // create server for Sapfor
         return -1;
@@ -286,10 +304,10 @@ int main(int argc, char** argv)
                 string toRun = string("java -Dfile.encoding=UTF-8 -jar ") + VIZ_NAME;
                 thread viz(runVisulizer, toRun);
                 viz.detach();
-                printf("[SERVER] run visualizer from'%s' path\n", VIZ_NAME);
+                __print(SERV, "Run Visualizer from '%s' path", VIZ_NAME);
             }
             else
-                printf("[SERVER] can not find visualizer in '%s' path\n", VIZ_NAME);
+                __print(SERV, "Can not find Visualizer in '%s' path", VIZ_NAME);
         }
 
 #if DEB == 0
@@ -298,7 +316,7 @@ int main(int argc, char** argv)
             ++t;
             if (t == countOfTry)
             {
-                printf("[SERVER] can not connect to JAVA, exit\n");
+                __print(SERV, "Can not connect to Visualizer, exit");
                 exit(1);
             }
             Sleep(500);
@@ -311,13 +329,17 @@ int main(int argc, char** argv)
             string toRun = SPF_NAME + string(" -client");
             thread sapfor(runSapfor, toRun);
             sapfor.detach();
+
+            //wait run of spf
+            while (!spfRun)
+                ;
 #endif
 
             SOCKET clientSoc = INVALID_SOCKET;
             clientSoc = accept(serverSoc, NULL, NULL);
 
             if (clientSoc != INVALID_SOCKET)
-                printf("[SERVER] sapfor connected\n");
+                __print(SERV, "SAPFOR connected to server");
 
             while (clientSoc != INVALID_SOCKET)
             {
@@ -326,7 +348,7 @@ int main(int argc, char** argv)
                 err = recv(javaSoc, buf, maxSize, 0);
                 if (err <= 0)
                 {
-                    printf("[SERVER] error recv from java with code %d\n", err);
+                    __print(SERV, "Error recv from Visualizer with code %d", err);
                     closesocket(javaSoc);
                     closesocket(clientSoc);
                     javaSoc = clientSoc = INVALID_SOCKET;
@@ -336,14 +358,27 @@ int main(int argc, char** argv)
                 {
                     if (err >= maxSize)
                     {
-                        printf("[SERVER] critical error\n");
+                        __print(SERV, "Critical error");
                         exit(-1);
                     }
 
                     buf[err] = '\0';
                     command = buf;
                     if (doCommand(clientSoc, javaSoc, command, needToUpdateViz))
+                    {
+                        if (javaSoc != INVALID_SOCKET)
+                        {
+                            buf[0] = '\n';
+                            int err = send(javaSoc, buf, 1, 0);
+                            if (err != 1)
+                            {
+                                closesocket(javaSoc);
+                                javaSoc = INVALID_SOCKET;
+                            }
+                        }
+
                         break;
+                    }
                 }
 #else
 
@@ -353,12 +388,12 @@ int main(int argc, char** argv)
                 err = send(clientSoc, command.c_str(), command.size(), 0);
                 if (err != command.size())
                 {
-                    printf("[SERVER] error send\n");
+                    __print(SERV, "Error of send(): %d", err);
                     closesocket(clientSoc);
                     clientSoc = INVALID_SOCKET;
                 }
                 else
-                    printf("[SERVER] send command to client\n");
+                    __print(SERV, "Send command to SAPFOR");
 
                 err = recv(clientSoc, buf, maxSize, 0);
                 int sizeLong = -1;
@@ -366,7 +401,7 @@ int main(int argc, char** argv)
 
                 if (err <= 0)
                 {
-                    printf("[SERVER] error recv\n");
+                    __print(SERV, "Error recv(): %d", err);
                     closesocket(clientSoc);
                     clientSoc = INVALID_SOCKET;
                     retCode = "WRONG\n";
@@ -375,7 +410,7 @@ int main(int argc, char** argv)
                 {
                     if (err >= maxSize)
                     {
-                        printf("[SERVER] critical error\n");
+                        __print(SERV, "Critical error");
                         closesocket(clientSoc);
                         closesocket(javaSoc);
                         exit(-1);
@@ -385,7 +420,7 @@ int main(int argc, char** argv)
                     err = sscanf(buf, "%d", &sizeLong);
                     if (err == -1)
                     {
-                        printf("[SERVER] critical error\n");
+                        __print(SERV, "Critical error");
                         closesocket(clientSoc);
                         closesocket(javaSoc);
                         exit(-1);
@@ -394,7 +429,7 @@ int main(int argc, char** argv)
                     bufLong = (char*)malloc(sizeof(char) * (sizeLong + 1));
                     if (bufLong == NULL)
                     {
-                        printf("[SERVER] error in malloc, exit, need to alloc %d", sizeLong + 1);
+                        __print(SERV, "Error in malloc, exit, need to alloc %d", sizeLong + 1);
                         closesocket(clientSoc);
                         closesocket(javaSoc);
                         exit(-1);
@@ -412,22 +447,22 @@ int main(int argc, char** argv)
                         err = recv(clientSoc, bufLong + start, sizeLong - sum, 0);
                         if (err <= 0)
                         {
-                            printf("[SERVER] error recv with code %d\n", err);
+                            __print(SERV, "Error of recv from SAPFOR with code %d", err);
                             retCode = "WRONG\n";
                             closesocket(clientSoc);
                             clientSoc = INVALID_SOCKET;
                             break;
                         }
                         else
-                            printf("[SERVER] recv from client result %d size, request size %d\n", err, sizeLong - sum);
+                            __print(SERV, "Recv from SAPFOR result == %d size, request size %d", err, sizeLong - sum);
                         sum += err;
                         start += err;
                     }
-                    printf("[SERVER] recv from client total %d size\n", sum);
+                    __print(SERV, "Recv from SAPFOR total %d size", sum);
                 
                     if (sum >= sizeLong + 1)
                     {
-                        printf("[SERVER] critical error\n");
+                        __print(SERV, "Critical error");
                         closesocket(clientSoc);
                         closesocket(javaSoc);
                         exit(-1);
@@ -441,20 +476,20 @@ int main(int argc, char** argv)
                 err = send(javaSoc, retCode.c_str(), retCode.size(), 0);
                 if (err != retCode.size())
                 {
-                    printf("[SERVER] error send to java\n");
+                    __print(SERV, "Error send to Visualizer");
                     closesocket(clientSoc);
                     closesocket(javaSoc);
                     javaSoc = clientSoc = INVALID_SOCKET;
                     break;
                 }
                 else
-                    printf("[SERVER] send result to JAVA %d\n", (int)retCode.size());
+                    __print(SERV, "Send result to Visualizer %d", (int)retCode.size());
 #else
                 printf("%s\n", retCode.c_str());
                 Sleep(1000);
 #endif
             }
-            printf("[SERVER] invalid sapfor socket, try to restart\n");
+            __print(SERV, "Invalid SAPFOR socket, try to restart");
             Sleep(500);
         }
     }

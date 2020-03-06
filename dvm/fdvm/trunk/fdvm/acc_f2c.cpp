@@ -1527,7 +1527,10 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
             retExp = bit_ne;
         }
         else if (var == BOOL_VAL)
-            retExp = new SgValueExp(((SgValueExp*)expr)->boolValue());
+        {
+            bool val = ((SgValueExp*)expr)->boolValue();
+            retExp = new SgKeywordValExp(val ? "true" : "false");
+        }
         else
         {
             // known vars: ADD_OP, SUBT_OP, MULT_OP, DIV_OP, MINUS_OP, UNARY_ADD_OP, CONST_REF, EXPR_LIST, 
@@ -1560,8 +1563,6 @@ static SgExpression* splitReductionForAtomic(SgExpression* lhs, SgExpression* rh
     }
 
     string left(lhs->unparse());
-    string right(rhs->unparse());
-
     set<int> op;
     if (num_red == 1) // sum
     {
@@ -1575,9 +1576,9 @@ static SgExpression* splitReductionForAtomic(SgExpression* lhs, SgExpression* rh
     else if (num_red == 4)  // min
         op.insert(FUNC_CALL);
     else if (num_red == 5)  // and
-        ;// op.insert(AND_OP);
+         op.insert(BITAND_OP);
     else if (num_red == 6)  // or
-        ;// op.insert(OR_OP);
+         op.insert(BITOR_OP);
     else if (num_red == 7)  // neqv
         ;// op.insert(NEQV_OP);
     else if (num_red == 8)  // eqv
@@ -1629,7 +1630,10 @@ static SgExpression* splitReductionForAtomic(SgExpression* lhs, SgExpression* rh
     }
 
     if (args == NULL)
+    {
+        string right(rhs->unparse());
         Error("Can not match reduction template for this pattern: %s", (left + " = " + right).c_str(), 900, first_do_par);
+    }
 
     return args;
 }
@@ -1656,6 +1660,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
     {
         SgExpression *lhs = st->expr(0);
         SgExpression *rhs = st->expr(1);
+
 #if TRACE
         printfSpaces(lvl_convert_st);
         printf("convert assign node\n");

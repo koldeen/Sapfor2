@@ -49,6 +49,9 @@
     <Filter Include="Файлы заголовков\CodeConverter">
       <UniqueIdentifier>{e59c7920-1b24-4a95-9890-192e90bc0181}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Файлы заголовков\VisualizerCalls">
+      <UniqueIdentifier>{b5e5bfbb-6553-4e1a-a4a1-b60f62307e26}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\_src\Distribution\CreateDistributionDirs.cpp">
@@ -133,6 +136,9 @@
     </ClInclude>
     <ClInclude Include="..\..\_src\LoopConverter\loop_transform.h">
       <Filter>Файлы заголовков\CodeConverter</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\VisualizerCalls\SendMessage.h">
+      <Filter>Файлы заголовков\VisualizerCalls</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

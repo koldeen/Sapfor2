@@ -139,6 +139,10 @@ std::pair<std::string, int> inOnlyForloopOnPlace;
 std::map<std::string, int> keyValueFromGUI;
 //
 
+//for PROCESS_IO
+std::map<int, UserFiles> filesInfo; // information about open,close,write and read statements
+//
+
 const char* passNames[EMPTY_PASS + 1];
 const char* optionNames[EMPTY_OPTION + 1];
 bool passNamesWasInit = false;

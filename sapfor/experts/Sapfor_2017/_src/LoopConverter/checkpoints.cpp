@@ -13,6 +13,29 @@ using namespace std;
 
 enum class typeEvery { TIME, ITER };
 
+static const vector<string> iosNames = { "spf_close_all", "spf_open_all", "spf_inc_num_part" };
+
+static SgType* createArrayCharType(int len, int dim)
+{
+    if (dim == 0)
+    {
+        auto simpleType = new SgType(*SgTypeChar());
+
+        auto lenght = new SgValueExp(len);
+        simpleType->thetype->entry.Template.kind_len = lenght->thellnd;
+        return simpleType;
+    }
+    else
+    {
+        auto arrayType = new SgArrayType(*SgTypeChar());
+        arrayType->addDimension(new SgValueExp(dim));
+
+        auto lenght = new SgValueExp(len);
+        arrayType->baseType()->thetype->entry.Template.kind_len = lenght->thellnd;
+        return arrayType;
+    }   
+}
+
 static void findDecls(SgExpression* ex, vector<SgExpression*>& local, const map<string, SgStatement*>& localParams, 
                       set<string>& added)
 {
@@ -107,15 +130,219 @@ static vector<string> findAllModules()
     return ret;
 }
 
-void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlocks)
+static SgExpression* getAttribute(SgExpression* spec, const string& type)
+{
+    while (spec)
+    {
+        if (spec->lhs() && spec->lhs()->variant() == SPEC_PAIR)
+        {
+            if (spec->lhs()->lhs()->variant() == KEYWORD_VAL)
+            {
+                SgKeywordValExp* val = (SgKeywordValExp*)(spec->lhs()->lhs());
+                if (val->value() == type)
+                    return spec->lhs()->rhs();
+            }
+        }       
+        spec = spec->rhs();
+    }
+    return NULL;
+}
+
+static SgSymbol* makeVar(const string& name) { return new SgSymbol(VARIABLE_NAME, name.c_str()); }
+
+static void insertToOpenClose(const map<int, UserFiles>& needToSave, const vector<string>& names, const vector<string>& closedStatus,
+                              const string& iosModule)
+{
+    int z = 0;
+    map<string, map<SgStatement*, set<string>>> useOnlyByFileAndFunc;
+    for (auto& elem : needToSave)
+    {
+        for (int k = 0; k < elem.second.placesOpen.size(); ++k)
+        {
+            auto lastFile = current_file->filename();
+            SgStatement* currOpen = elem.second.placesOpen[k];
+            if (!currOpen->switchToFile())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            currOpen->insertStmtAfter(*new SgAssignStmt(*new SgVarRefExp(makeVar(closedStatus[z])), *new SgValueExp(1)), *currOpen->controlParent());
+            auto fileN = getAttribute(((SgIOControlStmt*)currOpen)->controlSpecList(), "file");
+            checkNull(fileN, convertFileName(__FILE__).c_str(), __LINE__);
+            currOpen->insertStmtAfter(*new SgAssignStmt(*new SgVarRefExp(makeVar(names[z])), *fileN), *currOpen->controlParent());
+
+            auto fStat = getFuncStat(currOpen, { MODULE_STMT });
+            checkNull(fStat, convertFileName(__FILE__).c_str(), __LINE__);
+
+            useOnlyByFileAndFunc[currOpen->fileName()][fStat].insert(closedStatus[z]);
+            useOnlyByFileAndFunc[currOpen->fileName()][fStat].insert(names[z]);
+
+            if (SgFile::switchToFile(lastFile) == -1)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+        ++z;
+    }
+
+    z = 0;
+    for (auto& elem : needToSave)
+    {
+        for (int k = 0; k < elem.second.placesClose.size(); ++k)
+        {
+            auto lastFile = current_file->filename();
+            SgStatement* currClose = elem.second.placesClose[k];
+            if (!currClose->switchToFile())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            currClose->insertStmtAfter(*new SgAssignStmt(*new SgVarRefExp(makeVar(closedStatus[z])), *new SgValueExp(0)), *currClose->controlParent());
+            
+            auto fStat = getFuncStat(currClose, { MODULE_STMT });
+            checkNull(fStat, convertFileName(__FILE__).c_str(), __LINE__);
+            useOnlyByFileAndFunc[currClose->fileName()][fStat].insert(closedStatus[z]);
+
+            if (SgFile::switchToFile(lastFile) == -1)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+        ++z;
+    }
+
+    auto lastFile = current_file->filename();
+    for (auto& byFile : useOnlyByFileAndFunc)
+    {
+        if (SgFile::switchToFile(byFile.first) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        for (auto& byStat : byFile.second)
+        {
+            vector<SgExpression*> onlyList;
+            for (auto& elem : byStat.second)
+                onlyList.push_back(new SgVarRefExp(new SgSymbol(VARIABLE_NAME, elem.c_str())));
+
+            SgExpression* only = new SgExpression(ONLY_NODE, makeExprList(onlyList), NULL);
+            SgStatement* use = new SgStatement(USE_STMT, NULL, makeVar(iosModule), only, NULL, NULL);
+
+            byStat.first->insertStmtBefore(*use, *byStat.first);
+        }
+    }
+
+    if (SgFile::switchToFile(lastFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+}
+
+static void createModule(SgStatement*& module, const string& name, bool withFile = true);
+static void createForIOs(const map<int, UserFiles>& filesInfo, SgStatement* func)
+{
+    SgStatement* moduleF = NULL;
+    map<int, UserFiles> needToSave;
+
+    for (auto& elem : filesInfo)
+    {
+        if (elem.second.placesClose.size() != elem.second.placesOpen.size())
+            if (elem.second.placesClose.size() > 0 && elem.second.placesOpen.size() > 0)
+                needToSave[elem.first] = elem.second;
+
+        if (elem.second.placesClose.size() == 0 && elem.second.placesWrite.size() > 0 && elem.second.placesRead.size() == 0)
+            needToSave[elem.first] = elem.second;
+    }
+
+    if (needToSave.size() == 0)
+        return;
+
+    const string iosModule = "spf_module_ios";
+    createModule(moduleF, iosModule, false);
+
+    vector<SgSymbol*> closedStatus;
+    vector<SgExpression*> closedStatusInit;
+
+    SgSymbol* counter = new SgSymbol(VARIABLE_NAME, "num_part", SgTypeInt(), func);
+
+    vector<SgSymbol*> names;
+
+    for (auto& elem : needToSave)
+    {
+        closedStatus.push_back(new SgSymbol(VARIABLE_NAME, ("spf_state_" + to_string(elem.first)).c_str(), SgTypeInt(), func));
+        closedStatusInit.push_back(new SgValueExp(0));
+
+        names.push_back(new SgSymbol(VARIABLE_NAME, ("spf_name_" + to_string(elem.first)).c_str(), createArrayCharType(32, 0), func));
+    }
+
+    makeDeclaration(moduleF, closedStatus, &closedStatusInit);
+    makeDeclaration(moduleF, names);
+    makeDeclaration(moduleF, { counter }, &closedStatusInit);
+
+
+    moduleF->lastNodeOfStmt()->insertStmtBefore(*new SgStatement(CONTAINS_STMT), *moduleF);
+
+    SgProcHedrStmt* close = new SgProcHedrStmt(iosNames[0].c_str());
+    SgProcHedrStmt* open = new SgProcHedrStmt(iosNames[1].c_str());
+    SgProcHedrStmt* inc = new SgProcHedrStmt(iosNames[2].c_str());
+
+    moduleF->lastNodeOfStmt()->insertStmtBefore(*close, *moduleF);
+    moduleF->lastNodeOfStmt()->insertStmtBefore(*open, *moduleF);
+    moduleF->lastNodeOfStmt()->insertStmtBefore(*inc, *moduleF);
+
+    inc->insertStmtAfter(*new SgAssignStmt(*new SgVarRefExp(counter), *new SgVarRefExp(counter) + *new SgValueExp(1)), *inc);
+
+    int z = 0;
+    for (auto& elem : needToSave)
+    {
+        SgIfStmt* ifstat = new SgIfStmt(*new SgVarRefExp(closedStatus[z]) != *new SgValueExp(0), *new SgIOControlStmt(CLOSE_STAT, *new SgValueExp(elem.first)));
+        ifstat->insertStmtAfter(*new SgAssignStmt(*new SgVarRefExp(closedStatus[z]), *new SgValueExp(0)), *ifstat);
+        close->insertStmtAfter(*ifstat, *close);
+        ++z;
+    }
+        
+    z = 0;
+
+    auto sSTR = new SgSymbol(FUNCTION_NAME, "TO_STR", createArrayCharType(32, 0), moduleF);
+    auto trim = new SgSymbol(FUNCTION_NAME, "TRIM");
+    for (auto& elem : needToSave)
+    {
+        vector<SgExpression*> listSpec;
+        /*listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("iostat"), *iostat));
+        listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("status"), *new SgValueExp("old")));*/
+        
+        auto fCall = new SgFunctionCallExp(*trim, *new SgVarRefExp(names[z]));
+        auto fCall2 = new SgFunctionCallExp(*trim, *new SgFunctionCallExp(*sSTR, *new SgVarRefExp(counter)));
+
+        listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("file"), *new SgExpression(CONCAT_OP, fCall, fCall2)));
+        listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("unit"), *new SgValueExp(elem.first)));
+
+        SgIfStmt* ifstat = new SgIfStmt(*new SgVarRefExp(closedStatus[z]) == *new SgValueExp(0), *new SgIOControlStmt(OPEN_STAT, *makeExprList(listSpec)));
+        ifstat->insertStmtAfter(*new SgAssignStmt(*new SgVarRefExp(closedStatus[z]), *new SgValueExp(1)), *ifstat);
+        open->insertStmtAfter(*ifstat, *open);
+        ++z;
+    }    
+
+    auto k_par = new SgSymbol(VARIABLE_NAME, "k");
+    SgFuncHedrStmt* str_func = new SgFuncHedrStmt(*sSTR);
+    moduleF->lastNodeOfStmt()->insertStmtBefore(*str_func, *moduleF);
+
+    str_func->AddArg(*new SgVarRefExp(k_par));
+    str_func->setExpression(0, NULL); //bad solution!
+    str_func->insertStmtAfter(*makeDeclaration(NULL, { sSTR }), *str_func);
+            
+    str_func->lastNodeOfStmt()->insertStmtBefore(*new SgInputOutputStmt(WRITE_STAT, *makeExprList({ new SgKeywordValExp("*"), new SgVarRefExp(sSTR)}), *new SgVarRefExp(k_par)), *str_func);
+    SgAssignStmt* adjustl = new SgAssignStmt(*new SgVarRefExp(sSTR), *new SgFunctionCallExp(*new SgSymbol(FUNCTION_NAME, "ADJUSTL"), *new SgVarRefExp(sSTR)));
+    str_func->lastNodeOfStmt()->insertStmtBefore(*adjustl, *str_func);
+
+    vector<string> namesS, closedStatusS;
+    for (int z = 0; z < names.size(); ++z)
+    {
+        namesS.push_back(names[z]->identifier());
+        closedStatusS.push_back(closedStatus[z]->identifier());
+    }
+    insertToOpenClose(needToSave, namesS, closedStatusS, iosModule);
+
+    moduleF->insertStmtAfter(*new SgImplicitStmt(NULL), *moduleF);
+}
+
+void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlocks, const map<int, UserFiles>& filesInfo)
 {
     const string fileCP = "total1_module.for";
-    const int line = 8468;
-    const int every = 300;
+    const int line = 8527;
+    const int every = 1000;
     const int numOfFiles = 3;
     const int unitNum = 789;
     const string additional = string("_") + to_string(current_file_id) + "_" + to_string(line);
-    const typeEvery type = typeEvery::TIME;
+    const typeEvery type = typeEvery::ITER;
 
 
     SgStatement* lastDecl = NULL;
@@ -150,6 +377,9 @@ void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlock
 
         if (func)
         {
+            const int labNum = getNextFreeLabel();
+
+            createForIOs(filesInfo, func);
             const vector<string> moduleNames = findAllModules();
 
             lastDecl = func->lexNext();
@@ -157,6 +387,7 @@ void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlock
                 lastDecl = lastDecl->lexNext();
 
             checkNull(lastDecl, convertFileName(__FILE__).c_str(), __LINE__);
+            SgStatement* firstExec = lastDecl->lexNext();
 
             vector<SgExpression*> local;
             map<string, SgStatement*> localParams;
@@ -168,24 +399,21 @@ void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlock
             SgStatement* loadBlockLast = NULL;
             SgStatement* storeBlock = new SgStatement(IF_NODE);
 
-            point->insertStmtBefore(*loadBlock, *point->controlParent());            
+            point->insertStmtBefore(*loadBlock, *point->controlParent());
             point->insertStmtBefore(*storeBlock, *point->controlParent());
 
-            loadBlock->addComment("! LOAD CHECKPOINT\n");            
+            loadBlock->addComment("! LOAD CHECKPOINT\n");
+            auto loadblockLab = new SgLabel(labNum);
+            loadBlock->setLabel(*loadblockLab);
 
-            auto arrayFilesType = new SgArrayType(*SgTypeChar());
-            arrayFilesType->addDimension(new SgValueExp(numOfFiles + 1));
-
-            auto lenght = new SgValueExp(32);
-            arrayFilesType->baseType()->thetype->entry.Template.kind_len = lenght->thellnd;
-
-            SgSymbol* files = new SgSymbol(VARIABLE_NAME, "spf_cp_files", arrayFilesType, func);
+            SgSymbol* files = new SgSymbol(VARIABLE_NAME, "spf_cp_files", createArrayCharType(32, numOfFiles + 1), func);
             vector<string> filesN;
 
             SgArrayRefExp* journal = new SgArrayRefExp(*files, *new SgValueExp(numOfFiles + 1));
             filesN.push_back("spf_cp_journal" + additional);
             lastDecl->insertStmtAfter(*new SgAssignStmt(*journal, *new SgValueExp(filesN.back().c_str())), *func);
 
+            
             int maxFileLen = -1;
             for (int z = numOfFiles; z >= 1; --z)
             {
@@ -233,7 +461,7 @@ void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlock
                 storeBlock->insertStmtBefore(*inc, *storeBlock->controlParent());
                 inc->addComment("! STORE CHECKPOINT\n");
 
-                storeBlock->setExpression(0, *new SgVarRefExp(everyS[0]) != *new SgValueExp(every));
+                storeBlock->setExpression(0, *new SgVarRefExp(everyS[0]) >= *new SgValueExp(every));
             }
             
             vector<SgSymbol*> loadS;
@@ -290,6 +518,7 @@ void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlock
             insertToifLoadOk.push_back(open);
 
             SgIfStmt* ifLoadOk1 = new SgIfStmt(*iostat == *new SgValueExp(0), *new SgIOControlStmt(CLOSE_STAT, unit));
+
             insertToifLoadOk.push_back(ifLoadOk1);
             ifLoadOk1->insertStmtAfter(*new SgIfStmt(*fileIdx == *new SgValueExp(numOfFiles + 1), *new SgAssignStmt(*fileIdx, *new SgValueExp(1))), *ifLoadOk1);
             ifLoadOk1->insertStmtAfter(*new SgAssignStmt(*fileIdx, *fileIdx + *new SgValueExp(1)), *ifLoadOk1);
@@ -303,6 +532,10 @@ void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlock
 
             ifLoadOk1->insertStmtAfter(*new SgInputOutputStmt(WRITE_STAT, *makeExprList({ &frmtProf, &unitNull }), *makeExprList(commentArgs)), *ifLoadOk1);
             ifLoadOk1->insertStmtAfter(profCallE->copy(), *ifLoadOk1);
+
+            //open all files
+            SgCallStmt* call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, iosNames[1].c_str()));
+            ifLoadOk1->insertStmtAfter(*call, *ifLoadOk1);
 
             //READ from modules
             for (auto& mod : moduleNames)
@@ -348,6 +581,10 @@ void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlock
 
             SgStatement* assign = ifLoadOk2->lexNext();
 
+            //open all files
+            call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, iosNames[1].c_str()));
+            ifLoadOk2->insertStmtAfter(*call, *ifLoadOk2);
+
             //WRITE from modules
             for (auto& mod : moduleNames)
             {
@@ -356,6 +593,12 @@ void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlock
                 call->addArg(*new SgValueExp(1));
                 ifLoadOk2->insertStmtAfter(*call, *ifLoadOk2);
             }
+
+            //close and inc            
+            call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, iosNames[2].c_str()));
+            ifLoadOk2->insertStmtAfter(*call, *ifLoadOk2);
+            call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, iosNames[0].c_str()));
+            ifLoadOk2->insertStmtAfter(*call, *ifLoadOk2);
 
             //WRITE DATA
             if (local.size())
@@ -377,6 +620,17 @@ void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlock
             assign->insertStmtBefore(*new SgIOControlStmt(CLOSE_STAT, unit), *ifLoadOk2);
 
             ifLoadOk2->insertStmtAfter(profCallS->copy(), *ifLoadOk2);
+
+            SgStatement* copyForGoto = loadBlock->copyPtr();
+            copyForGoto->deleteLabel();                
+            firstExec->insertStmtBefore(*copyForGoto, *func);
+            copyForGoto->insertStmtAfter(insertToLoadS[insertToLoadS.size() - 1]->copy(), *copyForGoto);
+            copyForGoto->insertStmtAfter(insertToLoadS[insertToLoadS.size() - 2]->copy(), *copyForGoto);
+
+            copyForGoto = copyForGoto->lexNext()->lexNext();
+
+            copyForGoto->insertStmtAfter(*new SgGotoStmt(*loadblockLab), *copyForGoto);
+            copyForGoto->insertStmtAfter(*new SgIOControlStmt(CLOSE_STAT, unit), *copyForGoto);
 
             for (int z = insertToLoadS.size() - 1; z >= 0; --z)
                 loadBlock->insertStmtAfter(*insertToLoadS[z], *loadBlock);
@@ -438,7 +692,14 @@ void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlock
                 {
                     auto callName = new SgSymbol(VARIABLE_NAME, ("SPF_CP_" + elem.first).c_str());
                     SgSymbol* modS = new SgSymbol(VARIABLE_NAME, elem.first.c_str());
-                    SgExpression* only = new SgExpression(ONLY_NODE, new SgExpression(EXPR_LIST, new SgVarRefExp(callName), NULL), NULL);
+
+                    vector<SgExpression*> onlyList;
+                    onlyList.push_back(new SgVarRefExp(callName));
+                    if (elem.first == "spf_module_ios")
+                        for (int z = 0; z < 3; ++z)
+                            onlyList.push_back(new SgVarRefExp(new SgSymbol(VARIABLE_NAME, iosNames[z].c_str())));
+
+                    SgExpression* only = new SgExpression(ONLY_NODE, makeExprList(onlyList), NULL);
                     SgStatement* use = new SgStatement(USE_STMT, NULL, modS, only, NULL, NULL);
                     func->insertStmtAfter(*use, *func);
                 }
@@ -495,24 +756,23 @@ static string cuttingType(const string& all_decl_with_init)
     return all_decl_with_init.substr(0, iter);
 }
 
-static void createModule(SgStatement*& saveModule)
+static void createModule(SgStatement*& module, const string& name, bool withFile)
 {
-    if (saveModule == NULL)
+    if (module == NULL)
     {
-        saveModule = new SgStatement(MODULE_STMT, NULL, new SgSymbol(MODULE_NAME, (string("spf_module_save_") + to_string(current_file_id)).c_str()), NULL, NULL, NULL);
-        addControlEndToStmt(saveModule->thebif);
+        module = new SgStatement(MODULE_STMT, NULL, new SgSymbol(MODULE_NAME, (name + (withFile ? to_string(current_file_id) : "")).c_str()), NULL, NULL, NULL);
+        addControlEndToStmt(module->thebif);
 
         SgStatement* global = current_file->firstStatement();
-        global->insertStmtAfter(*saveModule, *global);
+        global->insertStmtAfter(*module, *global);
     }
-
 }
 
 static SgExpression* moveSaveAssignToMod(SgExpression* ex, SgStatement*& saveModule, 
                                          map<string, SgStatement*>& declLists, const string& procName, bool withInit)
 {
     if (saveModule == NULL)
-        createModule(saveModule);
+        createModule(saveModule, "spf_module_save_");
 
     if (withInit)
     {
@@ -558,17 +818,31 @@ static SgExpression* moveSaveAssignToMod(SgExpression* ex, SgStatement*& saveMod
     return new SgExpression(RENAME_NODE, new SgVarRefExp((withInit) ? ex->lhs()->symbol() : ex->symbol()), new SgVarRefExp(copy));
 }
 
-static string preprocDataString(const string& data)
+static string preprocDataString(string data)
 {
     string ret = "";
-    int i = 0; 
-    while (i != data.size() && data[i] == ' ')
-        ++i;
-    while (i != data.size() && data[i] != ' ')
-        ret += data[i++];
-    while (i != data.size() && data[i] == ' ')
-        ret += data[i++];
+    
 
+    for (int z = 0; z < data.size(); ++z)
+    {
+        if (data[z] == '\t')
+            data[z] = ' ';
+        else if (data[z] == '\r')
+            data[z] = ' ';
+    }
+
+    auto it = data.find("DATA");
+    if (it == string::npos)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    else
+        it += 4;
+    if (data[it] != ' ')
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    else
+        it++;
+    ret = "DATA ";
+
+    int i = it;
     while (i != data.size())
     {
         if (data[i] != ' ')
@@ -576,7 +850,6 @@ static string preprocDataString(const string& data)
         else
             i++;
     }
-
     return ret;
 }
 
@@ -614,7 +887,7 @@ void convertSaveToModule(SgFile* file)
                 if (st->variant() == DATA_DECL && z == 0)
                 {
                     if (saveModule == NULL)
-                        createModule(saveModule);
+                        createModule(saveModule, "spf_module_save_");
 
                     SgStatement* copyData = st->copyPtr();
                     dataValues.push_back((SgValueExp*)copyData->expr(0));
@@ -719,5 +992,97 @@ void convertSaveToModule(SgFile* file)
         }
     }
 
-    printf("");
+    if (saveModule)
+        saveModule->insertStmtAfter(*new SgImplicitStmt(NULL), *saveModule);
+}
+
+static int getUnit(SgExpression* spec)
+{
+    int unit = -1;    
+    while (spec)
+    {
+        if (spec->lhs() && spec->lhs()->variant() == SPEC_PAIR)
+        {
+            if (spec->lhs()->lhs()->variant() == KEYWORD_VAL)
+            {                
+                SgKeywordValExp* val = (SgKeywordValExp*)(spec->lhs()->lhs());
+                if (spec->lhs()->rhs()->variant() == INT_VAL)
+                {
+                    if (val->value() == string("unit"))
+                        return spec->lhs()->rhs()->valueInteger();
+                }
+                else if (spec->lhs()->rhs()->variant() == KEYWORD_VAL)
+                {
+                    SgKeywordValExp* valR = (SgKeywordValExp*)(spec->lhs()->rhs());
+                    if (val->value() == string("unit") && valR->value() == string("*"))
+                        return -2;
+                }
+            }
+        }
+        else if (spec->variant() == INT_VAL)
+            return spec->valueInteger();
+        spec = spec->rhs();
+    }
+
+    return unit;
+}
+
+void preprocessOpenOperators(SgFile* file, map<int, UserFiles>& filesInfo)
+{
+    int numF = file->numberOfFunctions();
+    set<SgStatement*> unrec;
+    for (int ff = 0; ff < numF; ++ff)
+    {
+        SgStatement* func = file->functions(ff);
+        for (SgStatement* st = func->lexNext(); st != func->lastNodeOfStmt(); st = st->lexNext())
+        {
+            if (st->variant() == OPEN_STAT)
+            {
+                int unit = getUnit(((SgIOControlStmt*)st)->controlSpecList());
+                if (unit >= 0)
+                    filesInfo[unit].placesOpen.push_back(st);
+                else if (unit != -2)
+                    unrec.insert(st);
+            }
+            else if (st->variant() == CLOSE_STAT)
+            {
+                int unit = getUnit(((SgIOControlStmt*)st)->controlSpecList());
+                if (unit >= 0)
+                    filesInfo[unit].placesClose.push_back(st);
+                else if (unit != -2)
+                    unrec.insert(st);
+            }
+            else if (st->variant() == WRITE_STAT)
+            {
+                int unit = getUnit(((SgInputOutputStmt*)st)->specList());
+                if (unit >= 0)
+                    filesInfo[unit].placesWrite.push_back(st);
+                else if (unit != -2)
+                    unrec.insert(st);
+            }
+            else if (st->variant() == READ_STAT)
+            {
+                int unit = getUnit(((SgInputOutputStmt*)st)->specList());
+                if (unit >= 0)
+                    filesInfo[unit].placesRead.push_back(st);
+                else if (unit != -2)
+                    unrec.insert(st);
+            }
+            else if (st->variant() == CONTAINS_STMT)
+                break;
+        }
+    }
+
+    for (auto& elem : unrec)
+        elem->unparsestdout();
+
+    /*for (auto& elem : filesInfo)
+    {
+        if (elem.second.placesClose.size() != elem.second.placesOpen.size())
+            if (elem.second.placesClose.size() > 0 && elem.second.placesOpen.size() > 0)
+                printf("UNIT = %d has not equal open and close\n", elem.first);
+
+        if (elem.second.placesClose.size() == 0 && elem.second.placesWrite.size() > 0 && elem.second.placesRead.size() == 0)
+            printf("UNIT = %d need to save\n", elem.first);
+    }*/
 }

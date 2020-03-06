@@ -41,6 +41,13 @@ using std::vector;
 
 static SOCKET clientSocket = INVALID_SOCKET;
 
+#define __print(prefix, format, ...) do {\
+   printf((string("%s: ") + format + string("\n")).c_str(), prefix, ##__VA_ARGS__); \
+   fflush(NULL); \
+} while (0)
+
+#define CLIENT "[SAPFOR]"
+
 static int decodeMessage(const string& message, vector<string>& pars, int &winH, int countPars)
 {
     int sI = 0;
@@ -205,10 +212,10 @@ static int send(SOCKET& client, const wstring& messageIn)
     string size = std::to_string(result.size());
 
     int err = send(client, size.c_str(), size.size(), 0);
-    printf("[CLIENT] send size: %d\n", (int)result.size());
+    __print(CLIENT, "Send message size: %d", (int)result.size());
     if (err != size.size())
     {
-        printf("[CLIENT] wrong send: %d\n", err); // exit
+        __print(CLIENT, "Error of send(): %d", err); // exit
         return -1;
     }
 
@@ -216,17 +223,20 @@ static int send(SOCKET& client, const wstring& messageIn)
     recv(client, &buf, 1, 0);
 
     err = send(client, result.c_str(), result.size(), 0);
-    printf("[CLIENT] send message\n");
+    __print(CLIENT, "Send message size %d", (int)result.size());
     if (err != result.size())
     {
-        printf("[CLIENT] wrong send: %d\n", err); // exit
+        __print(CLIENT, "Error of send(): %d", err); // exit
         return -1;
     }
     else
     {
         err = recv(client, &buf, 1, 0);
         if (err != 1)
+        {
+            __print(CLIENT, "Error of recv(): %d", err); // exit
             return -1;
+        }
         else
             return 0;
     }
@@ -242,7 +252,7 @@ void MessageManager::sendProgress(const std::wstring& str)
         int size = result.size();
         int iResult = send(clientSocket, ret, size, 0);
         if (iResult == -1)
-            printf("Wrong send is %d\n", iResult);
+            __print(CLIENT, "Error of send(): %d", iResult);
     }
 }
 
@@ -255,7 +265,7 @@ int MessageManager::init()
         int result = WSAStartup(MAKEWORD(2, 0), &wsaData);
         if (result != 0)
         {
-            printf("Wrong WSAStartup is %d\n", result);
+            __print(CLIENT, "Wrong WSAStartup(): %d", result);
             Started = -2;
         }
         else
@@ -296,7 +306,10 @@ void RunSapforAsClient()
             string message = buf;
             string code;
 
-            printf("[CLIENT] recv message: '%s'\n", message.c_str());
+            string copy = message;
+            if (copy.back() == '\n')
+                copy = copy.erase(copy.size() - 1);
+            __print(CLIENT, "Recv message: '%s'", copy.c_str());
 
             int z = 0;
             for (; z < message.size(); ++z)
@@ -312,7 +325,7 @@ void RunSapforAsClient()
 
             if (z == message.size()) // wrong message
             {
-                printf("[CLIENT] wrong message\n");
+                __print(CLIENT, "Wrong message");
 
                 int err = send(client, L"WRONG");
                 if (err != 0)
@@ -352,7 +365,7 @@ void RunSapforAsClient()
             }
             else
             {
-                printf("[CLIENT] wrong code: %s\n", code.c_str()); // exit
+                __print(CLIENT, "Wrong code of message: %s", code.c_str()); // exit
                 int err = send(client, L"WRONG");
                 if (err != 0)
                     break;
@@ -366,13 +379,13 @@ void RunSapforAsClient()
         else if (count == 0) // close and exit
         {
             closesocket(client);
-            printf("[CLIENT] socket was closed\n");
+            __print(CLIENT, "Socket was closed");
             break;
         }
         else // error
         {
             closesocket(client);
-            printf("[CLIENT] recv return error code %d\n", count);
+            __print(CLIENT, "Recv return error code %d", count);
             break;
         }
     }

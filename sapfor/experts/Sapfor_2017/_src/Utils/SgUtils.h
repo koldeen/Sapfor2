@@ -75,3 +75,5 @@ SgStatement* makeDeclaration(SgStatement* curr, const std::vector<SgSymbol*>& s,
 
 int parseFiles(const char* proj);
 int pppaAnalyzer(const char* options);
+
+int getNextFreeLabel();

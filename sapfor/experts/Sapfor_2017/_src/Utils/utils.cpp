@@ -322,7 +322,7 @@ string convertFileName(const char *file)
     string tmp(file);
     std::reverse(tmp.begin(), tmp.end());
     int t = 0;
-    while (tmp[t] != '\\' && t < tmp.size())
+    while (tmp[t] != '\\' && tmp[t] != '/' && t < tmp.size())
         t++;
     tmp.erase(tmp.begin() + t, tmp.end());       
     std::reverse(tmp.begin(), tmp.end());

@@ -839,7 +839,7 @@ bool isDVM_stat(SgStatement *st)
         (var >= DVM_PARALLEL_ON_DIR && var <= DVM_SHADOW_DIR) ||
         (var >= DVM_NEW_VALUE_DIR && var <= DVM_POINTER_DIR) ||
         (var >= DVM_TASK_REGION_DIR && var < FORALL_STAT) ||
-        (var > FORALL_STAT && var <= DVM_SHADOW_ADD_DIR) ||
+        (var > FORALL_STAT && var <= DVM_TEMPLATE_DELETE_DIR) ||
         (var >= ACC_REGION_DIR && var <= ACC_ASYNC_OP) ||
         (var == DVM_DISTRIBUTE_DIR || var == DVM_REDISTRIBUTE_DIR) ||
         (var == HPF_TEMPLATE_STAT) ||
@@ -2230,10 +2230,10 @@ SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& s, vect
     SgStatement* place = curr;
     if (place)
     {
-        while (isSgProgHedrStmt(place) == NULL)
+        while (isSgProgHedrStmt(place) == NULL && place->variant() != MODULE_STMT)
             place = place->controlParent();
         auto scope = place;
-        while (isSgExecutableStatement(place) == NULL)
+        while (isSgExecutableStatement(place) == NULL && place != scope->lastNodeOfStmt())
             place = place->lexNext();
         place->insertStmtBefore(*decl, *scope);
     }
@@ -3059,4 +3059,17 @@ int pppaAnalyzer(const char* options)
 
     delete[]argv;
     return retCode;
+}
+
+int getNextFreeLabel()
+{
+    PTR_LABEL lab;
+    set<int> used;
+    for (lab = PROJ_FIRST_LABEL(); lab; lab = LABEL_NEXT(lab))
+        used.insert(LABEL_STMTNO(lab));
+
+    for (int z = 1; z < 99999; ++z)
+        if (used.find(z) == used.end())
+            return z;
+    return -1;
 }

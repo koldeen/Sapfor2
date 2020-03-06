@@ -180,6 +180,7 @@ public:
     void setExpression(int i, SgExpression &e); // change the i-th expression
     void setExpression(int i, SgExpression *e); // change the i-th expression
     inline void setLabel(SgLabel &l); // change the label
+    inline void deleteLabel(); // delete label
     inline void setSymbol(SgSymbol &s); // change the symbol
 
     // Control structure
@@ -2660,7 +2661,8 @@ class SgImplicitStmt: public SgDeclarationStatement{
   // Fortran implicit type declaration statement
   // variant = IMPL_DECL
 public:
-  SgImplicitStmt(SgExpression &implicitLists);
+  SgImplicitStmt(SgExpression& implicitLists);
+  SgImplicitStmt(SgExpression* implicitLists);
   ~SgImplicitStmt();
   
   int numberOfImplicitTypes();  // the number of implicit types declared;
@@ -3292,6 +3294,16 @@ inline void  SgStatement::setLabel(SgLabel &l)
     checkConsistence();
 #endif
     BIF_LABEL(thebif) = l.thelabel; 
+}
+
+inline void  SgStatement::deleteLabel()
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    if (BIF_LABEL(thebif))
+        BIF_LABEL(thebif)->stateno = -1;
+    BIF_LABEL(thebif) = NULL;
 }
 
 inline void  SgStatement::setSymbol(SgSymbol &s)
@@ -9052,6 +9064,12 @@ inline void SgParameterStmt::deleteTheConstant(SgSymbol &constant)
 
 inline SgImplicitStmt::SgImplicitStmt(SgExpression &implicitLists):SgDeclarationStatement(IMPL_DECL)
 { BIF_LL1(thebif) = implicitLists.thellnd; }
+
+inline SgImplicitStmt::SgImplicitStmt(SgExpression *implicitLists):SgDeclarationStatement(IMPL_DECL)
+{
+    if (implicitLists)
+        BIF_LL1(thebif) = implicitLists->thellnd; 
+}
 
 inline SgImplicitStmt::~SgImplicitStmt()
 { RemoveFromTableBfnd((void *) this); }
