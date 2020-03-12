@@ -610,8 +610,7 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
 
                                 if (dimTo != links[dimFrom])
                                 {
-                                    __spf_print(1, "arrays '%s' and '%s' have different align dimensions for loop on line %d\n -->\
-                                                    %d vs %d(%d) \n",
+                                    __spf_print(1, "arrays '%s' and '%s' have different align dimensions for loop on line %d\n --> %d vs %d(%d) \n",
                                         array1->GetShortName().c_str(), array2->GetShortName().c_str(),
                                         loopInfo.first->lineNum, dimTo, links[dimFrom], dimFrom);
                                     statusOk = false;
@@ -626,9 +625,11 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
 
                                     if (DIST::Fx(accessFrom, templRule1[dimFrom]) != DIST::Fx(accessTo, templRule2[dimTo]))
                                     {
-                                        __spf_print(1, "arrays '%s' and '%s' have different align ruls -- \n  -->\
-                                                        F1 = [%d.%d], x1 = [%d.%d], F2 = [%d.%d], x2 = [%d.%d] \n  -->\
-                                                        F1(x1) = [%d.%d] != F2(x2) = [%d.%d]\n",
+                                        string format = "arrays '%s' and '%s' have different align ruls -- \n  -->";
+                                        format += "F1 = [%d.%d], x1 = [%d.%d], F2 = [%d.%d], x2 = [%d.%d] \n  -->";
+                                        format += "F1(x1) = [%d.%d] != F2(x2) = [%d.%d]\n";
+
+                                        __spf_print(1, format.c_str(),
                                             array1->GetShortName().c_str(), array2->GetShortName().c_str(),
                                             templRule1[dimFrom].first, templRule1[dimFrom].second, accessFrom.first, accessFrom.second,
                                             templRule2[dimTo].first, templRule2[dimTo].second, accessTo.first, accessTo.second,

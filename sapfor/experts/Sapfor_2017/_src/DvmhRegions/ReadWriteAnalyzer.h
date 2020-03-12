@@ -23,7 +23,7 @@ class ReadWriteAnalyzer
     VarUsages findUsagesInStatement(SgStatement* st) const;
     VarUsages findUsagesInAssignment(SgStatement* st) const;
 
-    const std::set<int> compound_statements = {FOR_NODE, LOOP_NODE, FUNC_HEDR, PROC_HEDR};
+    const std::set<int> compound_statements = { FOR_NODE, LOOP_NODE, FUNC_HEDR, PROC_HEDR };
     VarUsages gatherUsagesForCompound(SgStatement* st) const;
 public:
     explicit ReadWriteAnalyzer(std::map<std::string, std::vector<FuncInfo*>> &funcInfo) : funcInfo(funcInfo) 

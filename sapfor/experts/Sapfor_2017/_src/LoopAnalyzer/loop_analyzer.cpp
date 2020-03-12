@@ -571,6 +571,7 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                             auto &tmp = dataDirectives.distrRules;
                             pair<DIST::Array*, const DistrVariant*> currentVar;
 
+
                             for (int z1 = 0; z1 < currentVariant.size(); ++z1)
                             {
                                 if (tmp[z1].first == templ)
@@ -645,7 +646,7 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                         }
                     }
 
-                    if (ok)
+                    if (ok && currArray->GetDimSize() > 1)
                         for (int z = 0; z < wasFound.size(); ++z)
                             wasFound[z] = 1;
                 }
@@ -3171,6 +3172,7 @@ void insertSpfAnalysisBeforeParalleLoops(const vector<LoopGraph*> &loops)
     {
         SgStatement *spfStat = new SgStatement(SPF_ANALYSIS_DIR);
         spfStat->setlineNumber(loop->lineNum);
+        spfStat->setLocalLineNumber(0);
         spfStat->setFileName((char*)current_file->filename());
 
         if (!loop->hasLimitsToParallel())

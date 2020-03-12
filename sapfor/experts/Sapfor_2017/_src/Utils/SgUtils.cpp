@@ -228,8 +228,13 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
     if (currFile == NULL)
     {
         char buf[256];
-        sprintf(buf, "ERROR: Can't open file %s for read", fileName);
+        sprintf(buf, "ERROR: Can't open file %s for read with err %d\n", fileName, errno);
         addToGlobalBufferAndPrint(buf);
+        char buff[1024];
+        if (getcwd(buff, 1024) == NULL)
+             ;//
+        else
+             __spf_print(1, "curr path %s\n", buff);
         throw(-1);
     }
 
@@ -855,7 +860,7 @@ bool isSPF_stat(SgStatement *st)
 
     const int var = st->variant();
     //for details see dvm_tag.h
-    if (var >= SPF_ANALYSIS_DIR && var <= SPF_SHRINK_OP)
+    if (var >= SPF_ANALYSIS_DIR && var <= SPF_FLEXIBLE_OP)
         ret = true;
     return ret;
 }

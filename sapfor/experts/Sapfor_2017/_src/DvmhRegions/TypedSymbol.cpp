@@ -3,9 +3,10 @@
 
 using namespace std;
 
-TypedSymbol::TypedSymbol(SgExpression* orig_exp) : orig(orig_exp->symbol())
+TypedSymbol::TypedSymbol(SgExpression* orig_exp) : orig(OriginalSymbol(orig_exp->symbol()))
 {
     type = VAR_TYPE::VAR_UNDEFINED;
+
     if (orig_exp->variant() == VAR_REF)
         type = VAR_TYPE::VAR_SCALAR;
 

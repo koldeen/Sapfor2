@@ -1894,7 +1894,7 @@ int HeaderForNonDvmArray(SgSymbol *s, SgStatement *stat)
     }  
     //store lower bounds of array in Header(rank+3:2*rank+2)
     for (i = 0; i < rank; i++)
-        doAssignTo_After(DVM000(dvm_ind + rank + 2 + i), Exprn(LowerBound(s, i)));  //header_ref(ar,rank+3+i)    
+        doAssignTo_After(DVM000(dvm_ind + rank + 2 + i), Calculate(LowerBound(s, i)));  //header_ref(ar,rank+3+i)    
 
     static_sign = 1; // staticSign
     size_array = DVM000(ndvm);
@@ -1951,7 +1951,7 @@ void DoHeadersForNonDvmArrays()
 
         //store lower bounds of array in Header(rank+3:2*rank+2)
         for (i = 0; i < rank; i++)
-            doAssignTo_After(DVM000(dvm_ind + rank + 2 + i), Exprn(LowerBound(sl->symb, i)));  //header_ref(ar,rank+3+i)    
+            doAssignTo_After(DVM000(dvm_ind + rank + 2 + i), Calculate(LowerBound(sl->symb, i)));  //header_ref(ar,rank+3+i)    
 
         static_sign = 1; // staticSign
         size_array = DVM000(ndvm);
@@ -2152,7 +2152,7 @@ int AnalyzeRegion(SgStatement *reg_dir) //AnalyzeLoopBody()  AnalyzeBlock()
             DoPrivateList(stmt);
 
             red_struct_list = NULL;
-            CreateStructuresForReductions(DoReductionOperationList(stmt));
+            CreateStructuresForReductions(DoReductionOperationList(stmt));    
             continue;
 
         case ACC_END_REGION_DIR:   //end of compute region
@@ -2740,8 +2740,8 @@ int CreateLoopForSequence(SgStatement *first)
 }
 
 void  doStatementsToPerformByHandler(int ilh, SgSymbol *adapter_symb, SgSymbol *hostproc_symb,int is_parloop,int interface)
-{   SgExpression *arg_list, *base_list, *copy_uses_list, *copy_arg_list, *red_dim_list;
-    int numb, numb_r;
+{   SgExpression *arg_list, *base_list, *copy_uses_list, *copy_arg_list, *red_dim_list, *red_bound_list;
+    int numb, numb_r, numb_b;
     SgStatement *st_register;
 
     copy_uses_list = uses_list ? &(uses_list->copy()) : NULL;  //!!!
@@ -2750,8 +2750,11 @@ void  doStatementsToPerformByHandler(int ilh, SgSymbol *adapter_symb, SgSymbol *
     arg_list = AddListToList(arg_list, ArrayArgumentList());
     copy_arg_list = arg_list ? &(arg_list->copy()) : NULL;
     red_dim_list = DimSizeListOfReductionArrays();
+    red_bound_list = BoundListOfReductionArrays();
+    numb_b = ListElemNumber(red_bound_list);
     numb_r = ListElemNumber(red_dim_list);
     numb = ListElemNumber(arg_list) + ListElemNumber(uses_list);
+     
 // register CUDA-handler
     if (cur_region && (cur_region->targets & CUDA_DEVICE))  //if(targets[CUDA])  
     {
@@ -2776,14 +2779,16 @@ void  doStatementsToPerformByHandler(int ilh, SgSymbol *adapter_symb, SgSymbol *
     copy_arg_list = AddListToList(copy_arg_list, base_list);
     copy_uses_list = uses_list ? &(uses_list->copy()) : NULL;
     copy_arg_list = AddListToList(copy_arg_list, copy_uses_list);
+    copy_arg_list = AddListToList(copy_arg_list, red_bound_list);
+
 
     if(interface == 1)
     {
-        InsertNewStatementAfter(RegisterHandler_H(ilh, DeviceTypeConst(HOST), DVM000(iht), hostproc_symb, 0, numb), cur_st, cur_st->controlParent());  /* OpenMP */
+        InsertNewStatementAfter(RegisterHandler_H(ilh, DeviceTypeConst(HOST), DVM000(iht), hostproc_symb, 0, numb+numb_b), cur_st, cur_st->controlParent());  /* OpenMP */
         AddListToList(cur_st->expr(0), copy_arg_list);
     } else
     {
-        SgExpression *efun = HandlerFunc(hostproc_symb, numb, copy_arg_list);
+        SgExpression *efun = HandlerFunc(hostproc_symb, numb+numb_b, copy_arg_list);
         InsertNewStatementAfter(RegisterHandler_H2(ilh, DeviceTypeConst(HOST), DVM000(iht), efun), cur_st, cur_st->controlParent());  /* OpenMP */
     }
     cur_st->addComment(OpenMpComment_HandlerType(iht));
@@ -2826,6 +2831,47 @@ SgExpression *DimSizeListOfReductionArrays()
     }
 
     return(arg_list);
+}
+
+int isConstantBound(SgSymbol *rv, int i, int isLower)
+{
+  SgExpression *bound;
+  bound = isLower ? Calculate(LowerBound(rv,i)) : Calculate(UpperBound(rv,i));
+  if(bound->isInteger())
+     return 1;
+  else
+     return 0;
+}
+
+SgExpression *CreateBoundListOfArray(SgSymbol *ar)
+{
+    SgExpression *sl = NULL;
+    SgSymbol *low_s, *upper_s, *new_ar;
+    SgExpression *up_bound, *low_bound;
+    int i;
+    if(!isSgArrayType(ar->type()))
+        return (sl);
+    for(i=0;i<Rank(ar); i++) 
+    {    
+        if(!isConstantBound(ar,i,1))         
+           sl = AddListToList( sl,  new SgExprListExp(LowerBound(ar,i)->copy()) );
+      
+        if(!isConstantBound(ar,i,0)) 
+           sl = AddListToList( sl,  new SgExprListExp(UpperBound(ar,i)->copy()) );
+    }
+    return(sl);
+}
+
+SgExpression * BoundListOfReductionArrays()
+{
+    reduction_operation_list *rl;
+    SgExpression *bound_list = NULL;
+    for (rl = red_struct_list; rl; rl = rl->next)
+    {
+        if (rl->redvar_size != 0)
+            bound_list = AddListToList(bound_list, CreateBoundListOfArray(rl->redvar)); 
+    } 
+    return  bound_list;
 }
 
 void  ReplaceCaseStatement(SgStatement *first)
@@ -2873,7 +2919,7 @@ void    CreateStructuresForReductions(SgExpression *red_op_list)
         loc_var_ref = NULL;
 
         if (isSgArrayRefExp(ev) && !ev->lhs()) //whole array
-            esize = ArrayLengthInElems(ev->symbol(), NULL, 0);
+            esize = ArrayLengthInElems(ev->symbol(), NULL, 0); 
         else
             esize = NULL;
 
@@ -2908,7 +2954,7 @@ void    CreateStructuresForReductions(SgExpression *red_op_list)
             }
             redstruct->next = NULL;
             redstruct->dimSize_arg = NULL;
-
+            redstruct->red_host = NULL;
             if (!red_struct_list)
                 red_struct_list = rl = redstruct;
             else
@@ -5338,6 +5384,15 @@ SgStatement *Create_Host_Across_Loop_Subroutine(SgSymbol *sHostProc)
             tail = copy_uses_list;
     }
 
+    // add bounds of reduction arrays to dummy argument list
+    if(red_list)
+    {    
+        SgExpression * red_bound_list;
+        AddListToList(arg_list, red_bound_list = DummyListForReductionArrays(st_hedr));
+        if(!tail)
+           tail = red_bound_list;         
+    }
+
     // create  get_dependency_mask function declaration 
     stmt = fdvm[GET_DEP_MASK_F]->makeVarDeclStmt();
     stmt->expr(1)->setType(tdvm);
@@ -5445,7 +5500,7 @@ SgStatement *Create_Host_Loop_Subroutine(SgSymbol *sHostProc, int dependency)
     tail = NULL;
     addopenmp = 1;    /* OpenMP */
 
-    // create Host procedure header and end
+    // create Host procedure header and end            
 
     st_hedr = CreateHostProcedure(sHostProc);
     st_hedr->addComment(Host_LoopHandlerComment());
@@ -5499,6 +5554,13 @@ SgStatement *Create_Host_Loop_Subroutine(SgSymbol *sHostProc, int dependency)
         AddListToList(arg_list, copy_uses_list = &(uses_list->copy()));
         if (!tail)
             tail = copy_uses_list;
+    }
+    if(red_list)
+    {    
+        SgExpression * red_bound_list;
+        AddListToList(arg_list, red_bound_list = DummyListForReductionArrays(st_hedr));
+        if(!tail)
+           tail = red_bound_list;         
     }
 
     // create external statement
@@ -5601,35 +5663,27 @@ SgStatement *Create_Host_Loop_Subroutine(SgSymbol *sHostProc, int dependency)
         int nr;
         SgExpression *ev, *ered, *er, *red;
         SgSymbol *loc_var;
+        reduction_operation_list *rl;
+
         red = TranslateReductionToOpenmp(red_list);   /* OpenMP */
-        if (red != NULL) parallellist->append(*red); /* OpenMP */
+        if (red != NULL) parallellist->append(*red);  /* OpenMP */
         else addopenmp = 0;                           /* OpenMP */
-        for (er = red_list, nr = 1; er; er = er->rhs(), nr++)
-        {
-            ered = er->lhs();  //  reduction  (variant==ARRAY_OP)
-            ev = ered->rhs();  // reduction variable reference for reduction operations except MINLOC,MAXLOC  
-            if (isSgExprListExp(ev)) //MAXLOC,MINLOC
+        for (rl = red_struct_list,nr = 1; rl; rl = rl->next, nr++)
+        {   
+            if (rl->locvar)
             {
-                ev = ev->lhs(); // reduction variable reference         
-                loc_var = ered->rhs()->rhs()->lhs()->symbol();  //location array reference
-                stmt = loc_var->makeVarDeclStmt();
+                stmt = rl->locvar->makeVarDeclStmt();
                 ConstantSubstitutionInTypeSpec(stmt->expr(1)); 
                 st_hedr->insertStmtAfter(*stmt, *st_hedr);
             }
-            else {
-                loc_var = NULL;
-            }
-            stmt = ev->symbol()->makeVarDeclStmt();
-            ConstantSubstitutionInTypeSpec(stmt->expr(1));    
-            if (isSgArrayRefExp(stmt->expr(0)->lhs()))        // replacing named constant in array bounds by its value
-                ReplaceParameter(stmt->expr(0)->lhs());
-            st_hedr->insertStmtAfter(*stmt, *st_hedr);
+            SgSymbol *sred =  rl->redvar_size != 0 ? rl->red_host : rl->redvar;
+            DeclareSymbolInHostHandler(sred, st_hedr, 1);  
 
             // generate loop_red_init and loop_red_post function calls 
-            stmt = LoopRedInit_HH(s_loop_ref, nr, ev->symbol(), loc_var);
+            stmt = LoopRedInit_HH(s_loop_ref, nr, sred, rl->locvar);
             cur->insertStmtAfter(*stmt, *st_hedr);
             cur = stmt;
-            stmt = LoopRedPost_HH(s_loop_ref, nr, ev->symbol(), loc_var);
+            stmt = LoopRedPost_HH(s_loop_ref, nr, sred, rl->locvar);
             st_end->insertStmtBefore(*stmt, *st_hedr);
 
         }
@@ -5674,17 +5728,10 @@ SgStatement *Create_Host_Loop_Subroutine(SgSymbol *sHostProc, int dependency)
     if ((addopenmp == 1) && (private_list != NULL)) parallellist->append(*new SgExpression(OMP_PRIVATE, new SgExprListExp(*private_list), NULL, NULL));  /* OpenMP */
     for (el = private_list; el; el = el->rhs())
     {
-        SgSymbol *sp;
-        sp = el->lhs()->symbol();
+        SgSymbol *sp = el->lhs()->symbol(); 
         //if(HEADER(sp)) // dvm-array is declared as dummy argument
         //  continue; 
-        if (isSgArrayType(sp->type()))
-            sp = ArraySymbolInHostHandler(sp, st_hedr);
-        stmt = sp->makeVarDeclStmt();
-        if(IS_POINTER_F90(sp))
-          stmt->setExpression(2,*new SgExpression(POINTER_OP));
-        ConstantSubstitutionInTypeSpec(stmt->expr(1));    
-        st_hedr->insertStmtAfter(*stmt, *st_hedr);
+        DeclareSymbolInHostHandler(sp, st_hedr, 0);
     }
     //   <loop_index_variables>     
     SgExprListExp *indexes = NULL; /* OpenMP */
@@ -6383,6 +6430,21 @@ int fromUsesList(SgExpression *e)
    return fromUsesList(e->lhs()) && fromUsesList(e->rhs());
 }
 
+SgSymbol *DeclareSymbolInHostHandler(SgSymbol *var, SgStatement *st_hedr, int is_red_var)
+{   
+    SgSymbol *s = var;
+    if(!var) return s;
+    if (!is_red_var && isSgArrayType(s->type()))
+       s = ArraySymbolInHostHandler(s, st_hedr); 
+    SgStatement *stmt = s->makeVarDeclStmt();
+    if(IS_POINTER_F90(s))
+       stmt->setExpression(2,*new SgExpression(POINTER_OP));
+
+    ConstantSubstitutionInTypeSpec(stmt->expr(1));    
+    st_hedr->insertStmtAfter(*stmt, *st_hedr);
+    return s;
+}
+
 SgSymbol *ArraySymbolInHostHandler(SgSymbol *ar, SgStatement *scope)
 {
     SgSymbol *soff;
@@ -6395,12 +6457,11 @@ SgSymbol *ArraySymbolInHostHandler(SgSymbol *ar, SgStatement *scope)
     for (i = 0; i < rank; i++)
     {
         edim = ((SgArrayType *)(ar->type()))->sizeInDim(i);
-        if( !fromUsesList(edim) && !fromModule(edim) )
+        if( IS_BY_USE(ar) || !fromUsesList(edim) && !fromModule(edim) )
            edim = CalculateArrayBound(edim, ar, 1); 
         ((SgArrayType *)(soff->type()))->addRange(edim->copy());
     }
     return(soff);
-
 }
 
 void DeclareArrayCoefficients(SgStatement *after)
@@ -6742,6 +6803,67 @@ void ConstantSubstitutionInTypeSpec(SgExpression *e)
   TYPE_KIND_LEN(new_t->thetype) = ReplaceParameter(new_t->selector())->thellnd;
   e->setType(new_t);
   return;
+}
+
+char * BoundName(SgSymbol *s, int i, int isLower)
+{
+    char *name = new char[strlen(s->identifier()) + 13];
+    if(isLower)
+      sprintf(name, "lbound%d_%s", i, s->identifier());
+    else
+      sprintf(name, "ubound%d_%s", i, s->identifier());
+    name = TestAndCorrectName(name);
+    return(name);
+}
+
+SgSymbol *DummyBoundSymbol(SgSymbol *rv, int i, int isLower, SgStatement *st_hedr)
+{
+  SgExpression *bound;
+  bound = isLower ? Calculate(LowerBound(rv,i)) : Calculate(UpperBound(rv,i));
+  if(bound->isInteger())
+     return NULL;
+  return(new SgVariableSymb(BoundName(rv, i+1, isLower), *SgTypeInt(), *st_hedr));
+}
+
+SgExpression *CreateDummyBoundListOfArray(SgSymbol *ar, reduction_operation_list *rl, SgStatement *st_hedr)
+{
+    SgExpression *sl = NULL;
+    SgSymbol *low_s, *upper_s, *new_ar;
+    SgExpression *up_bound, *low_bound;
+    SgArrayType *typearray;
+    int i;
+    if(isSgArrayType(ar->type()))
+    {
+        new_ar = ArraySymbol(ar->identifier(), ar->type()->baseType(), NULL, st_hedr);
+        typearray = isSgArrayType(new_ar->type());
+    }
+    if(rl)
+        rl->red_host = new_ar;
+    for(i=0; i<Rank(ar); i++) 
+    {    
+        if(low_s = DummyBoundSymbol(ar,i,1,st_hedr )) 
+           sl = AddListToList( sl,  new SgExprListExp(*(low_bound = new SgVarRefExp(low_s))) );
+      
+        if(upper_s = DummyBoundSymbol(ar, i, 0, st_hedr)) 
+           sl = AddListToList( sl,  new SgExprListExp(*(up_bound = new SgVarRefExp(upper_s))) );
+
+        typearray->addRange(*new SgExpression(DDOT, low_s ? low_bound : Calculate(LowerBound(ar,i)), upper_s ? up_bound : Calculate(UpperBound(ar,i)))
+); 
+    }
+
+    return(sl);
+}
+
+SgExpression * DummyListForReductionArrays(SgStatement *st_hedr)
+{
+    reduction_operation_list *rl;
+    SgExpression *dummy_list = NULL;
+    for (rl = red_struct_list; rl; rl = rl->next)
+    {
+        if (rl->redvar_size != 0)
+            dummy_list = AddListToList(dummy_list, CreateDummyBoundListOfArray(rl->redvar,rl,st_hedr)); 
+    } 
+    return  dummy_list;
 }
 
 /***************************************************************************************/

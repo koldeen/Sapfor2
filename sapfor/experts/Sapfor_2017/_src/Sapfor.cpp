@@ -2240,6 +2240,7 @@ extern "C" int parse_file(int argc, char* argv[], char* proj_name);
 extern int pppa_analyzer(int argv, char** argc);
 
 bool runAsClient = false;
+
 int main(int argc, char **argv)
 {
 #if _WIN32 && _DEBUG
@@ -2284,6 +2285,8 @@ int main(int argc, char **argv)
         out_line_unlimit = 0;
 
         bool printText = false;
+
+        int serverPort = -1;
 
         for (int i = 0; i < argc; ++i)
         {
@@ -2441,9 +2444,10 @@ int main(int argc, char **argv)
                     runAsClient = true;
                     withDel = false;
                     consoleMode = false;
-#ifndef _WIN32
-                    langOfMessages = 0;
-#endif
+
+                    i++;
+                    if (i < argc)
+                        serverPort = atoi(argv[i]);
                     break;
                 }
                 break;
@@ -2454,8 +2458,8 @@ int main(int argc, char **argv)
 
         if (runAsClient)
         {
-            printf("[SAPFOR]: Started as client\n");
-            RunSapforAsClient();
+            printf("[SAPFOR]: Started as client with server port %d\n", serverPort);
+            RunSapforAsClient(serverPort);
         }
         else
         {

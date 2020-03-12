@@ -147,11 +147,7 @@ static void setOptions(const short *options)
     parallizeFreeLoops = (mpiProgram == 1) ? 0 : intOptions[PARALLIZE_FREE_LOOPS];
     maxShadowWidth = intOptions[MAX_SHADOW_WIDTH];
     out_upper_case = intOptions[OUTPUT_UPPER];
-#if _WIN32
     langOfMessages = intOptions[TRANSLATE_MESSAGES];
-#else
-    langOfMessages = 0;
-#endif
     removeNestedIntervals = (intOptions[KEEP_LOOPS_CLOSE_NESTING] == 1);
     showDebug = (intOptions[DEBUG_PRINT_ON] == 1);
     //mpiProgram = intOptions[MPI_PROGRAM];
@@ -1929,7 +1925,6 @@ const wstring Sapfor_RunAnalysis(const char* analysisName_c, const char* options
     short* projSh = toShort(projName_c);
     short* optSh = toShort(options_c);
 
-    winHandler = -2;
     try
     {
         if (whichRun == "SPF_GetGraphLoops")
@@ -2022,7 +2017,6 @@ const wstring Sapfor_RunTransformation(const char* transformName_c, const char* 
     short* fold = toShort(folder_c); if (string("") == folder_c) fold = NULL;
     short* addOpt = toShort(addOpt_c);
 
-    winHandler = -2;
     if (whichRun == "SPF_CorrectCodeStylePass")
         retCode = SPF_CorrectCodeStylePass(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
     else if (whichRun == "SPF_RemoveDvmDirectives")
@@ -2099,7 +2093,6 @@ const wstring Sapfor_RunModification(const char* modifyName_c, const char* optio
     short* optSh = toShort(options_c);
     short* fold = toShort(folder_c);
 
-    winHandler = -2;
     if (whichRun == "SPF_ModifyArrayDistribution")
     {
         int regId = atoi(addOpt1_c);

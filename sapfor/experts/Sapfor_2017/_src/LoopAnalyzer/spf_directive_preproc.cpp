@@ -1560,6 +1560,26 @@ static SgStatement* GetOneAttribute(const vector<SgStatement*> &sameAtt)
     
     if (toAddExp)
         OptimizeTree(toAddExp->expr(0));
+
+    //check null of expressions
+    if (toAddExp)
+    {
+        vector<SgExpression*> list;
+        SgExpression* ex = toAddExp->expr(0);
+
+        bool deleted = false;
+        while (ex)
+        {
+            if (ex->lhs()->lhs())
+                list.push_back(ex->lhs());
+            else
+                deleted = true;
+            ex = ex->rhs();
+        }
+        if (deleted)
+            toAddExp->setExpression(0, makeExprList(list));
+    }
+
     return toAddExp;
 }
 
@@ -1626,7 +1646,7 @@ void revertion_spf_dirs(SgFile *file,
                             toAdd = GetOneAttribute(sameAtt);
                         st->insertStmtBefore(*toAdd, *st->controlParent());
                     }
-                }
+                } 
 
                 //remaining directives
                 sameAtt = filterUserSpf(getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME}));

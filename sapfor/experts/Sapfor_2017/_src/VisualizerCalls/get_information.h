@@ -47,7 +47,7 @@ extern "C" { __declspec(dllexport) int SPF_SetDistributionFlagToArrays(void*& co
 #endif
 
 void createNeededException();
-void RunSapforAsClient();
+void RunSapforAsClient(int);
 
 const std::wstring Sapfor_RunAnalysis(const char* name, const char* options_c, const char* projName_c, int winHandler);
 const std::wstring Sapfor_RunTransformation(const char* name, const char* options_c, const char* projName_c, const char* folder_c, const char* addOpt_c, int winHandler);

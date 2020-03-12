@@ -76,8 +76,15 @@ static int decodeMessage(const string& message, vector<string>& pars, int &winH,
     string d = "";
     for (; sI != message.size() && message[sI] != ' '; ++sI)
         d += message[sI];
+
+    __print(CLIENT, "Read port from '%s'", d.c_str());
     if (sscanf(d.c_str(), "%d", &winH) != 1)
+    {
+        __print(CLIENT, "PORT ERROR");
         return -4;
+    }
+    else
+        __print(CLIENT, "PORT = %d", winH);
 
     return 0;
 }
@@ -97,8 +104,9 @@ static string utf8_encode(const wstring& wstr)
 #else
     /*char* buf = NULL;
     int size_needed = wcstombs(buf, wstr.c_str(), sizeof(char));
+	printf("%d for \n", size_needed);
     buf = new char[size_needed + 1];
-    buf[wcstombs(buf, wstr.c_str(), sizeof(char))] = '\0';
+    wcstombs(buf, wstr.c_str(), sizeof(char));
     string strTo(buf);
     delete[] buf;*/
 
@@ -130,7 +138,7 @@ void MessageManager::sendMessage(const wstring& toSend)
         PostMessage((HWND)WinHandler, STATUS_MESSAGE, (WPARAM)(cachedMessages.back().c_str()), (LPARAM)cachedMessages.back().size());
 #endif
     }
-    else if (WinHandler == -2) // to JAVA
+    else if (WinHandler < -1) // to JAVA
     {
         vector<wstring> splited;
         splitString(toSend, '\n', splited);
@@ -166,7 +174,7 @@ static int connectAndCreate(SOCKET& socket_t, string address, int port)
 
     if (result != 0)
     {
-        printf("Wrong connect to socket %d\n", WSAGetLastError());
+        __print(CLIENT, "Wrong connect to socket %d\n", WSAGetLastError());
         return -1;
     }
     return 0;
@@ -174,7 +182,7 @@ static int connectAndCreate(SOCKET& socket_t, string address, int port)
 
 void MessageManager::setWinHandler(const int winH)
 {
-    if (winH == -2) // to JAVA
+    if (winH < -1) // to JAVA
     {
         if (MessageManager::init() != 0)
         {
@@ -182,13 +190,15 @@ void MessageManager::setWinHandler(const int winH)
             return;
         }
 
-        if (connectAndCreate(clientSocket, "127.0.0.1", 8888) != 0)
+        __print(CLIENT, "set handler with PORT = %d", winH);
+        if (connectAndCreate(clientSocket, "127.0.0.1", winH == -2 ? 8888 : -winH) != 0)
         {
             WinHandler = -1;
             return;
-        }
+        }        
+
     }
-    else if (winH == -1 && WinHandler == -2) // close JAVA
+    else if (winH == -1 && WinHandler < -1) // close JAVA
     {
         if (Started == 0)
         {
@@ -244,7 +254,7 @@ static int send(SOCKET& client, const wstring& messageIn)
 
 void MessageManager::sendProgress(const std::wstring& str)
 {
-    if (WinHandler == -2) // to JAVA
+    if (WinHandler < -1) // to JAVA
     {
         string result = utf8_encode(L"progress:" + str + L"\n");
         const char* ret = result.c_str();
@@ -286,13 +296,13 @@ void sendErrorCode(const wstring& message)
     client = INVALID_SOCKET;
 }
 
-void RunSapforAsClient()
+void RunSapforAsClient(int serverPort)
 {
     if (MessageManager::init() != 0)
         return;
 
     client = INVALID_SOCKET;
-    if (connectAndCreate(client, "127.0.0.1", 8889) != 0)
+    if (connectAndCreate(client, "127.0.0.1", serverPort > 0 ? serverPort : 8889) != 0)
         return;
  
     char* buf = new char[4096];

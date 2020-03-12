@@ -723,7 +723,7 @@ bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DI
 {
     if (userDvmAlignDirs.size())
     {
-        G.cleanData();
+        bool cleaned = false;        
 
         int t = 0;
         for (auto &dir : userDvmAlignDirs)
@@ -812,6 +812,13 @@ bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DI
                             /*if (alignedArrays.find(array) != alignedArrays.end())
                                 continue;*/
                             addedArrays.insert(array);
+
+                            if (!cleaned)
+                            {
+                                cleaned = true;
+                                G.cleanData();
+                            }
+
                             DIST::AddArrayAccess(G, allArrays, array, alignWithArray, make_pair(i, dimT), 1.0, make_pair(make_pair(1, 0), alignWithTemplate[dimT].second), WW_link);
                         }
                     }

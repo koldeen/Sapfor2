@@ -270,11 +270,14 @@ static bool inline hasAssignsToArray(SgStatement *stIn)
         string arrayName = readPair.first;
         auto it = arrayAccessWrite.find(arrayName);
 
+        //TODO: 
         if (it != arrayAccessWrite.end())
         {
-            for (auto &read : readPair.second)
+            return true;
+            /*for (auto &read : readPair.second)
             {
                 auto mapW = it->second.find(read.first);
+
                 if (mapW == it->second.end())
                     return true;
                 else
@@ -290,7 +293,7 @@ static bool inline hasAssignsToArray(SgStatement *stIn)
                         if (read.second.second.find(cpW) == read.second.second.end())
                             return true;
                 }
-            }
+            }*/
         }
     }
     return false;

@@ -2110,7 +2110,8 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
       pstmt = addToStmtList(pstmt, stmt); 
     
     switch(stmt->variant()) {
-
+       case(ACC_ROUTINE_DIR):
+           continue;
        case(HPF_TEMPLATE_STAT):
            if(IN_MODULE && stmt->expr(1))
               err("Illegal directive in module",632,stmt);
@@ -8246,8 +8247,8 @@ SgExpression *LowerBound(SgSymbol *ar, int i)
     return(NULL);
   if((sbe=isSgSubscriptExp(e)) != NULL) {
     if(sbe->lbound())
-      return(sbe->lbound());
-    else if(IS_ALLOCATABLE_POINTER(ar) || IS_TEMPLATE(ar)) {
+      return(IS_BY_USE(ar) ? Calculate(sbe->lbound()) : sbe->lbound());
+    else if(IS_ALLOCATABLE_POINTER(ar) || IS_TEMPLATE(ar)) {       
       if(HEADER(ar))
         return(header_ref(ar,Rank(ar)+3+i));
       else
@@ -8278,7 +8279,7 @@ SgExpression *UpperBound(SgSymbol *ar, int i)
     return(NULL);
   if((sbe=isSgSubscriptExp(e)) != NULL){
     if(sbe->ubound())
-      return(sbe->ubound());
+      return(IS_BY_USE(ar) ? Calculate(sbe->ubound()) : sbe->ubound());
     else if(HEADER(ar))
               //return(&(*GetSize(HeaderRefInd(ar,1),i+1)-*HeaderRefInd(ar,Rank(ar)+3+i)+*new SgValueExp(1))); 06.11.09
       return(&(*GetSize(HeaderRefInd(ar,1),ri)+*HeaderRefInd(ar,Rank(ar)+3+i)-*new SgValueExp(1)));
@@ -10337,7 +10338,8 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
 	   }
            //including the DVM specification directive to list
            pstmt = addToStmtList(pstmt, stmt); 
-           continue;    
+           continue;
+       case(ACC_ROUTINE_DIR):    
        case(HPF_PROCESSORS_STAT):
        case(HPF_TEMPLATE_STAT):
        case(DVM_DYNAMIC_DIR):
@@ -12557,7 +12559,7 @@ SgExpression *ArraySection(SgExpression *are, SgSymbol *ar, int rank, SgStatemen
  }
  if(!TestMaxDims(are->lhs(),ar,stmt)) return(0);
  for(el=are->lhs(),i=0; el; el=el->rhs(),i++)    
-    Triplet(el->lhs(),ar,i, einit,elast,estep);
+    Triplet(el->lhs(),ar,i, einit,elast,estep); 
  if(i != rank){
     Error("Wrong number of subscripts specified for '%s'",ar->identifier(),140 ,stmt);
     //return (0);
@@ -13404,7 +13406,7 @@ SgStatement *InterfaceBody(SgStatement *hedr)
          }
          dvm_pred = stmt; 
 	 continue;
-
+       case (ACC_ROUTINE_DIR):
        case (HPF_TEMPLATE_STAT):
        case (HPF_PROCESSORS_STAT):
        case (DVM_DYNAMIC_DIR):

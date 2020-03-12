@@ -52,7 +52,7 @@ using namespace std;
 
 void WSACleanup() { }
 int  WSAGetLastError() { return 0; }
-void Sleep(int millisec) { usleep(millisec * 1000); }
+void Sleep(int millisec) { usleep(millisec * 2000); }
 
 #endif
 
@@ -63,7 +63,23 @@ void Sleep(int millisec) { usleep(millisec * 1000); }
 
 #define SERV "[SERVER]"
 
-static int initServer(SOCKET& listenSocket, const string& address, int port)
+static int getPort(const SOCKET& listenSocket)
+{
+    sockaddr_in info;
+    socklen_t len = sizeof(info);
+    memset(&info, 0, len);
+
+    int err = getsockname(listenSocket, (sockaddr*)&info, &len);
+    if (err != 0)
+    {
+        __print(SERV, "Error of getaddrinfo(): %d", err);
+        WSACleanup();
+        exit(1);
+    }
+    return ntohs(info.sin_port);
+}
+
+static int initServer(SOCKET& listenSocket, const string& address, int port = 0)
 {
     int iResult;
 #if _WIN32	
@@ -114,6 +130,7 @@ static int initServer(SOCKET& listenSocket, const string& address, int port)
         return 1;
     }
 	
+    
 #if _WIN32
     iResult = bind(listenSocket, result->ai_addr, result->ai_addrlen);
 #else
@@ -175,7 +192,7 @@ static int initClient(SOCKET& javaSocket, const string& address, int port)
     return result;
 }
 
-static bool spfRun = false;
+static volatile bool spfRun = false;
 static void runSapfor(const string command)
 {
     spfRun = true;
@@ -185,7 +202,7 @@ static void runSapfor(const string command)
     spfRun = false;
 }
 
-static bool vizRun = false;
+static volatile bool vizRun = false;
 static void runVisulizer(const string command)
 {
     vizRun = true;
@@ -195,13 +212,13 @@ static void runVisulizer(const string command)
     vizRun = false;
 }
 
-static bool doCommand(SOCKET& clientSoc, SOCKET& javaSoc, const string& command, bool& needToUpdateViz)
+static bool doCommand(SOCKET& spfSoc, SOCKET& javaSoc, SOCKET& serverSoc1, SOCKET& serverSoc2, const string& command, bool& needToUpdateViz)
 {
     if (command.find("restart:") == 0)
     {
         __print(SERV, "Restart SAPFOR");
-        closesocket(clientSoc);
-        clientSoc = INVALID_SOCKET;
+        closesocket(spfSoc);
+        spfSoc = INVALID_SOCKET;
 
         //wait shutdown of spf
         while (spfRun)
@@ -212,9 +229,11 @@ static bool doCommand(SOCKET& clientSoc, SOCKET& javaSoc, const string& command,
     else if (command.find("close:") == 0)
     {
         __print(SERV, "Shutdown");
-        closesocket(clientSoc);
+        closesocket(spfSoc);
         closesocket(javaSoc);
-        javaSoc = clientSoc = INVALID_SOCKET;
+        closesocket(serverSoc1);
+        closesocket(serverSoc2);
+        javaSoc = spfSoc = INVALID_SOCKET;
 
         Sleep(500);
         exit(0);
@@ -222,14 +241,14 @@ static bool doCommand(SOCKET& clientSoc, SOCKET& javaSoc, const string& command,
     else if (command.find("update:") == 0)
     {
         __print(SERV, "Update Visualizer");
-        closesocket(clientSoc);
+        closesocket(spfSoc);
         closesocket(javaSoc);
-        javaSoc = clientSoc = INVALID_SOCKET;
+        javaSoc = spfSoc = INVALID_SOCKET;
 
         //wait shutdown of viz
         while (vizRun)
             ;
-        needToUpdateViz = true;
+
         //copy new version
         if (fs::exists(VIZ_NAME_NEW))
         {
@@ -240,13 +259,14 @@ static bool doCommand(SOCKET& clientSoc, SOCKET& javaSoc, const string& command,
         else
             __print(SERV, "Can not find new version of Visualizer in '%s' path", VIZ_NAME_NEW);
         //restart
+        needToUpdateViz = true;
         return true;
     }
     else if (command.find("update_spf:") == 0)
     {
         __print(SERV, "Update SAPFOR");
-        closesocket(clientSoc);
-        clientSoc = INVALID_SOCKET;
+        closesocket(spfSoc);
+        spfSoc = INVALID_SOCKET;
 
         //wait shutdown of spf
         while (spfRun)
@@ -270,228 +290,226 @@ static bool doCommand(SOCKET& clientSoc, SOCKET& javaSoc, const string& command,
             copy = copy.erase(copy.size() - 1);
         __print(SERV, "Recv command %s", copy.c_str());
     }
-
     return false;
 }
 
-#define DEB 0
-#define SPF 1
+static void closeAndExit(const vector<SOCKET>& toClose, const string& message, int exitCode = 0)
+{
+    for (auto& elem : toClose)
+        closesocket(elem);
+    if (message != "")
+        __print(SERV, "%s", message.c_str());
+    exit(exitCode);
+}
 
 int main(int argc, char** argv)
 {
     setlocale(LC_ALL, "Russian");
-    SOCKET serverSoc = INVALID_SOCKET, javaSoc = INVALID_SOCKET;
-    if (initServer(serverSoc, "127.0.0.1", 8889) != 0) // create server for Sapfor
+    SOCKET serverSPF = INVALID_SOCKET, serverJAVA = INVALID_SOCKET;
+    int sapforPort = 0, javaPort = 0;
+    if (initServer(serverSPF, "127.0.0.1", sapforPort) != 0) // create server for Sapfor
         return -1;
+    sapforPort = getPort(serverSPF);
 
-    const int countOfTry = 5;
-
+    if (initServer(serverJAVA, "127.0.0.1", javaPort) != 0) // create server for Sapfor
+    {
+        closesocket(serverSPF);
+        return -1;
+    }
+    javaPort = getPort(serverJAVA);
+    
     const int maxSize = 1024;
     char* buf = new char[maxSize];
 
     int err;
-    bool needToUpdateViz = true;
     string retCode = "";
 
+    SOCKET spfSoc = INVALID_SOCKET, javaSoc = INVALID_SOCKET;
+    bool needToUpdateViz = true;
+    int t = 0;
     while (true)
     {
-        int t = 0;
         if (!vizRun && needToUpdateViz)
         {
-            needToUpdateViz = false;
+            __print(SERV, "Run Visualizer from '%s' path with port %d", VIZ_NAME, javaPort);
             if (fs::exists(VIZ_NAME))
             {
-                string toRun = string("java -Dfile.encoding=UTF-8 -jar ") + VIZ_NAME;
+                needToUpdateViz = false;
+                string toRun = string("java -Dfile.encoding=UTF-8 -jar ") + VIZ_NAME + " --port " + to_string(javaPort);
                 thread viz(runVisulizer, toRun);
                 viz.detach();
-                __print(SERV, "Run Visualizer from '%s' path", VIZ_NAME);
+                
+                //wait run of viz
+                //while (!vizRun) ;
             }
             else
+            {
                 __print(SERV, "Can not find Visualizer in '%s' path", VIZ_NAME);
-        }
-
-#if DEB == 0
-        while (initClient(javaSoc, "127.0.0.1", 8890) != 0) // connect to JAVA
-        {
-            ++t;
-            if (t == countOfTry)
-            {
-                __print(SERV, "Can not connect to Visualizer, exit");
-                exit(1);
+                //closeAndExit({ serverSPF , serverJAVA }, "Component not found", -1);
             }
-            Sleep(500);
         }
 
-        while (javaSoc != INVALID_SOCKET)
-#endif
+        if (!spfRun)
         {
-#if SPF
-            string toRun = SPF_NAME + string(" -client");
-            thread sapfor(runSapfor, toRun);
-            sapfor.detach();
-
-            //wait run of spf
-            while (!spfRun)
-                ;
-#endif
-
-            SOCKET clientSoc = INVALID_SOCKET;
-            clientSoc = accept(serverSoc, NULL, NULL);
-
-            if (clientSoc != INVALID_SOCKET)
-                __print(SERV, "SAPFOR connected to server");
-
-            while (clientSoc != INVALID_SOCKET)
+            __print(SERV, "Run Sapfor from '%s' path with port %d", SPF_NAME, sapforPort);
+            if (fs::exists(SPF_NAME))
             {
-#if DEB == 0
-                string command = "";
-                err = recv(javaSoc, buf, maxSize, 0);
-                if (err <= 0)
+                const string toRun = SPF_NAME + string(" -client ") + to_string(sapforPort);
+                thread sapfor(runSapfor, toRun);
+                sapfor.detach();
+
+                //wait run of spf
+                //while (!spfRun) ;
+            }
+            else
+            {
+                __print(SERV, "Can not find Sapfor in '%s' path", SPF_NAME);
+                //closeAndExit({ serverSPF , serverJAVA }, "Component not found", -1);
+            }
+        }
+
+#pragma omp parallel for
+        for (int z = 0; z < 2; ++z)
+        {
+            if (spfSoc == INVALID_SOCKET && z == 0)
+            {
+                spfSoc = accept(serverSPF, NULL, NULL);
+                if (spfSoc != INVALID_SOCKET)
+                    __print(SERV, "SAPFOR connected to server");
+            }
+
+            if (javaSoc == INVALID_SOCKET && z == 1)
+            {
+                javaSoc = accept(serverJAVA, NULL, NULL);
+                if (javaSoc != INVALID_SOCKET)
+                    __print(SERV, "VISUALIZER connected to server");
+            }
+        }
+
+        while (spfSoc != INVALID_SOCKET && javaSoc != INVALID_SOCKET)
+        {
+            string command = "";
+            err = recv(javaSoc, buf, maxSize, 0);
+            if (err <= 0)
+            {
+                __print(SERV, "Error recv from Visualizer with code %d", err);
+                closesocket(javaSoc);
+                closesocket(spfSoc);
+                javaSoc = spfSoc = INVALID_SOCKET;
+                break;
+            }
+            else
+            {
+                if (err >= maxSize)
                 {
-                    __print(SERV, "Error recv from Visualizer with code %d", err);
-                    closesocket(javaSoc);
-                    closesocket(clientSoc);
-                    javaSoc = clientSoc = INVALID_SOCKET;
+                    __print(SERV, "Critical error");
+                    exit(-1);
+                }
+
+                buf[err] = '\0';
+                command = buf;
+                if (doCommand(spfSoc, javaSoc, serverSPF, serverJAVA, command, needToUpdateViz))
+                {
+                    if (javaSoc != INVALID_SOCKET)
+                    {
+                        buf[0] = '\n';
+                        int err = send(javaSoc, buf, 1, 0);
+                        if (err != 1)
+                        {
+                            closesocket(javaSoc);
+                            javaSoc = INVALID_SOCKET;
+                        }
+                    }
                     break;
                 }
-                else
+            }
+
+            err = send(spfSoc, command.c_str(), command.size(), 0);
+            if (err != command.size())
+            {
+                __print(SERV, "Error of send(): %d", err);
+                closesocket(spfSoc);
+                spfSoc = INVALID_SOCKET;
+            }
+            else
+                __print(SERV, "Send command to SAPFOR");
+
+            err = recv(spfSoc, buf, maxSize, 0);
+            int sizeLong = -1;
+            char* bufLong = NULL;
+
+            if (err <= 0)
+            {
+                __print(SERV, "Error recv(): %d", err);
+                closesocket(spfSoc);
+                spfSoc = INVALID_SOCKET;
+                retCode = "WRONG\n";
+            }
+            else
+            {
+                if (err >= maxSize)
+                    closeAndExit({ spfSoc , javaSoc , serverSPF , serverJAVA }, "Critical error", -1);
+
+                buf[err] = '\0';
+                err = sscanf(buf, "%d", &sizeLong);
+                if (err == -1)
+                    closeAndExit({ spfSoc , javaSoc , serverSPF , serverJAVA }, "Critical error", -1);
+
+                bufLong = (char*)malloc(sizeof(char) * (sizeLong + 1));
+                if (bufLong == NULL)
                 {
-                    if (err >= maxSize)
-                    {
-                        __print(SERV, "Critical error");
-                        exit(-1);
-                    }
+                    __print(SERV, "Error in malloc, exit, need to alloc %d", sizeLong + 1);
+                    closeAndExit({ spfSoc , javaSoc , serverSPF , serverJAVA }, "", -1);
+                }
+            }
 
-                    buf[err] = '\0';
-                    command = buf;
-                    if (doCommand(clientSoc, javaSoc, command, needToUpdateViz))
+            if (retCode.find("WRONG") == string::npos)
+            {
+                retCode = "";
+                err = send(spfSoc, buf, 1, 0);
+                int start = 0;
+                int sum = 0;
+                while (sum != sizeLong)
+                {
+                    err = recv(spfSoc, bufLong + start, sizeLong - sum, 0);
+                    if (err <= 0)
                     {
-                        if (javaSoc != INVALID_SOCKET)
-                        {
-                            buf[0] = '\n';
-                            int err = send(javaSoc, buf, 1, 0);
-                            if (err != 1)
-                            {
-                                closesocket(javaSoc);
-                                javaSoc = INVALID_SOCKET;
-                            }
-                        }
-
+                        __print(SERV, "Error of recv from SAPFOR with code %d", err);
+                        retCode = "WRONG\n";
+                        closesocket(spfSoc);
+                        spfSoc = INVALID_SOCKET;
                         break;
                     }
+                    else
+                        __print(SERV, "Recv from SAPFOR result == %d size, request size %d", err, sizeLong - sum);
+                    sum += err;
+                    start += err;
                 }
-#else
+                __print(SERV, "Recv from SAPFOR total %d size", sum);
 
-                string command = "analysis:26 SPF_GetVersionAndBuildDate0 0 -1";
-#endif
+                if (sum >= sizeLong + 1)
+                    closeAndExit({ spfSoc , javaSoc , serverSPF , serverJAVA }, "Critical error", -1);
 
-                err = send(clientSoc, command.c_str(), command.size(), 0);
-                if (err != command.size())
-                {
-                    __print(SERV, "Error of send(): %d", err);
-                    closesocket(clientSoc);
-                    clientSoc = INVALID_SOCKET;
-                }
-                else
-                    __print(SERV, "Send command to SAPFOR");
-
-                err = recv(clientSoc, buf, maxSize, 0);
-                int sizeLong = -1;
-                char* bufLong = NULL;
-
-                if (err <= 0)
-                {
-                    __print(SERV, "Error recv(): %d", err);
-                    closesocket(clientSoc);
-                    clientSoc = INVALID_SOCKET;
-                    retCode = "WRONG\n";
-                }
-                else
-                {
-                    if (err >= maxSize)
-                    {
-                        __print(SERV, "Critical error");
-                        closesocket(clientSoc);
-                        closesocket(javaSoc);
-                        exit(-1);
-                    }
-
-                    buf[err] = '\0';
-                    err = sscanf(buf, "%d", &sizeLong);
-                    if (err == -1)
-                    {
-                        __print(SERV, "Critical error");
-                        closesocket(clientSoc);
-                        closesocket(javaSoc);
-                        exit(-1);
-                    }
-
-                    bufLong = (char*)malloc(sizeof(char) * (sizeLong + 1));
-                    if (bufLong == NULL)
-                    {
-                        __print(SERV, "Error in malloc, exit, need to alloc %d", sizeLong + 1);
-                        closesocket(clientSoc);
-                        closesocket(javaSoc);
-                        exit(-1);
-                    }
-                }
-
-                if (retCode.find("WRONG") == string::npos)
-                {
-                    retCode = "";
-                    err = send(clientSoc, buf, 1, 0);
-                    int start = 0;
-                    int sum = 0;
-                    while (sum != sizeLong)
-                    {
-                        err = recv(clientSoc, bufLong + start, sizeLong - sum, 0);
-                        if (err <= 0)
-                        {
-                            __print(SERV, "Error of recv from SAPFOR with code %d", err);
-                            retCode = "WRONG\n";
-                            closesocket(clientSoc);
-                            clientSoc = INVALID_SOCKET;
-                            break;
-                        }
-                        else
-                            __print(SERV, "Recv from SAPFOR result == %d size, request size %d", err, sizeLong - sum);
-                        sum += err;
-                        start += err;
-                    }
-                    __print(SERV, "Recv from SAPFOR total %d size", sum);
-                
-                    if (sum >= sizeLong + 1)
-                    {
-                        __print(SERV, "Critical error");
-                        closesocket(clientSoc);
-                        closesocket(javaSoc);
-                        exit(-1);
-                    }
-                    bufLong[sum] = '\0';
-                    retCode = bufLong;
-                    free(bufLong);
-                }
-                err = send(clientSoc, buf, 1, 0);
-#if DEB == 0
-                err = send(javaSoc, retCode.c_str(), retCode.size(), 0);
-                if (err != retCode.size())
-                {
-                    __print(SERV, "Error send to Visualizer");
-                    closesocket(clientSoc);
-                    closesocket(javaSoc);
-                    javaSoc = clientSoc = INVALID_SOCKET;
-                    break;
-                }
-                else
-                    __print(SERV, "Send result to Visualizer %d", (int)retCode.size());
-#else
-                printf("%s\n", retCode.c_str());
-                Sleep(1000);
-#endif
+                bufLong[sum] = '\0';
+                retCode = bufLong;
+                free(bufLong);
             }
-            __print(SERV, "Invalid SAPFOR socket, try to restart");
-            Sleep(500);
+            err = send(spfSoc, buf, 1, 0);
+
+            err = send(javaSoc, retCode.c_str(), retCode.size(), 0);
+            if (err != retCode.size())
+            {
+                __print(SERV, "Error send to Visualizer");
+                closesocket(spfSoc);
+                closesocket(javaSoc);
+                javaSoc = spfSoc = INVALID_SOCKET;
+                break;
+            }
+            else
+                __print(SERV, "Send result to Visualizer %d", (int)retCode.size());
         }
+        __print(SERV, "Invalid SAPFOR socket, try to restart");
+        Sleep(500);
     }
     return 0;
 }
