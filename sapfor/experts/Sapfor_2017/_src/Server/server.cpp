@@ -8,6 +8,8 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <unordered_map>
+
 #if _WIN32
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -18,7 +20,7 @@ namespace fs = std::experimental::filesystem;
 #endif
 #include <stdlib.h>
 #include <string.h>
-
+#include <signal.h>
 
 using namespace std;
 
@@ -28,6 +30,9 @@ using namespace std;
 
 #define SPF_NAME     "Components\\Sapfor_F.exe"
 #define SPF_NAME_NEW "Components\\Sapfor_F_new.exe"
+
+#define SPC_NAME     "Components\\Sapfor_C.exe"
+#define SPC_NAME_NEW "Components\\Sapfor_C_new.exe"
 
 #define VIZ_NAME     "Components\\VisualSapfor.jar"
 #define VIZ_NAME_NEW "Components\\VisualSapfor_new.jar"
@@ -44,8 +49,11 @@ using namespace std;
 #define SOCKADDR sockaddr 
 #define closesocket close
 
-#define SPF_NAME "Components/Sapfor_F"
-#define SPF_NAME_NEW "Components/Sapfor_F_new"
+#define SPF_NAME "Components/Sapfor_C"
+#define SPF_NAME_NEW "Components/Sapfor_C_new"
+
+#define SPC_NAME "Components/Sapfor_F"
+#define SPC_NAME_NEW "Components/Sapfor_F_new"
 
 #define VIZ_NAME "Components/VisualSapfor.jar"
 #define VIZ_NAME_NEW "Components/VisualSapfor_new.jar"
@@ -63,6 +71,18 @@ void Sleep(int millisec) { usleep(millisec * 2000); }
 
 #define SERV "[SERVER]"
 
+extern void __bst_create(const char* name);
+extern bool __bst_tryToLock();
+extern void __bst_unlock();
+
+
+static void signal_handler(int s)
+{
+    __print(SERV, "Caught signal %d", s);
+    __bst_unlock();
+    exit(1);
+}
+
 static int getPort(const SOCKET& listenSocket)
 {
     sockaddr_in info;
@@ -74,6 +94,7 @@ static int getPort(const SOCKET& listenSocket)
     {
         __print(SERV, "Error of getaddrinfo(): %d", err);
         WSACleanup();
+        __bst_unlock();
         exit(1);
     }
     return ntohs(info.sin_port);
@@ -202,6 +223,16 @@ static void runSapfor(const string command)
     spfRun = false;
 }
 
+static volatile bool spcRun = false;
+static void runSapforC(const string command)
+{
+    spcRun = true;
+    __print("[SERVER-th3]", "Try to start sapfor(C)");
+    int id = system(command.c_str());
+    __print("[SERVER-th3]", "SAPFOR(C) done with exit code %d", id);
+    spcRun = false;
+}
+
 static volatile bool vizRun = false;
 static void runVisulizer(const string command)
 {
@@ -236,6 +267,7 @@ static bool doCommand(SOCKET& spfSoc, SOCKET& javaSoc, SOCKET& serverSoc1, SOCKE
         javaSoc = spfSoc = INVALID_SOCKET;
 
         Sleep(500);
+        __bst_unlock();
         exit(0);
     }
     else if (command.find("update:") == 0)
@@ -283,6 +315,27 @@ static bool doCommand(SOCKET& spfSoc, SOCKET& javaSoc, SOCKET& serverSoc1, SOCKE
         //restart
         return true;
     }
+    else if (command.find("update_spc:") == 0)
+    {
+        __print(SERV, "Update SAPFOR");
+        closesocket(spfSoc);
+        spfSoc = INVALID_SOCKET;
+
+        //wait shutdown of spf
+        while (spcRun)
+            ;
+        //copy new version
+        if (fs::exists(SPC_NAME_NEW))
+        {
+            error_code err;
+            fs::copy_file(SPC_NAME_NEW, SPC_NAME, fs::copy_options::overwrite_existing, err);
+            __print(SERV, "Updated with error code %d: %s", err.value(), err.message().c_str());
+        }
+        else
+            __print(SERV, "Can not find new version of sapfor in '%s' path", SPC_NAME_NEW);
+        //restart
+        return true;
+    }
     else
     {
         string copy = command;
@@ -299,11 +352,41 @@ static void closeAndExit(const vector<SOCKET>& toClose, const string& message, i
         closesocket(elem);
     if (message != "")
         __print(SERV, "%s", message.c_str());
+    __bst_unlock();
     exit(exitCode);
+}
+
+static bool isSapforDebug(int argc, char** argv)
+{
+    for (int z = 1; z < argc; ++z)
+        if (string("-spfDeb") == argv[z])
+            return true;
+    return false;
 }
 
 int main(int argc, char** argv)
 {
+    signal(SIGINT, signal_handler);
+    signal(SIGABRT, signal_handler);
+#if _WIN32
+    signal(SIGBREAK, signal_handler);
+#else
+    signal(SIGKILL, signal_handler);
+#endif
+
+    const string path = argv[0];
+    bool isSpfDeb = isSapforDebug(argc, argv);
+
+    const size_t hashOfPath = hash<string>{}(path);
+    __print(SERV, "Open ot create mutex of '%s' path, hash = %zu", path.c_str(), hashOfPath);
+        
+    __bst_create(to_string(hashOfPath).c_str());
+    if (!__bst_tryToLock())
+    {
+        __print(SERV, "The instance of Visualizer from '%s' path was started", path.c_str());
+        exit(0);
+    }
+   
     setlocale(LC_ALL, "Russian");
     SOCKET serverSPF = INVALID_SOCKET, serverJAVA = INVALID_SOCKET;
     int sapforPort = 0, javaPort = 0;
@@ -318,12 +401,13 @@ int main(int argc, char** argv)
     }
     javaPort = getPort(serverJAVA);
     
+    __print(SERV, "SOCKET PORT for SAPFOR %d, SOCKET PORT for Visualizer %d", sapforPort, javaPort);
+
     const int maxSize = 1024;
     char* buf = new char[maxSize];
 
     int err;
-    string retCode = "";
-
+    
     SOCKET spfSoc = INVALID_SOCKET, javaSoc = INVALID_SOCKET;
     bool needToUpdateViz = true;
     int t = 0;
@@ -349,7 +433,7 @@ int main(int argc, char** argv)
             }
         }
 
-        if (!spfRun)
+        if (!spfRun && !isSpfDeb)
         {
             __print(SERV, "Run Sapfor from '%s' path with port %d", SPF_NAME, sapforPort);
             if (fs::exists(SPF_NAME))
@@ -368,10 +452,11 @@ int main(int argc, char** argv)
             }
         }
 
+        bool spfExists = (fs::exists(SPF_NAME) || isSpfDeb);
 #pragma omp parallel for
         for (int z = 0; z < 2; ++z)
         {
-            if (spfSoc == INVALID_SOCKET && z == 0)
+            if (spfSoc == INVALID_SOCKET && z == 0 && spfExists)
             {
                 spfSoc = accept(serverSPF, NULL, NULL);
                 if (spfSoc != INVALID_SOCKET)
@@ -386,8 +471,10 @@ int main(int argc, char** argv)
             }
         }
 
-        while (spfSoc != INVALID_SOCKET && javaSoc != INVALID_SOCKET)
+        while ( ((spfSoc != INVALID_SOCKET && spfExists) || (!fs::exists(SPF_NAME) && !isSpfDeb)) && 
+                 javaSoc != INVALID_SOCKET)
         {
+            string retCode = "";
             string command = "";
             err = recv(javaSoc, buf, maxSize, 0);
             if (err <= 0)
@@ -403,6 +490,7 @@ int main(int argc, char** argv)
                 if (err >= maxSize)
                 {
                     __print(SERV, "Critical error");
+                    __bst_unlock();
                     exit(-1);
                 }
 
@@ -511,6 +599,8 @@ int main(int argc, char** argv)
         __print(SERV, "Invalid SAPFOR socket, try to restart");
         Sleep(500);
     }
+
+    __bst_unlock();
     return 0;
 }
 

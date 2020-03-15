@@ -334,19 +334,87 @@ static void createForIOs(const map<int, UserFiles>& filesInfo, SgStatement* func
     moduleF->insertStmtAfter(*new SgImplicitStmt(NULL), *moduleF);
 }
 
+struct cpInfo
+{
+    int line = -1;
+    int every = 60;
+    int numOfFiles = 2;
+    int unitNum = 789;
+    typeEvery type = typeEvery::ITER;
+};
+
+static bool findSpfCpDir(SgFile* file, map<int, cpInfo>& info)
+{
+    bool found = false;
+    int numF = file->numberOfFunctions();
+    for (int z = 0; z < numF; ++z)
+    {
+        SgStatement* func = file->functions(z);
+        for (SgStatement* st = func; st != func->lastNodeOfStmt(); st = st->lexNext())
+        {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
+            if (!isSgExecutableStatement(st))
+                continue;
+
+            vector<SgStatement*> cpDirs = getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_CHECKPOINT_DIR });
+            if (cpDirs.size() == 1)
+            {
+                found = true;
+                cpInfo currInfo;
+                currInfo.line = st->lineNumber();
+                SgExpression* ex = cpDirs[0]->expr(0);
+                while (ex)
+                {
+                    if (ex->lhs())
+                    {
+                        int var = ex->lhs()->variant();
+                        if (var == SPF_INTERVAL_OP)
+                        {
+                            int type = ex->lhs()->lhs()->variant();
+                            if (!ex->lhs()->rhs()->isInteger())
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                            int interval = ex->lhs()->rhs()->valueInteger();
+                            if (type == SPF_ITER_OP)
+                            {
+                                currInfo.type = typeEvery::ITER;
+                                currInfo.every = interval;
+                            }
+                            else if (type == SPF_TIME_OP)
+                            {
+                                currInfo.type = typeEvery::TIME;
+                                currInfo.every = interval;
+                            }
+                            else
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        }
+                        else if (var == SPF_FILES_COUNT_OP)
+                        {
+                            if (!ex->lhs()->lhs()->isInteger())
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                            currInfo.numOfFiles = ex->lhs()->lhs()->valueInteger();
+                        }
+                    }
+                    ex = ex->rhs();
+                }
+                info[currInfo.line] = currInfo;
+            }
+            else if (cpDirs.size() > 1)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            deleteAttributes(st, set<int>{ SPF_CHECKPOINT_DIR });
+        }
+    }
+    return found;
+}
+
 void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlocks, const map<int, UserFiles>& filesInfo)
 {
-    const string fileCP = "total1_module.for";
-    const int line = 8527;
-    const int every = 1000;
-    const int numOfFiles = 3;
-    const int unitNum = 789;
-    const string additional = string("_") + to_string(current_file_id) + "_" + to_string(line);
-    const typeEvery type = typeEvery::ITER;
+    map<int, cpInfo> inFileCp;
+    bool inFile = findSpfCpDir(file, inFileCp);
 
-
-    SgStatement* lastDecl = NULL;
-    if (fileCP == file->filename())
+    if (inFile)
     {
         set<string> commonVars;
         for (auto& common : commonBlocks)
@@ -357,351 +425,370 @@ void createCheckpoints(SgFile *file, const map<string, CommonBlock>& commonBlock
                     commonVars.insert(elem.getName());
             }
         }
-        int numF = file->numberOfFunctions();
-        SgStatement* func = NULL;
-        SgStatement* point = NULL;
-        for (int z = 0; z < numF; ++z)
+
+        for (auto& checkps : inFileCp)
         {
-            func = file->functions(z);
-            point = func->lexNext();
-            while (point && point->lineNumber() < line && point != func->lastNodeOfStmt() && point->variant() != CONTAINS_STMT)
-                point = point->lexNext();
+            const int line = checkps.first;
+            const int every = checkps.second.every;
+            const int numOfFiles = checkps.second.numOfFiles;
+            const int unitNum = checkps.second.unitNum;
+            const string additional = string("_") + to_string(current_file_id) + "_" + to_string(line);
+            const typeEvery type = checkps.second.type;
+            SgStatement* lastDecl = NULL;
 
-            if (point != func->lastNodeOfStmt())
-                break;            
-            point = NULL;
-            func = NULL;
-        }
-        checkNull(func, convertFileName(__FILE__).c_str(), __LINE__);
-        checkNull(point, convertFileName(__FILE__).c_str(), __LINE__);
-
-        if (func)
-        {
-            const int labNum = getNextFreeLabel();
-
-            createForIOs(filesInfo, func);
-            const vector<string> moduleNames = findAllModules();
-
-            lastDecl = func->lexNext();
-            while (lastDecl && !isSgExecutableStatement(lastDecl->lexNext()))
-                lastDecl = lastDecl->lexNext();
-
-            checkNull(lastDecl, convertFileName(__FILE__).c_str(), __LINE__);
-            SgStatement* firstExec = lastDecl->lexNext();
-
-            vector<SgExpression*> local;
-            map<string, SgStatement*> localParams;
-            set<string> addedToList;
-            findLocalData(func->lexNext(), lastDecl, local, localParams, addedToList);
-            const vector<SgStatement*> useOfMods = findUseOfModules(func->lexNext(), lastDecl);
-
-            SgStatement* loadBlock = new SgStatement(IF_NODE);
-            SgStatement* loadBlockLast = NULL;
-            SgStatement* storeBlock = new SgStatement(IF_NODE);
-
-            point->insertStmtBefore(*loadBlock, *point->controlParent());
-            point->insertStmtBefore(*storeBlock, *point->controlParent());
-
-            loadBlock->addComment("! LOAD CHECKPOINT\n");
-            auto loadblockLab = new SgLabel(labNum);
-            loadBlock->setLabel(*loadblockLab);
-
-            SgSymbol* files = new SgSymbol(VARIABLE_NAME, "spf_cp_files", createArrayCharType(32, numOfFiles + 1), func);
-            vector<string> filesN;
-
-            SgArrayRefExp* journal = new SgArrayRefExp(*files, *new SgValueExp(numOfFiles + 1));
-            filesN.push_back("spf_cp_journal" + additional);
-            lastDecl->insertStmtAfter(*new SgAssignStmt(*journal, *new SgValueExp(filesN.back().c_str())), *func);
-
-            
-            int maxFileLen = -1;
-            for (int z = numOfFiles; z >= 1; --z)
+            int numF = file->numberOfFunctions();
+            SgStatement* func = NULL;
+            SgStatement* point = NULL;
+            for (int z = 0; z < numF; ++z)
             {
-                filesN.push_back("spf_cp_file_" + to_string(z) + additional);
-                maxFileLen = std::max(maxFileLen, (int)(filesN.back().size() + 1));
-                lastDecl->insertStmtAfter(*new SgAssignStmt(*new SgArrayRefExp(*files, *new SgValueExp(z)), *new SgValueExp(filesN.back().c_str())), *func);
+                func = file->functions(z);
+                point = func->lexNext();
+                while (point && point->lineNumber() < line && point != func->lastNodeOfStmt() && point->variant() != CONTAINS_STMT)
+                    point = point->lexNext();
+
+                if (point != func->lastNodeOfStmt())
+                    break;
+                point = NULL;
+                func = NULL;
             }
+            checkNull(func, convertFileName(__FILE__).c_str(), __LINE__);
+            checkNull(point, convertFileName(__FILE__).c_str(), __LINE__);
 
-            vector<SgSymbol*> everyS;
-            vector<SgSymbol*> profS;
-            vector<SgExpression*> initS;
-            
-            profS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_prof_s", SgTypeFloat(), func));
-            profS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_prof_e", SgTypeFloat(), func));
-
-            SgCallStmt* profCallS = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, "cpu_time"), *new SgVarRefExp(profS[0]));
-            SgCallStmt* profCallE = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, "cpu_time"), *new SgVarRefExp(profS[1]));
-
-            if (type == typeEvery::TIME)
+            if (func)
             {
-                everyS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_start", SgTypeFloat(), func));
-                everyS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_end", SgTypeFloat(), func));
+                const int labNum = getNextFreeLabel();
 
-                initS.push_back(NULL);
-                initS.push_back(NULL);
+                createForIOs(filesInfo, func);
+                const vector<string> moduleNames = findAllModules();
 
-                SgCallStmt* call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, "cpu_time"), *new SgVarRefExp(everyS[0]));
-                lastDecl->insertStmtAfter(*call, *func);
-                storeBlock->insertStmtAfter(call->copy(), *storeBlock);
+                lastDecl = func->lexNext();
+                while (lastDecl && !isSgExecutableStatement(lastDecl->lexNext()))
+                    lastDecl = lastDecl->lexNext();
 
-                call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, "cpu_time"), *new SgVarRefExp(everyS[1]));
-                storeBlock->insertStmtBefore(*call, *storeBlock->controlParent());
-                call->addComment("! STORE CHECKPOINT\n");
+                checkNull(lastDecl, convertFileName(__FILE__).c_str(), __LINE__);
+                SgStatement* firstExec = lastDecl->lexNext();
 
-                storeBlock->setExpression(0, *new SgVarRefExp(everyS[1]) - *new SgVarRefExp(everyS[0]) >= *new SgValueExp(every));
-            }
-            else if (type == typeEvery::ITER)
-            {
-                everyS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_interval", SgTypeInt(), func));
-                initS.push_back(new SgValueExp(0));
-                SgAssignStmt* init = new SgAssignStmt(*new SgVarRefExp(everyS[0]), *new SgValueExp(0));
-                storeBlock->insertStmtAfter(*init, *storeBlock);
+                vector<SgExpression*> local;
+                map<string, SgStatement*> localParams;
+                set<string> addedToList;
+                findLocalData(func->lexNext(), lastDecl, local, localParams, addedToList);
+                const vector<SgStatement*> useOfMods = findUseOfModules(func->lexNext(), lastDecl);
 
-                SgAssignStmt* inc = new SgAssignStmt(*new SgVarRefExp(everyS[0]), *new SgVarRefExp(everyS[0]) + *new SgValueExp(1));
-                storeBlock->insertStmtBefore(*inc, *storeBlock->controlParent());
-                inc->addComment("! STORE CHECKPOINT\n");
+                SgStatement* loadBlock = new SgStatement(IF_NODE);
+                SgStatement* loadBlockLast = NULL;
+                SgStatement* storeBlock = new SgStatement(IF_NODE);
 
-                storeBlock->setExpression(0, *new SgVarRefExp(everyS[0]) >= *new SgValueExp(every));
-            }
-            
-            vector<SgSymbol*> loadS;
-            vector<SgExpression*> initLoadS;
-            vector<SgStatement*> insertToLoadS;
+                point->insertStmtBefore(*loadBlock, *point->controlParent());
+                point->insertStmtBefore(*storeBlock, *point->controlParent());
 
-            loadS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_load", SgTypeInt(), func));
-            initLoadS.push_back(new SgValueExp(0));
+                loadBlock->addComment("! LOAD CHECKPOINT\n");
+                auto loadblockLab = new SgLabel(labNum);
+                loadBlock->setLabel(*loadblockLab);
 
-            loadS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_file_n", SgTypeInt(), func));
-            initLoadS.push_back(new SgValueExp(1));
+                SgSymbol* files = new SgSymbol(VARIABLE_NAME, "spf_cp_files", createArrayCharType(32, numOfFiles + 1), func);
+                vector<string> filesN;
 
-            loadS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_iostat", SgTypeInt(), func));
-            initLoadS.push_back(NULL);
+                SgArrayRefExp* journal = new SgArrayRefExp(*files, *new SgValueExp(numOfFiles + 1));
+                filesN.push_back("spf_cp_journal" + additional);
+                lastDecl->insertStmtAfter(*new SgAssignStmt(*journal, *new SgValueExp(filesN.back().c_str())), *func);
 
-            loadBlock->setExpression(0, *new SgVarRefExp(loadS[0]) == *new SgValueExp(0));
-            SgAssignStmt* init = new SgAssignStmt(*new SgVarRefExp(loadS[0]), *new SgValueExp(1));
-            insertToLoadS.push_back(init);
 
-            vector<SgExpression*> listSpec;
-
-            SgExpression& unitNull = SgAssignOp(*new SgKeywordValExp("unit"), *new SgKeywordValExp("*"));
-            SgExpression& unit = SgAssignOp(*new SgKeywordValExp("unit"), *new SgValueExp(unitNum));
-            SgExpression& frmt = SgAssignOp(*new SgKeywordValExp("fmt"), *new SgKeywordValExp("*"));
-            SgExpression& frmtProf = SgAssignOp(*new SgKeywordValExp("fmt"), *new SgValueExp(("(A,A" + to_string(maxFileLen) + ",F4.2,A)").c_str()));
-
-            SgExpression* iostat = new SgVarRefExp(loadS[2]);
-            SgExpression* fileIdx = new SgVarRefExp(loadS[1]);
-            
-            listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("iostat"), *iostat));
-            listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("status"), *new SgValueExp("old")));
-            listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("file"), *journal));
-            listSpec.push_back(&unit);
-
-            SgIOControlStmt* openJ_old = new SgIOControlStmt(OPEN_STAT, *makeExprList(listSpec));
-            insertToLoadS.push_back(openJ_old);
-
-            vector<SgStatement*> insertToifLoadOk;
-            SgIfStmt* ifLoadOk = new SgIfStmt(*iostat == *new SgValueExp(0));
-            insertToLoadS.push_back(ifLoadOk);
-
-            SgInputOutputStmt* read = new SgInputOutputStmt(READ_STAT, *makeExprList({ &frmt, &unit }), *fileIdx);
-            insertToifLoadOk.push_back(read);
-            insertToifLoadOk.push_back(new SgIOControlStmt(CLOSE_STAT, unit));
-
-            listSpec.clear();
-            listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("form"), *new SgValueExp("unformatted")));
-            listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("iostat"), *iostat));
-            listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("status"), *new SgValueExp("old")));
-            listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("file"), *new SgArrayRefExp(*files, *fileIdx)));
-            listSpec.push_back(&unit);
-
-            SgIOControlStmt* open = new SgIOControlStmt(OPEN_STAT, *makeExprList(listSpec));
-            insertToifLoadOk.push_back(open);
-
-            SgIfStmt* ifLoadOk1 = new SgIfStmt(*iostat == *new SgValueExp(0), *new SgIOControlStmt(CLOSE_STAT, unit));
-
-            insertToifLoadOk.push_back(ifLoadOk1);
-            ifLoadOk1->insertStmtAfter(*new SgIfStmt(*fileIdx == *new SgValueExp(numOfFiles + 1), *new SgAssignStmt(*fileIdx, *new SgValueExp(1))), *ifLoadOk1);
-            ifLoadOk1->insertStmtAfter(*new SgAssignStmt(*fileIdx, *fileIdx + *new SgValueExp(1)), *ifLoadOk1);
-            ifLoadOk1->addComment("! LOAD DATA FROM CHECKPOINT\n");
-            
-            vector<SgExpression*> commentArgs;
-            commentArgs.push_back(new SgValueExp(" SECONDS"));
-            commentArgs.push_back(&(*new SgVarRefExp(profS[1]) - *new SgVarRefExp(profS[0])));
-            commentArgs.push_back(new SgArrayRefExp(*files, *fileIdx));
-            commentArgs.push_back(new SgValueExp("SPF CHECKPOINT LOADED FROM "));
-
-            ifLoadOk1->insertStmtAfter(*new SgInputOutputStmt(WRITE_STAT, *makeExprList({ &frmtProf, &unitNull }), *makeExprList(commentArgs)), *ifLoadOk1);
-            ifLoadOk1->insertStmtAfter(profCallE->copy(), *ifLoadOk1);
-
-            //open all files
-            SgCallStmt* call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, iosNames[1].c_str()));
-            ifLoadOk1->insertStmtAfter(*call, *ifLoadOk1);
-
-            //READ from modules
-            for (auto& mod : moduleNames)
-            {
-                SgCallStmt* call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, ("SPF_CP_" + mod).c_str()));
-                call->addArg(*new SgValueExp(unitNum));
-                call->addArg(*new SgValueExp(0));
-                ifLoadOk1->insertStmtAfter(*call, *ifLoadOk1);
-            }
-
-            //READ DATA
-            if (local.size())
-            {
-                auto dataRead = new SgInputOutputStmt(READ_STAT, unit, *makeExprList(local));
-                ifLoadOk1->insertStmtAfter(*dataRead, *ifLoadOk1);
-            }
-
-            ifLoadOk1->insertStmtAfter(profCallS->copy(), *ifLoadOk1);
-
-            listSpec.clear();
-            listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("form"), *new SgValueExp("unformatted")));
-            listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("iostat"), *iostat));
-            listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("file"), *new SgArrayRefExp(*files, *fileIdx)));
-            listSpec.push_back(&unit);
-
-            open = new SgIOControlStmt(OPEN_STAT, *makeExprList(listSpec));
-            storeBlock->insertStmtAfter(*open, *storeBlock);
-
-            SgIfStmt* ifLoadOk2 = new SgIfStmt(*iostat == *new SgValueExp(0));
-            open->insertStmtAfter(*ifLoadOk2, *storeBlock);
-            ifLoadOk2->insertStmtAfter(*new SgIfStmt(*fileIdx == *new SgValueExp(numOfFiles + 1), *new SgAssignStmt(*fileIdx, *new SgValueExp(1))), *ifLoadOk2);
-            ifLoadOk2->insertStmtAfter(*new SgAssignStmt(*fileIdx, *fileIdx + *new SgValueExp(1)), *ifLoadOk2);
-            ifLoadOk2->addComment(("! STORE DATA TO CHECKPOINT " + to_string(local.size()) + " items\n").c_str());
-
-            commentArgs.clear();
-            commentArgs.push_back(new SgValueExp(" SECONDS"));
-            commentArgs.push_back(&(*new SgVarRefExp(profS[1]) - *new SgVarRefExp(profS[0])));
-            commentArgs.push_back(new SgArrayRefExp(*files, *fileIdx));
-            commentArgs.push_back(new SgValueExp("SPF CHECKPOINT STORED TO "));
-
-            ifLoadOk2->insertStmtAfter(*new SgInputOutputStmt(WRITE_STAT, *makeExprList({ &frmtProf, &unitNull }), *makeExprList(commentArgs)), *ifLoadOk2);
-            ifLoadOk2->insertStmtAfter(profCallE->copy(), *ifLoadOk2);
-
-            SgStatement* assign = ifLoadOk2->lexNext();
-
-            //open all files
-            call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, iosNames[1].c_str()));
-            ifLoadOk2->insertStmtAfter(*call, *ifLoadOk2);
-
-            //WRITE from modules
-            for (auto& mod : moduleNames)
-            {
-                SgCallStmt* call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, ("SPF_CP_" + mod).c_str()));
-                call->addArg(*new SgValueExp(unitNum));
-                call->addArg(*new SgValueExp(1));
-                ifLoadOk2->insertStmtAfter(*call, *ifLoadOk2);
-            }
-
-            //close and inc            
-            call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, iosNames[2].c_str()));
-            ifLoadOk2->insertStmtAfter(*call, *ifLoadOk2);
-            call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, iosNames[0].c_str()));
-            ifLoadOk2->insertStmtAfter(*call, *ifLoadOk2);
-
-            //WRITE DATA
-            if (local.size())
-            {
-                SgStatement* dataWrite = new SgInputOutputStmt(WRITE_STAT, unit, *makeExprList(local));
-                ifLoadOk2->insertStmtAfter(*dataWrite, *ifLoadOk2);
-            }
-
-            listSpec.clear();
-            listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("iostat"), *iostat));
-            listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("file"), *journal));
-            listSpec.push_back(&unit);
-
-            SgIOControlStmt* openJ_new = new SgIOControlStmt(OPEN_STAT, *makeExprList(listSpec));
-
-            assign->insertStmtBefore(*new SgIOControlStmt(CLOSE_STAT, unit), *ifLoadOk2);
-            assign->insertStmtBefore(*openJ_new, *ifLoadOk2);
-            assign->insertStmtBefore(*new SgInputOutputStmt(WRITE_STAT, *makeExprList({ &frmt, &unit }), *fileIdx), *ifLoadOk2);            
-            assign->insertStmtBefore(*new SgIOControlStmt(CLOSE_STAT, unit), *ifLoadOk2);
-
-            ifLoadOk2->insertStmtAfter(profCallS->copy(), *ifLoadOk2);
-
-            SgStatement* copyForGoto = loadBlock->copyPtr();
-            copyForGoto->deleteLabel();                
-            firstExec->insertStmtBefore(*copyForGoto, *func);
-            copyForGoto->insertStmtAfter(insertToLoadS[insertToLoadS.size() - 1]->copy(), *copyForGoto);
-            copyForGoto->insertStmtAfter(insertToLoadS[insertToLoadS.size() - 2]->copy(), *copyForGoto);
-
-            copyForGoto = copyForGoto->lexNext()->lexNext();
-
-            copyForGoto->insertStmtAfter(*new SgGotoStmt(*loadblockLab), *copyForGoto);
-            copyForGoto->insertStmtAfter(*new SgIOControlStmt(CLOSE_STAT, unit), *copyForGoto);
-
-            for (int z = insertToLoadS.size() - 1; z >= 0; --z)
-                loadBlock->insertStmtAfter(*insertToLoadS[z], *loadBlock);
-
-            for (int z = insertToifLoadOk.size() - 1; z >= 0; --z)
-                ifLoadOk->insertStmtAfter(*insertToifLoadOk[z], *ifLoadOk);
-
-            //TODO:
-            /*set<string> elemNotDeclHere;
-            for (auto& elem : commonVars)
-            {
-                if (addedToList.find(elem) == addedToList.end())
-                    elemNotDeclHere.insert(elem);
-            }
-            for (auto& elem : elemNotDeclHere)
-                printf("%s\n", elem.c_str());*/
-
-            // make all new declarations
-            makeDeclaration(point, everyS, &initS);
-            makeDeclaration(point, loadS, &initLoadS);
-            makeDeclaration(point, profS);
-            makeDeclaration(point, { files });
-
-            //check use
-            map<string, bool> modulesDone;
-            for (auto& elem : moduleNames)
-                modulesDone[elem] = false;
-
-            //check with ONLY
-            for (auto& use : useOfMods)
-            {
-                const string modName = use->symbol()->identifier();
-                if (!modulesDone[modName])
+                int maxFileLen = -1;
+                for (int z = numOfFiles; z >= 1; --z)
                 {
-                    if (use->expr(0)) // has ONLY
+                    filesN.push_back("spf_cp_file_" + to_string(z) + additional);
+                    maxFileLen = std::max(maxFileLen, (int)(filesN.back().size() + 1));
+                    lastDecl->insertStmtAfter(*new SgAssignStmt(*new SgArrayRefExp(*files, *new SgValueExp(z)), *new SgValueExp(filesN.back().c_str())), *func);
+                }
+
+                vector<SgSymbol*> everyS;
+                vector<SgSymbol*> profS;
+                vector<SgExpression*> initS;
+
+                profS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_prof_s", SgTypeFloat(), func));
+                profS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_prof_e", SgTypeFloat(), func));
+
+                SgSymbol* timeF = new SgSymbol(FUNCTION_NAME, "omp_get_wtime", SgTypeDouble(),func); // OR dvtime
+
+                SgStatement* profCallS = new SgAssignStmt(*new SgVarRefExp(profS[0]), *new SgFunctionCallExp(*timeF));
+                SgStatement* profCallE = new SgAssignStmt(*new SgVarRefExp(profS[1]), *new SgFunctionCallExp(*timeF));
+
+                if (type == typeEvery::TIME)
+                {
+                    everyS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_start", SgTypeFloat(), func));
+                    everyS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_end", SgTypeFloat(), func));
+
+                    initS.push_back(NULL);
+                    initS.push_back(NULL);
+
+                    SgStatement* call = new SgAssignStmt(*new SgVarRefExp(everyS[0]), *new SgFunctionCallExp(*timeF));
+                    lastDecl->insertStmtAfter(*call, *func);
+                    lastDecl->insertStmtAfter(*new SgStatement(DVM_BARRIER_DIR), *func);
+
+                    storeBlock->insertStmtAfter(call->copy(), *storeBlock);
+                    storeBlock->insertStmtAfter(*new SgStatement(DVM_BARRIER_DIR), *storeBlock);
+
+                    call = new SgAssignStmt(*new SgVarRefExp(everyS[1]), *new SgFunctionCallExp(*timeF));
+                    storeBlock->insertStmtBefore(*new SgStatement(DVM_BARRIER_DIR), *storeBlock->controlParent());
+                    storeBlock->insertStmtBefore(*call, *storeBlock->controlParent());
+                    call->lexPrev()->addComment("! STORE CHECKPOINT\n");
+
+                    storeBlock->setExpression(0, *new SgVarRefExp(everyS[1]) - *new SgVarRefExp(everyS[0]) >= *new SgValueExp(every));
+                }
+                else if (type == typeEvery::ITER)
+                {
+                    everyS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_interval", SgTypeInt(), func));
+                    initS.push_back(new SgValueExp(0));
+                    SgAssignStmt* init = new SgAssignStmt(*new SgVarRefExp(everyS[0]), *new SgValueExp(0));
+                    storeBlock->insertStmtAfter(*init, *storeBlock);
+
+                    SgAssignStmt* inc = new SgAssignStmt(*new SgVarRefExp(everyS[0]), *new SgVarRefExp(everyS[0]) + *new SgValueExp(1));
+                    storeBlock->insertStmtBefore(*inc, *storeBlock->controlParent());
+                    inc->addComment("! STORE CHECKPOINT\n");
+
+                    storeBlock->setExpression(0, *new SgVarRefExp(everyS[0]) >= *new SgValueExp(every));
+                }
+
+                vector<SgSymbol*> loadS;
+                vector<SgExpression*> initLoadS;
+                vector<SgStatement*> insertToLoadS;
+
+                loadS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_load", SgTypeInt(), func));
+                initLoadS.push_back(new SgValueExp(0));
+
+                loadS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_file_n", SgTypeInt(), func));
+                initLoadS.push_back(new SgValueExp(1));
+
+                loadS.push_back(new SgSymbol(VARIABLE_NAME, "spf_cp_iostat", SgTypeInt(), func));
+                initLoadS.push_back(NULL);
+
+                loadBlock->setExpression(0, *new SgVarRefExp(loadS[0]) == *new SgValueExp(0));
+                SgAssignStmt* init = new SgAssignStmt(*new SgVarRefExp(loadS[0]), *new SgValueExp(1));
+                insertToLoadS.push_back(init);
+
+                vector<SgExpression*> listSpec;
+
+                SgExpression& unitNull = SgAssignOp(*new SgKeywordValExp("unit"), *new SgKeywordValExp("*"));
+                SgExpression& unit = SgAssignOp(*new SgKeywordValExp("unit"), *new SgValueExp(unitNum));
+                SgExpression& frmt = SgAssignOp(*new SgKeywordValExp("fmt"), *new SgKeywordValExp("*"));
+                SgExpression& frmtProf = SgAssignOp(*new SgKeywordValExp("fmt"), *new SgValueExp(("(A,A" + to_string(maxFileLen) + ",F4.2,A)").c_str()));
+
+                SgExpression* iostat = new SgVarRefExp(loadS[2]);
+                SgExpression* fileIdx = new SgVarRefExp(loadS[1]);
+
+                listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("iostat"), *iostat));
+                listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("status"), *new SgValueExp("old")));
+                listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("file"), *journal));
+                listSpec.push_back(&unit);
+
+                SgIOControlStmt* openJ_old = new SgIOControlStmt(OPEN_STAT, *makeExprList(listSpec));
+                insertToLoadS.push_back(openJ_old);
+
+                vector<SgStatement*> insertToifLoadOk;
+                SgIfStmt* ifLoadOk = new SgIfStmt(*iostat == *new SgValueExp(0));
+                insertToLoadS.push_back(ifLoadOk);
+
+                SgInputOutputStmt* read = new SgInputOutputStmt(READ_STAT, *makeExprList({ &frmt, &unit }), *fileIdx);
+                insertToifLoadOk.push_back(read);
+                insertToifLoadOk.push_back(new SgIOControlStmt(CLOSE_STAT, unit));
+
+                listSpec.clear();
+                listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("form"), *new SgValueExp("unformatted")));
+                listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("iostat"), *iostat));
+                listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("status"), *new SgValueExp("old")));
+                listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("file"), *new SgArrayRefExp(*files, *fileIdx)));
+                listSpec.push_back(&unit);
+
+                SgIOControlStmt* open = new SgIOControlStmt(OPEN_STAT, *makeExprList(listSpec));
+                insertToifLoadOk.push_back(open);
+
+                SgIfStmt* ifLoadOk1 = new SgIfStmt(*iostat == *new SgValueExp(0), *new SgIOControlStmt(CLOSE_STAT, unit));
+
+                insertToifLoadOk.push_back(ifLoadOk1);
+                ifLoadOk1->insertStmtAfter(*new SgIfStmt(*fileIdx == *new SgValueExp(numOfFiles + 1), *new SgAssignStmt(*fileIdx, *new SgValueExp(1))), *ifLoadOk1);
+                ifLoadOk1->insertStmtAfter(*new SgAssignStmt(*fileIdx, *fileIdx + *new SgValueExp(1)), *ifLoadOk1);
+                ifLoadOk1->addComment("! LOAD DATA FROM CHECKPOINT\n");
+
+                vector<SgExpression*> commentArgs;
+                commentArgs.push_back(new SgValueExp(" SECONDS"));
+                commentArgs.push_back(&(*new SgVarRefExp(profS[1]) - *new SgVarRefExp(profS[0])));
+                commentArgs.push_back(new SgArrayRefExp(*files, *fileIdx));
+                commentArgs.push_back(new SgValueExp("SPF CHECKPOINT LOADED FROM "));
+
+                ifLoadOk1->insertStmtAfter(*new SgInputOutputStmt(WRITE_STAT, *makeExprList({ &frmtProf, &unitNull }), *makeExprList(commentArgs)), *ifLoadOk1);
+                ifLoadOk1->insertStmtAfter(profCallE->copy(), *ifLoadOk1);
+
+                //open all files
+                SgCallStmt* call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, iosNames[1].c_str()));
+                ifLoadOk1->insertStmtAfter(*call, *ifLoadOk1);
+
+                //READ from modules
+                for (auto& mod : moduleNames)
+                {
+                    SgCallStmt* call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, ("SPF_CP_" + mod).c_str()));
+                    call->addArg(*new SgValueExp(unitNum));
+                    call->addArg(*new SgValueExp(0));
+                    ifLoadOk1->insertStmtAfter(*call, *ifLoadOk1);
+                }
+
+                //READ DATA
+                if (local.size())
+                {
+                    auto dataRead = new SgInputOutputStmt(READ_STAT, unit, *makeExprList(local));
+                    ifLoadOk1->insertStmtAfter(*dataRead, *ifLoadOk1);
+                }
+
+                ifLoadOk1->insertStmtAfter(profCallS->copy(), *ifLoadOk1);
+
+                listSpec.clear();
+                listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("form"), *new SgValueExp("unformatted")));
+                listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("iostat"), *iostat));
+                listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("file"), *new SgArrayRefExp(*files, *fileIdx)));
+                listSpec.push_back(&unit);
+
+                open = new SgIOControlStmt(OPEN_STAT, *makeExprList(listSpec));
+                storeBlock->insertStmtAfter(*open, *storeBlock);
+
+                SgIfStmt* ifLoadOk2 = new SgIfStmt(*iostat == *new SgValueExp(0));
+                open->insertStmtAfter(*ifLoadOk2, *storeBlock);
+                ifLoadOk2->insertStmtAfter(*new SgIfStmt(*fileIdx == *new SgValueExp(numOfFiles + 1), *new SgAssignStmt(*fileIdx, *new SgValueExp(1))), *ifLoadOk2);
+                ifLoadOk2->insertStmtAfter(*new SgAssignStmt(*fileIdx, *fileIdx + *new SgValueExp(1)), *ifLoadOk2);
+                ifLoadOk2->addComment(("! STORE DATA TO CHECKPOINT " + to_string(local.size()) + " items\n").c_str());
+
+                commentArgs.clear();
+                commentArgs.push_back(new SgValueExp(" SECONDS"));
+                commentArgs.push_back(&(*new SgVarRefExp(profS[1]) - *new SgVarRefExp(profS[0])));
+                commentArgs.push_back(new SgArrayRefExp(*files, *fileIdx));
+                commentArgs.push_back(new SgValueExp("SPF CHECKPOINT STORED TO "));
+
+                ifLoadOk2->insertStmtAfter(*new SgInputOutputStmt(WRITE_STAT, *makeExprList({ &frmtProf, &unitNull }), *makeExprList(commentArgs)), *ifLoadOk2);
+                ifLoadOk2->insertStmtAfter(profCallE->copy(), *ifLoadOk2);
+
+                SgStatement* assign = ifLoadOk2->lexNext();
+
+                //open all files
+                call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, iosNames[1].c_str()));
+                ifLoadOk2->insertStmtAfter(*call, *ifLoadOk2);
+
+                //WRITE from modules
+                for (auto& mod : moduleNames)
+                {
+                    SgCallStmt* call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, ("SPF_CP_" + mod).c_str()));
+                    call->addArg(*new SgValueExp(unitNum));
+                    call->addArg(*new SgValueExp(1));
+                    ifLoadOk2->insertStmtAfter(*call, *ifLoadOk2);
+                }
+
+                //close and inc            
+                call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, iosNames[2].c_str()));
+                ifLoadOk2->insertStmtAfter(*call, *ifLoadOk2);
+                call = new SgCallStmt(*new SgSymbol(FUNCTION_NAME, iosNames[0].c_str()));
+                ifLoadOk2->insertStmtAfter(*call, *ifLoadOk2);
+
+                //WRITE DATA
+                if (local.size())
+                {
+                    SgStatement* dataWrite = new SgInputOutputStmt(WRITE_STAT, unit, *makeExprList(local));
+                    ifLoadOk2->insertStmtAfter(*dataWrite, *ifLoadOk2);
+                }
+
+                listSpec.clear();
+                listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("iostat"), *iostat));
+                listSpec.push_back(&SgAssignOp(*new SgKeywordValExp("file"), *journal));
+                listSpec.push_back(&unit);
+
+                SgIOControlStmt* openJ_new = new SgIOControlStmt(OPEN_STAT, *makeExprList(listSpec));
+
+                assign->insertStmtBefore(*new SgIOControlStmt(CLOSE_STAT, unit), *ifLoadOk2);
+                assign->insertStmtBefore(*openJ_new, *ifLoadOk2);
+                assign->insertStmtBefore(*new SgInputOutputStmt(WRITE_STAT, *makeExprList({ &frmt, &unit }), *fileIdx), *ifLoadOk2);
+                assign->insertStmtBefore(*new SgIOControlStmt(CLOSE_STAT, unit), *ifLoadOk2);
+
+                ifLoadOk2->insertStmtAfter(profCallS->copy(), *ifLoadOk2);
+
+                SgStatement* copyForGoto = loadBlock->copyPtr();
+                copyForGoto->deleteLabel();
+                firstExec->insertStmtBefore(*copyForGoto, *func);
+                copyForGoto->insertStmtAfter(insertToLoadS[insertToLoadS.size() - 1]->copy(), *copyForGoto);
+                copyForGoto->insertStmtAfter(insertToLoadS[insertToLoadS.size() - 2]->copy(), *copyForGoto);
+
+                copyForGoto = copyForGoto->lexNext()->lexNext();
+
+                copyForGoto->insertStmtAfter(*new SgGotoStmt(*loadblockLab), *copyForGoto);
+                copyForGoto->insertStmtAfter(*new SgIOControlStmt(CLOSE_STAT, unit), *copyForGoto);
+
+                for (int z = insertToLoadS.size() - 1; z >= 0; --z)
+                    loadBlock->insertStmtAfter(*insertToLoadS[z], *loadBlock);
+
+                for (int z = insertToifLoadOk.size() - 1; z >= 0; --z)
+                    ifLoadOk->insertStmtAfter(*insertToifLoadOk[z], *ifLoadOk);
+
+                //TODO:
+                /*set<string> elemNotDeclHere;
+                for (auto& elem : commonVars)
+                {
+                    if (addedToList.find(elem) == addedToList.end())
+                        elemNotDeclHere.insert(elem);
+                }
+                for (auto& elem : elemNotDeclHere)
+                    printf("%s\n", elem.c_str());*/
+
+                    // make all new declarations
+                makeDeclaration(point, everyS, &initS);
+                makeDeclaration(point, loadS, &initLoadS);
+                makeDeclaration(point, profS);
+                makeDeclaration(point, { files });
+                makeDeclaration(point, { timeF });
+
+                //check use
+                map<string, bool> modulesDone;
+                for (auto& elem : moduleNames)
+                    modulesDone[elem] = false;
+
+                //check with ONLY
+                for (auto& use : useOfMods)
+                {
+                    const string modName = use->symbol()->identifier();
+                    if (!modulesDone[modName])
                     {
-                        SgExpression* ex = use->expr(0);
-                        if (ex && ex->variant() == ONLY_NODE)
+                        if (use->expr(0)) // has ONLY
                         {
-                            modulesDone[modName] = true;
-                            auto callName = new SgSymbol(VARIABLE_NAME, ("SPF_CP_" + modName).c_str());
-                            ex->setLhs(new SgExpression(EXPR_LIST, new SgVarRefExp(callName), ex->lhs()));
+                            SgExpression* ex = use->expr(0);
+                            if (ex && ex->variant() == ONLY_NODE)
+                            {
+                                modulesDone[modName] = true;
+                                auto callName = new SgSymbol(VARIABLE_NAME, ("SPF_CP_" + modName).c_str());
+                                ex->setLhs(new SgExpression(EXPR_LIST, new SgVarRefExp(callName), ex->lhs()));
+                            }
                         }
                     }
                 }
-            }
 
-            //check other
-            for (auto& use : useOfMods)
-            {
-                const string modName = use->symbol()->identifier();
-                if (!modulesDone[modName])
-                    modulesDone[modName] = true;
-            }
-
-            for (auto& elem : modulesDone)
-            {
-                if (!elem.second)
+                //check other
+                for (auto& use : useOfMods)
                 {
-                    auto callName = new SgSymbol(VARIABLE_NAME, ("SPF_CP_" + elem.first).c_str());
-                    SgSymbol* modS = new SgSymbol(VARIABLE_NAME, elem.first.c_str());
+                    const string modName = use->symbol()->identifier();
+                    if (!modulesDone[modName])
+                        modulesDone[modName] = true;
+                }
 
-                    vector<SgExpression*> onlyList;
-                    onlyList.push_back(new SgVarRefExp(callName));
-                    if (elem.first == "spf_module_ios")
-                        for (int z = 0; z < 3; ++z)
-                            onlyList.push_back(new SgVarRefExp(new SgSymbol(VARIABLE_NAME, iosNames[z].c_str())));
+                for (auto& elem : modulesDone)
+                {
+                    if (!elem.second)
+                    {
+                        auto callName = new SgSymbol(VARIABLE_NAME, ("SPF_CP_" + elem.first).c_str());
+                        SgSymbol* modS = new SgSymbol(VARIABLE_NAME, elem.first.c_str());
 
-                    SgExpression* only = new SgExpression(ONLY_NODE, makeExprList(onlyList), NULL);
-                    SgStatement* use = new SgStatement(USE_STMT, NULL, modS, only, NULL, NULL);
-                    func->insertStmtAfter(*use, *func);
+                        vector<SgExpression*> onlyList;
+                        onlyList.push_back(new SgVarRefExp(callName));
+                        if (elem.first == "spf_module_ios")
+                            for (int z = 0; z < 3; ++z)
+                                onlyList.push_back(new SgVarRefExp(new SgSymbol(VARIABLE_NAME, iosNames[z].c_str())));
+
+                        SgExpression* only = new SgExpression(ONLY_NODE, makeExprList(onlyList), NULL);
+                        SgStatement* use = new SgStatement(USE_STMT, NULL, modS, only, NULL, NULL);
+                        func->insertStmtAfter(*use, *func);
+                    }
                 }
             }
         }

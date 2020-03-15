@@ -26,7 +26,6 @@ void fillNonDistrArraysAsPrivate(SgStatement *st,
 
 DIST::Array* getArrayFromDeclarated(SgStatement *st, const std::string &arrayName);
 
-bool isSPF_comment(const int variant);
 void initTags();
 bool isDVM_stat(SgStatement *st);
 bool isSPF_stat(SgStatement *st);

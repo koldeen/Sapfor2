@@ -620,11 +620,6 @@ void getModulesAndFunctions(SgFile *file, vector<SgStatement*> &modulesAndFuncti
         modulesAndFunctions.push_back(file->functions(i));
 }
 
-bool isSPF_comment(const int var)
-{    
-    return var == SPF_ANALYSIS_DIR || var == SPF_PARALLEL_DIR || var == SPF_TRANSFORM_DIR || var == SPF_PARALLEL_REG_DIR || var == SPF_END_PARALLEL_REG_DIR;
-}
-
 void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privates)
 {
     set<SgSymbol*> privatesVars;
@@ -2207,10 +2202,48 @@ SgExpression* makeExprList(const vector<SgExpression*>& items)
     return list;
 }
 
-SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& s, vector<SgExpression*>* inits)
+SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& sIn, vector<SgExpression*>* inits)
 {
-    if (s.size() == 0)
+    if (sIn.size() == 0)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgStatement* place = curr;
+    SgStatement* scope = NULL;
+
+    vector<SgSymbol*> s;
+    if (place)
+    {
+        while (isSgProgHedrStmt(place) == NULL && place->variant() != MODULE_STMT)
+            place = place->controlParent();
+        scope = place;
+
+        set<string> declarated;
+        while (isSgExecutableStatement(place) == NULL && place != scope->lastNodeOfStmt())
+        {
+            if (place->variant() == VAR_DECL || place->variant() == VAR_DECL_90)
+            {
+                SgExpression* ex = place->expr(0);
+                while (ex)
+                {
+                    if (ex->lhs() && ex->lhs()->symbol())
+                        declarated.insert(ex->lhs()->symbol()->identifier());
+                    ex = ex->rhs();
+                }
+            }
+            place = place->lexNext();
+        }
+
+        for (auto& elem : sIn)
+        {
+            if (declarated.find(elem->identifier()) == declarated.end())
+                s.push_back(elem);
+        }
+    }
+    else
+        s = sIn;
+
+    if (s.size() == 0)
+        return NULL;
 
     SgVarDeclStmt* decl = s[0]->makeVarDeclStmt();
     if (inits)
@@ -2232,16 +2265,9 @@ SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& s, vect
             decl->addVar(*new SgVarRefExp(s[z]));
     }
 
-    SgStatement* place = curr;
     if (place)
-    {
-        while (isSgProgHedrStmt(place) == NULL && place->variant() != MODULE_STMT)
-            place = place->controlParent();
-        auto scope = place;
-        while (isSgExecutableStatement(place) == NULL && place != scope->lastNodeOfStmt())
-            place = place->lexNext();
         place->insertStmtBefore(*decl, *scope);
-    }
+
     decl->setVariant(VAR_DECL_90);
     return decl;
 }

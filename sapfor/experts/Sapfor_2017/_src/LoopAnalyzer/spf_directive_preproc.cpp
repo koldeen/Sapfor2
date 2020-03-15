@@ -1047,7 +1047,7 @@ static inline void addSPFtoAttr(SgStatement *st, const string &currFile)
     {
         SgStatement *prev = iterator->lexPrev();
         const int prevVar = prev->variant();
-        cond = (isSPF_comment(prevVar) && prevVar != SPF_END_PARALLEL_REG_DIR);
+        cond = (isSPF_stat(prev) && prevVar != SPF_END_PARALLEL_REG_DIR);
         if (cond)
         {
             addToattribute(prev, st, prevVar);
@@ -1273,9 +1273,9 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         bool result = checkParallelRegions(st, commonBlocks, messagesForFile);
         retVal = retVal && result;
     }
-
+    
     // ignore SPF statements
-    if (isSPF_comment(st->variant()))
+    if (isSPF_stat(st))
         return retVal;
 
     addSPFtoAttr(st, currFile);
@@ -1382,6 +1382,10 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                 else
                     retVal = checkShrink(st, attributeStatement, currFile, messagesForFile);
             }
+        }
+        else if (type == SPF_CHECKPOINT_DIR)
+        {
+            //TODO
         }
     }
 
@@ -1649,7 +1653,7 @@ void revertion_spf_dirs(SgFile *file,
                 } 
 
                 //remaining directives
-                sameAtt = filterUserSpf(getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME}));
+                sameAtt = filterUserSpf(getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_CHECKPOINT_DIR, SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME}));
                 if (sameAtt.size())
                 {
                     for (auto &elem : sameAtt)
