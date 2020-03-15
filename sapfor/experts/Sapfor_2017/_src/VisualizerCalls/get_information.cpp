@@ -57,8 +57,10 @@ using std::make_pair;
 
 extern set<short*> allocated;
 extern set<int*> allocatedInt;
+extern bool runAsClient;
 
 static bool showDebug = false;
+static const string interruptEx = "Interrupted by user";
 
 static inline int strLen(const short* shString)
 {
@@ -179,8 +181,8 @@ static void copyStringToShort(short *&result, const string &resVal, bool withEnd
         result[resVal.size()] = (short)'\0';
 }
 
-int passDone = 0;
-static int rethrow = 0;
+volatile int passDone = 0;
+static volatile int rethrow = 0;
 static void runPassesLoop(const vector<passes> &passesToRun, const char *prName, const char *folderNameChar)
 {    
     try
@@ -209,7 +211,10 @@ static void runPassesLoop(const vector<passes> &passesToRun, const char *prName,
     {
         printf("SAPFOR: thread was terminated with exception: %s\n", ex.what());
         fflush(NULL);
-        rethrow = -1;
+        if (interruptEx == ex.what())
+            rethrow = 1;
+        else
+            rethrow = -1;
     }
     catch (int ex)
     {
@@ -260,7 +265,7 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
             if (interrupt || interrupt_old)
             {
                 if (showDebug)
-                    printf("SAPFOR: file exists, start interruption\n");
+                    printf("[SAPFOR]: file exists, start interruption\n");
                 fflush(NULL);
 
                 if (interrupt_old)
@@ -268,6 +273,13 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
                 if (interrupt)
                     fclose(interrupt);
                 passDone = 2;
+            }
+
+            if (showDebug)
+            {
+                if (runAsClient)
+                    printf("[SAPFOR]: ");
+                printf("wait %d\n", timeToWait);
             }
             _sleep(timeToWait);
             
@@ -281,10 +293,10 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
                 steps++;
         }
         if (showDebug)
-            printf("SAPFOR: start wait thread join, pass == %d\n", passDone);
+            printf("[SAPFOR]: start wait thread join, pass == %d\n", passDone);
         thread.join();
         if (showDebug)
-            printf("SAPFOR: end wait thread join\n");
+            printf("[SAPFOR]: end wait thread join\n");
 
         if (passDone == 2)
             rethrow = 1;
@@ -302,7 +314,7 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
     if (rethrow == 1)
     {
         if (showDebug)
-            printf("SAPFOR: rethrow\n");
+            printf("SAPFOR: rethrow -99\n");
         fflush(NULL);
         throw -99;
     }
@@ -1787,25 +1799,12 @@ void SPF_deleteAllAllocatedData(void*& context)
     deleteAllAllocatedData(true);
 }
 
-extern bool runAsClient;
 static wstring finishJniCall(int retCode, const short* result, const short* output, const int* outputSize,
                              const short* outputMessage, const int* outputMessageSize, const short* predictorStats = NULL);
 void createNeededException()
 {
     if (passDone == 2)
-    {
-        if (runAsClient)
-        {
-            printf("[CLIENT]: send error code -99\n");
-            sendErrorCode(finishJniCall(-99, NULL, NULL, NULL, NULL, NULL, NULL));
-            printf("[CLIENT]: wait 1 second\n");
-            _sleep(1000);
-            printf("[CLIENT]: exit with -99 code\n");
-            exit(-99);
-        }
-        else
-            throw std::runtime_error("Interrupted by user\n");
-    }
+        throw std::runtime_error(interruptEx);
 }
 
 static void* context = NULL;

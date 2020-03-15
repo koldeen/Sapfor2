@@ -2478,7 +2478,8 @@ int main(int argc, char **argv)
     }
 
     deleteAllAllocatedData(withDel);
-    
+
+
 #if _WIN32 && _DEBUG
     if (leakMemDump)
     {

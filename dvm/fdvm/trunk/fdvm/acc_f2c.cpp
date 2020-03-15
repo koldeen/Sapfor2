@@ -1527,9 +1527,9 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
             retExp = bit_ne;
         }
         else if (var == BOOL_VAL)
-        {
+        {         
             bool val = ((SgValueExp*)expr)->boolValue();
-            retExp = new SgKeywordValExp(val ? "true" : "false");
+            retExp = val ? new SgExpression(BIT_COMPLEMENT_OP, new SgValueExp(0), NULL) : new SgValueExp(0);
         }
         else
         {
@@ -1576,13 +1576,17 @@ static SgExpression* splitReductionForAtomic(SgExpression* lhs, SgExpression* rh
     else if (num_red == 4)  // min
         op.insert(FUNC_CALL);
     else if (num_red == 5)  // and
-         op.insert(BITAND_OP);
+        op.insert(BITAND_OP);
     else if (num_red == 6)  // or
-         op.insert(BITOR_OP);
+        op.insert(BITOR_OP);
     else if (num_red == 7)  // neqv
-        ;// op.insert(NEQV_OP);
+        op.insert(XOR_OP);
     else if (num_red == 8)  // eqv
-        ;// op.insert(EQV_OP);
+    {
+        if (rhs->variant() == BIT_COMPLEMENT_OP)
+            rhs = rhs->lhs();
+        op.insert(XOR_OP);
+    }
 
     if (op.size())
     {

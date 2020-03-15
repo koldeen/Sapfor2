@@ -49,11 +49,11 @@ using namespace std;
 #define SOCKADDR sockaddr 
 #define closesocket close
 
-#define SPF_NAME "Components/Sapfor_C"
-#define SPF_NAME_NEW "Components/Sapfor_C_new"
+#define SPF_NAME "Components/Sapfor_F"
+#define SPF_NAME_NEW "Components/Sapfor_F_new"
 
-#define SPC_NAME "Components/Sapfor_F"
-#define SPC_NAME_NEW "Components/Sapfor_F_new"
+#define SPC_NAME "Components/Sapfor_C"
+#define SPC_NAME_NEW "Components/Sapfor_C_new"
 
 #define VIZ_NAME "Components/VisualSapfor.jar"
 #define VIZ_NAME_NEW "Components/VisualSapfor_new.jar"
