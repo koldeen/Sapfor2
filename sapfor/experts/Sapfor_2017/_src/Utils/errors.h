@@ -43,8 +43,8 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   28 "Module with name '%s' must be placed in current file"
 //   29 lowlevel warnings from private analyzer
 //   30 lowlevel notes from private analyzer
-//   31 "wrong parallel region identifier: variable '%s' was declarated on line %d"
-//   32 "wrong parallel region identifier: variable '%s' was declarated in common block '%s'"
+//   31 "wrong parallel region identifier: variable '%s' was declared on line %d"
+//   32 "wrong parallel region identifier: variable '%s' was declared in common block '%s'"
 //   33 "parallel region '%s' is included in file '%s'"
 //   34 "parallel regions '%s' and '%s' are crossed"
 //   35 "parallel region '%s' has data statement(s)"

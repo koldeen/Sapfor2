@@ -2827,20 +2827,29 @@ SgExpression *DimSizeListOfReductionArrays()
                 el = ell;
             }
             arg_list = AddListToList(arg_list, el);
+            el = NULL;
+            for (idim = Rank(rsl->redvar); idim; idim--)
+            {
+                arg = DvmType_Ref(LBOUNDFunction(rsl->redvar, idim));
+                ell = new SgExprListExp(*arg);
+                ell->setRhs(el);
+                el = ell;
+            }
+            arg_list = AddListToList(arg_list, el);            
         }
     }
 
     return(arg_list);
 }
 
-int isConstantBound(SgSymbol *rv, int i, int isLower)
+SgExpression *isConstantBound(SgSymbol *rv, int i, int isLower)
 {
   SgExpression *bound;
   bound = isLower ? Calculate(LowerBound(rv,i)) : Calculate(UpperBound(rv,i));
   if(bound->isInteger())
-     return 1;
+     return bound;
   else
-     return 0;
+     return NULL;
 }
 
 SgExpression *CreateBoundListOfArray(SgSymbol *ar)
@@ -2954,6 +2963,7 @@ void    CreateStructuresForReductions(SgExpression *red_op_list)
             }
             redstruct->next = NULL;
             redstruct->dimSize_arg = NULL;
+            redstruct->lowBound_arg = NULL;
             redstruct->red_host = NULL;
             if (!red_struct_list)
                 red_struct_list = rl = redstruct;
@@ -6973,13 +6983,20 @@ SgSymbol *FormalLocationSymbol(SgSymbol *locvar, int i)
     return(new SgVariableSymb(name, *type, *kernel_st));
 }
 
-
 SgSymbol *FormalDimSizeSymbol(SgSymbol *var, int i)
 {
     SgType *type;
 
     type = options.isOn(C_CUDA) ? C_DvmType() : FortranDvmType();
     return(new SgVariableSymb(DimSizeName(var, i), *type, *kernel_st));
+}
+
+SgSymbol *FormalLowBoundSymbol(SgSymbol *var, int i)
+{
+    SgType *type;
+
+    type = options.isOn(C_CUDA) ? C_DvmType() : FortranDvmType();
+    return(new SgVariableSymb(BoundName(var, i, 1), *type, *kernel_st));
 }
 
 SgType *Type_For_Red_Loc(SgSymbol *redsym, SgSymbol *locsym, SgType *redtype, SgType *loctype)
@@ -8712,7 +8729,7 @@ SgExpression *CreateRedDummyList()
         }
         else                       // reduction array of unknown size
             arg_list = AddListToList(arg_list, &(rsl->dimSize_arg->copy()));
-
+            arg_list = AddListToList(arg_list, &(rsl->lowBound_arg->copy()));
         if (options.isOn(C_CUDA))
         {
             ae = new SgArrayRefExp(*rsl->red_grid, *new SgExprListExp());
@@ -9195,6 +9212,12 @@ void DeclareDummyArgumentsForReductions(SgSymbol *red_count_symb, SgType *idxTyp
     st = NULL;
     for (rsl = red_struct_list; rsl; rsl = rsl->next)
     for (el = rsl->dimSize_arg; el; el = el->rhs())    // reduction variable is array of unknown size
+    {
+        st = el->lhs()->symbol()->makeVarDeclStmt();
+        st->setExpression(2, *eatr);
+        kernel_st->insertStmtAfter(*st);
+    }
+    for (el = rsl->lowBound_arg; el; el = el->rhs())    // reduction variable is array of unknown size
     {
         st = el->lhs()->symbol()->makeVarDeclStmt();
         st->setExpression(2, *eatr);
@@ -10643,7 +10666,7 @@ SgExpression *LinearFormForRedArray(SgSymbol *ar, SgExpression *el, reduction_op
     //                n   
     //         I1 + SUMMA(DimSize(k-1) * Ik)
     //               k=2
-
+  
     n = Rank(rsl->redvar);
     if (!el)     // there aren't any subscripts
         return(new SgValueExp(0));
@@ -10678,7 +10701,22 @@ SgExpression *BlockDimsProduct()
     return &(*new SgRecordRefExp(*s_blockdim, "x") * *new SgRecordRefExp(*s_blockdim, "y") * *new SgRecordRefExp(*s_blockdim, "z"));
 }
 
-
+SgExpression *LowerShiftForArrays (SgSymbol *ar, int i) 
+{
+    SgExpression *e = isConstantBound(ar, i, 1);
+    if(!e)
+        e = &(((SgExprListExp *)red_struct_list->lowBound_arg)->elem(i)->copy());
+    return e; 
+}
+ 
+SgExpression *UpperBoundForArrays (SgSymbol *ar, int i) 
+{
+    SgExpression *e = isConstantBound(ar, i, 0);
+    if(!e)
+        e = new SgValueExp(1);
+    return e; 
+}
+   
 void CompleteStructuresForReductionInKernel()
 {
     reduction_operation_list *rl;
@@ -10697,8 +10735,8 @@ void CompleteStructuresForReductionInKernel()
             s_overall_blocks = OverallBlocksSymbol();
         if (rl->redvar_size < 0)
         {
-            rl->dimSize_arg = CreateFormalDimSizeList(rl->redvar);
-
+            rl->dimSize_arg  = CreateFormalDimSizeList(rl->redvar);
+            rl->lowBound_arg = CreateFormalLowBoundList(rl->redvar);
             //XXX changed reduction scheme to atomic, Kolganov 06.02.2020
             //rl->red_init = RedInitValSymbolInKernel(rl->redvar, rl->dimSize_arg); // after CreateFormalDimSizeList()
             rl->red_init = rl->redvar;
@@ -10706,6 +10744,7 @@ void CompleteStructuresForReductionInKernel()
         else
         {
             rl->dimSize_arg = NULL;
+            rl->lowBound_arg = NULL;
             rl->red_init = NULL;
         }
         rl->red_grid = RedGridSymbolInKernel(rl->redvar, rl->redvar_size, rl->dimSize_arg, 1); // after CreateFormalDimSizeList()
@@ -10757,6 +10796,20 @@ SgExpression *CreateFormalDimSizeList(SgSymbol *var)
     for (i = Rank(var); i; i--)
     {
         sll = new SgExprListExp(*new SgVarRefExp(FormalDimSizeSymbol(var, i)));
+        sll->setRhs(sl);
+        sl = sll;
+    }
+    return(sl);
+}
+
+SgExpression *CreateFormalLowBoundList(SgSymbol *var)
+{
+    SgExprListExp *sl, *sll;
+    int i;
+    sl = NULL;
+    for (i = Rank(var); i; i--)
+    {
+        sll = new SgExprListExp(*new SgVarRefExp(FormalLowBoundSymbol(var, i)));
         sll->setRhs(sl);
         sl = sll;
     }
@@ -12329,7 +12382,7 @@ SgStatement *Create_C_Adapter_Function(SgSymbol *sadapter)
     SgExpression *espec;
     SgFunctionCallExp *fcall;
     //SgStatement *fileHeaderSt;
-    SgSymbol *s_loop_ref, *sarg, *s, *sb, *sg, *sdev, *h_first, *hgpu_first, *base_first, *red_first, *uses_first, *scalar_first, *red_dim_first;
+    SgSymbol *s_loop_ref, *sarg, *s, *sb, *sg, *sdev, *h_first, *hgpu_first, *base_first, *red_first, *uses_first, *scalar_first;
     SgSymbol *s_stream = NULL, *s_blocks = NULL, *s_threads = NULL, *s_blocks_info = NULL, *s_red_count = NULL, *s_tmp_var = NULL;
     SgSymbol *s_dev_num = NULL, *s_shared_mem = NULL, *s_regs = NULL, *s_blocksS = NULL, *s_idxL = NULL, *s_idxH = NULL, *s_idxTypeInKernel = NULL;
     SgSymbol *s_num_of_red_blocks = NULL, *s_fill_flag = NULL, *s_red_num = NULL, *s_restBlocks = NULL, *s_addBlocks = NULL, *s_overallBlocks = NULL;
@@ -12338,7 +12391,7 @@ SgStatement *Create_C_Adapter_Function(SgSymbol *sadapter)
     int ln, num, i, uses_num, shared_mem_count, has_red_array, use_device_num;
     char *define_name;
     int pl_rank = ParLoopRank();
-    h_first = hgpu_first = base_first = red_first = uses_first = scalar_first = red_dim_first = NULL;
+    h_first = hgpu_first = base_first = red_first = uses_first = scalar_first = NULL;
     has_red_array = 0;  use_device_num = 0;
     s_dev_num = NULL;
     s_shared_mem = NULL;
@@ -12409,17 +12462,30 @@ SgStatement *Create_C_Adapter_Function(SgSymbol *sadapter)
                 t = C_PointerType(C_DvmType());
                 for (idim = Rank(rsl->redvar); idim; idim--)
                 {
+                    sarg = new SgSymbol(VARIABLE_NAME, BoundName(rsl->redvar, idim, 1), *t, *st_hedr);
+                    ae = new SgVarRefExp(sarg);
+                    ae->setType(t);
+                    el = AddElementToList(el, new SgPointerDerefExp(*ae));
+                } 
+                rsl->lowBound_arg = el;   
+                el = NULL;
+                for (idim = Rank(rsl->redvar); idim; idim--)
+                {
                     sarg = new SgSymbol(VARIABLE_NAME, DimSizeName(rsl->redvar, idim), *t, *st_hedr);
                     ae = new SgVarRefExp(sarg);
                     ae->setType(t);
+                    el = AddElementToList(el, new SgPointerDerefExp(*ae));
+                   /*
                     ell = new SgExprListExp(*new SgPointerDerefExp(*ae));
                     ell->setRhs(el);
                     el = ell;
-                    if (!red_dim_first)
-                        red_dim_first = sarg;
+                    */
                 }
                 rsl->dimSize_arg = el;
-                arg_list->setRhs(el->copy());
+                /*arg_list->setRhs(el->copy());*/
+                arg_list = AddListToList(arg_list,&rsl->dimSize_arg->copy());
+                arg_list = AddListToList(arg_list,&rsl->lowBound_arg->copy());
+
                 while (arg_list->rhs() != 0)
                     arg_list = arg_list->rhs();
             }
@@ -12832,6 +12898,8 @@ SgStatement *Create_C_Adapter_Function(SgSymbol *sadapter)
             {
                 has_red_array = 1;
                 for (el = rsl->dimSize_arg; el; el = el->rhs())
+                    fcall->addArg(el->lhs()->copy());
+                for (el = rsl->lowBound_arg; el; el = el->rhs())
                     fcall->addArg(el->lhs()->copy());
             }
             s = s->next();

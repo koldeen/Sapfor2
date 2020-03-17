@@ -2217,7 +2217,7 @@ SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& sIn, ve
             place = place->controlParent();
         scope = place;
 
-        set<string> declarated;
+        set<string> declared;
         while (isSgExecutableStatement(place) == NULL && place != scope->lastNodeOfStmt())
         {
             if (place->variant() == VAR_DECL || place->variant() == VAR_DECL_90)
@@ -2226,7 +2226,7 @@ SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& sIn, ve
                 while (ex)
                 {
                     if (ex->lhs() && ex->lhs()->symbol())
-                        declarated.insert(ex->lhs()->symbol()->identifier());
+                        declared.insert(ex->lhs()->symbol()->identifier());
                     ex = ex->rhs();
                 }
             }
@@ -2235,7 +2235,7 @@ SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& sIn, ve
 
         for (auto& elem : sIn)
         {
-            if (declarated.find(elem->identifier()) == declarated.end())
+            if (declared.find(elem->identifier()) == declared.end())
                 s.push_back(elem);
         }
     }

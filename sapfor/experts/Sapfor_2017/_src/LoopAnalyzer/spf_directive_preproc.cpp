@@ -854,11 +854,11 @@ static bool checkParallelRegions(SgStatement *st,
                         findAllRefs(iterator->expr(0), names);
                         if (names.find(identSymbol->identifier()) != names.end())
                         {
-                            __spf_print(1, "wrong parallel region identifier: variable '%s' was declarated on line %d on line %d\n",
+                            __spf_print(1, "wrong parallel region identifier: variable '%s' was declared on line %d on line %d\n",
                                             identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
 
                             wstring messageE, messageR;
-                            __spf_printToLongBuf(messageE, L"wrong parallel region identifier: variable '%s' was declarated on line %d",
+                            __spf_printToLongBuf(messageE, L"wrong parallel region identifier: variable '%s' was declared on line %d",
                                                            to_wstring(identSymbol->identifier()).c_str(), iterator->lineNumber());
 
                             __spf_printToLongBuf(messageR, R63,
@@ -883,11 +883,11 @@ static bool checkParallelRegions(SgStatement *st,
                     {
                         if (variable.getName() == identSymbol->identifier())
                         {
-                            __spf_print(1, "wrong parallel region identifier: variable '%s' was declarated in common block '%s' on line %d\n",
+                            __spf_print(1, "wrong parallel region identifier: variable '%s' was declared in common block '%s' on line %d\n",
                                         identSymbol->identifier(), commonBlockPair.first.c_str(), st->lineNumber());
 
                             wstring messageE, messageR;
-                            __spf_printToLongBuf(messageE, L"wrong parallel region identifier: variable '%s' was declarated in common block '%s'",
+                            __spf_printToLongBuf(messageE, L"wrong parallel region identifier: variable '%s' was declared in common block '%s'",
                                                  to_wstring(identSymbol->identifier()).c_str(), to_wstring(commonBlockPair.first).c_str());
 
                             __spf_printToLongBuf(messageR, R64,

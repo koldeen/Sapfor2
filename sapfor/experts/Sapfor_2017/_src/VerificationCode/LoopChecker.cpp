@@ -293,7 +293,7 @@ bool FunctionsChecker(SgFile *file, map<string, pair<string, int>> &funcNames, m
                             it->first.c_str(), it->second.first.c_str(), it->second.second, file->filename(), st->lineNumber());
 #if _WIN32
                 wstring messageE, messageR;
-                __spf_printToLongBuf(messageE, L"Function '%s' was declarated in more that one palce: '%s':%d è '%s':%d",
+                __spf_printToLongBuf(messageE, L"Function '%s' was declared in more than one place: '%s':%d and '%s':%d",
                                                 to_wstring(funcName).c_str(), to_wstring(it->second.first).c_str(),
                                                 it->second.second, to_wstring(file->filename()).c_str(), st->lineNumber());
 

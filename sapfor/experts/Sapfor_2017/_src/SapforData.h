@@ -128,7 +128,7 @@ std::vector<FuncInfo*> inDataAllProc; // all procedures
 
 //module includes across all files, need to correct lines and out versions
 std::map<std::string, std::set<std::string>> moduleUsesByFile; // file -> use module name
-std::map<std::string, std::string> moduleDecls; // module -> file where declarated
+std::map<std::string, std::string> moduleDecls; // module -> file where declared
 //
 
 //for LOOPS_COMBINER

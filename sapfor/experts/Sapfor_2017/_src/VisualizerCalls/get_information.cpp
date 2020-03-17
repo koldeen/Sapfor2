@@ -1895,7 +1895,7 @@ static void fillInfo(const string& data, int*& arr)
     splitString(data, '|', splited);
 
     int idx = 0;
-    int count = std::stoi(splited[idx++]);
+    int count = splited.size();
     arr = new int[count];
     for (int z = 0; z < count; ++z, ++idx)
         arr[z] = std::stoi(splited[idx]);
@@ -1907,7 +1907,7 @@ static void fillInfo(const string& data, int64_t*& arr)
     splitString(data, '|', splited);
 
     int idx = 0;
-    int count = std::stoi(splited[idx++]);
+    int count = splited.size(); 
     arr = new int64_t[count];
     for (int z = 0; z < count; ++z, ++idx)
         arr[z] = std::stoll(splited[idx]);
@@ -2090,7 +2090,7 @@ const wstring Sapfor_RunModification(const char* modifyName_c, const char* optio
 
     short* projSh = toShort(projName_c);
     short* optSh = toShort(options_c);
-    short* fold = toShort(folder_c);
+    short* fold = toShort(folder_c); if (string("") == folder_c) fold = NULL;
 
     if (whichRun == "SPF_ModifyArrayDistribution")
     {
@@ -2106,12 +2106,17 @@ const wstring Sapfor_RunModification(const char* modifyName_c, const char* optio
         vector<string> splitS;
         splitString(addOpt1_c, '|', splitS);
 
-        vector<short*> tmpPar = { toShort(splitS[0].c_str()), toShort(splitS[1].c_str()) };
-        int line = std::stoi(addOpt2_c);
-        retCode = SPF_InlineProcedure(context, winHandler, optSh, projSh, fold, tmpPar[0], tmpPar[1], line, output, outputSize, outputMessage, outputMessageSize, size, sizes, newFiles, newFilesNames);
+        if (splitS.size() == 2)
+        {
+            vector<short*> tmpPar = { toShort(splitS[0].c_str()), toShort(splitS[1].c_str()) };
+            int line = std::stoi(addOpt2_c);
+            retCode = SPF_InlineProcedure(context, winHandler, optSh, projSh, fold, tmpPar[0], tmpPar[1], line, output, outputSize, outputMessage, outputMessageSize, size, sizes, newFiles, newFilesNames);
 
-        delete[]tmpPar[0];
-        delete[]tmpPar[1];
+            delete[] tmpPar[0];
+            delete[] tmpPar[1];
+        }
+        else
+            retCode = -1;
     }
     else if (whichRun == "SPF_LoopUnionCurrent")
     {

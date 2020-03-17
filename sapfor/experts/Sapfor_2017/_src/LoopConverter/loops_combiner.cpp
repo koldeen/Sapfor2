@@ -258,7 +258,7 @@ int combineLoops(SgFile* file, vector<LoopGraph*>& loopGraphs, vector<Messages>&
             if (it == mapGraph.end())
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-            vector<LoopGraph*> nextLoops = getNextLoops(it->second, it->second->parent->children, 1);
+            vector<LoopGraph*> nextLoops = getNextLoops(it->second, it->second->parent ? it->second->parent->children : loopGraphs, 1);
             set<LoopGraph*> combinedLoops;
             if (nextLoops.size())
                 combine(it->second, nextLoops, combinedLoops, messages);

@@ -163,7 +163,7 @@ static void fillParam(const int i, SgSymbol *parIn, FuncParam *currParams, const
             auto itArray = declaredArrays.find(uniqKey);
             if (itArray == declaredArrays.end())
             {
-                __spf_print(1, "array was not in declarated list %s\n", par->identifier());
+                __spf_print(1, "array was not in declared list %s\n", par->identifier());
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
 

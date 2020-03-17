@@ -482,6 +482,17 @@ void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &
             // actualizing only left part of assign
             list.clear();
             list.push_back(prev->expr(0)->copyPtr());
+
+            //check for ranges
+            SgExpression* arrayList = list.back();
+            if (arrayList)
+            {
+                SgExpression* list = arrayList->lhs();
+                if (list && list->variant() == EXPR_LIST)
+                    if (list->lhs() && list->lhs()->variant() == DDOT)
+                        if (list->lhs()->lhs() && list->lhs()->lhs()->variant() == DDOT)
+                            list->setLhs(list->lhs()->lhs());
+            }
         }
     }
     actualizingSt->setExpression(0, makeExprList(list));

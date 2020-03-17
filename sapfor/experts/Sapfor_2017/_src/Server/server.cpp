@@ -214,22 +214,26 @@ static int initClient(SOCKET& javaSocket, const string& address, int port)
 }
 
 static volatile bool spfRun = false;
+static volatile int retCodeF = 0;
 static void runSapfor(const string command)
 {
     spfRun = true;
     __print("[SERVER-th1]", "Try to start sapfor");
-    int id = system(command.c_str());
-    __print("[SERVER-th1]", "SAPFOR done with exit code %d", id);
+    retCodeF = 0;
+    retCodeF = system(command.c_str());
+    __print("[SERVER-th1]", "SAPFOR done with exit code %d", retCodeF);
     spfRun = false;
 }
 
 static volatile bool spcRun = false;
+static volatile int retCodeC = 0;
 static void runSapforC(const string command)
 {
     spcRun = true;
     __print("[SERVER-th3]", "Try to start sapfor(C)");
-    int id = system(command.c_str());
-    __print("[SERVER-th3]", "SAPFOR(C) done with exit code %d", id);
+    retCodeC = 0;
+    retCodeC = system(command.c_str());
+    __print("[SERVER-th3]", "SAPFOR(C) done with exit code %d", retCodeC);
     spcRun = false;
 }
 
@@ -364,6 +368,14 @@ static bool isSapforDebug(int argc, char** argv)
     return false;
 }
 
+static bool isVizDebug(int argc, char** argv)
+{
+    for (int z = 1; z < argc; ++z)
+        if (string("-vizDeb") == argv[z])
+            return true;
+    return false;
+}
+
 int main(int argc, char** argv)
 {
     signal(SIGINT, signal_handler);
@@ -376,6 +388,7 @@ int main(int argc, char** argv)
 
     const string path = argv[0];
     bool isSpfDeb = isSapforDebug(argc, argv);
+    bool isVizDeb = isVizDebug(argc, argv);
 
     const size_t hashOfPath = hash<string>{}(path);
     __print(SERV, "Open ot create mutex of '%s' path, hash = %zu", path.c_str(), hashOfPath);
@@ -413,7 +426,7 @@ int main(int argc, char** argv)
     int t = 0;
     while (true)
     {
-        if (!vizRun && needToUpdateViz)
+        if (!vizRun && needToUpdateViz && !isVizDeb)
         {
             __print(SERV, "Run Visualizer from '%s' path with port %d", VIZ_NAME, javaPort);
             if (fs::exists(VIZ_NAME))
@@ -531,7 +544,21 @@ int main(int argc, char** argv)
                 __print(SERV, "Error recv(): %d", err);
                 closesocket(spfSoc);
                 spfSoc = INVALID_SOCKET;
-                retCode = "WRONG\n";
+
+                if (spfRun)
+                    retCode = "WRONG\n";
+                else
+                {
+                    if (fs::exists(SPF_NAME))
+                    {
+                        if (retCodeF != 0)
+                            retCode = "SIG_FAULT\n";
+                        else
+                            retCode = "WRONG\n";
+                    }
+                    else
+                        retCode = "NOT_FOUND\n";
+                }
             }
             else
             {
@@ -551,7 +578,9 @@ int main(int argc, char** argv)
                 }
             }
 
-            if (retCode.find("WRONG") == string::npos)
+            if (retCode.find("WRONG") == string::npos && 
+                retCode.find("NOT_FOUND") == string::npos &&
+                retCode.find("SIG_FAULT") == string::npos)
             {
                 retCode = "";
                 err = send(spfSoc, buf, 1, 0);
@@ -582,6 +611,9 @@ int main(int argc, char** argv)
                 retCode = bufLong;
                 free(bufLong);
             }
+            else 
+                __print(SERV, "Send error code to Visualizer: %s", retCode.c_str());
+
             err = send(spfSoc, buf, 1, 0);
 
             err = send(javaSoc, retCode.c_str(), retCode.size(), 0);

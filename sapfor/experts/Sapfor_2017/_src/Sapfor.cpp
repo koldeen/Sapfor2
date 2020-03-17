@@ -276,7 +276,10 @@ static string unparseProjectIfNeed(SgFile* file, const int curr_regime, const bo
                 fout_name = folderName + string("/") + fPartOfName + "_" + newVer + "." + outExt;
         }
 
-        __spf_print(1, "  Unparsing to <%s> file\n", fout_name.c_str());
+        if (toString)
+            __spf_print(1, "  Unparsing to string\n");
+        else
+            __spf_print(1, "  Unparsing to <%s> file\n", fout_name.c_str());
         if (curr_regime == INSERT_INCLUDES)
         {
             __spf_print(1, "  try to find file <%s>\n", file_name);
