@@ -1256,8 +1256,12 @@ static bool isSPF_OP(Statement *stIn, const int op)
     {
         SgStatement *st = stIn->GetOriginal();
         SgExpression *exprList = st->expr(0);
-        if (exprList && exprList->lhs()->variant() == op)
-            return true;
+        while (exprList)
+        {
+            if (exprList->lhs()->variant() == op)
+                return true;
+            exprList = exprList->rhs();
+        }
     }
     return false;
 }
@@ -1333,8 +1337,9 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         }
         else if (type == SPF_TRANSFORM_DIR)
         {
-            int count;
             // !$SPF TRANSFORM
+            int count;
+
             // NOINLINE
             if (isSPF_NoInline(new Statement(st)))
             {
@@ -1346,8 +1351,9 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                     retVal = false;
                 }
             }
+
             // FISSION
-            else if (isSPF_OP(new Statement(attributeStatement), SPF_FISSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_FISSION_OP)))
+            if (isSPF_OP(new Statement(attributeStatement), SPF_FISSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_FISSION_OP)))
             {
                 attributeStatement->setLocalLineNumber(-1);
                 if (count > 1 || st->variant() != FOR_NODE)
@@ -1358,8 +1364,9 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                 else
                     retVal = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile, true);
             }
+
             // PRIVATES_EXPANSION
-            else if (isSPF_OP(new Statement(attributeStatement), SPF_PRIVATES_EXPANSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_PRIVATES_EXPANSION_OP)))
+            if (isSPF_OP(new Statement(attributeStatement), SPF_PRIVATES_EXPANSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_PRIVATES_EXPANSION_OP)))
             {
                 attributeStatement->setLocalLineNumber(-1);
                 if (count > 1 || st->variant() != FOR_NODE)
@@ -1370,8 +1377,9 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                 else
                     retVal = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile);
             }
+
             // SHRINK
-            else if (isSPF_OP(new Statement(attributeStatement), SPF_SHRINK_OP))
+            if (isSPF_OP(new Statement(attributeStatement), SPF_SHRINK_OP))
             {
                 attributeStatement->setLocalLineNumber(-1); // is it needed?
                 if (st->variant() != FOR_NODE)
