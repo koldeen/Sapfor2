@@ -500,6 +500,8 @@ int main(int argc, char *argv[])
             ;
         else if (!strcmp(argv[0], "-noLimitLine"))
             ;
+        else if (!strcmp(argv[0], "-noRemote"))
+            ;
         else if (!strcmp(argv[0], "-lgstd"))
             ftn_std = 1;
         //else if (!strcmp(argv[0],"-ta"))

@@ -399,6 +399,53 @@ int SPF_ParseFiles(void*& context, int winHandler, short *options, short* projNa
     return retSize;
 }
 
+extern vector<string> filesCompilationOrder;
+int SPF_ParseFilesWithOrder(void*& context, int winHandler, short* options, short* projName, short*& result,
+                            short*& output, int*& outputSize,
+                            short*& outputMessage, int*& outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    int retSize = -1;
+    try
+    {
+        runPassesForVisualizer(projName, { PARSE_FILES });
+
+        string resVal = "";
+        for (auto& elem : filesCompilationOrder)
+        {
+            if (resVal == "")
+                resVal += elem;
+            else
+                resVal += "|" + elem;
+        }
+        copyStringToShort(result, resVal);
+        retSize = 0;
+    }
+    catch (int ex)
+    {
+        try { __spf_print(1, "catch code %d\n", ex); }
+        catch (...) {}
+        if (ex == -99)
+            return -99;
+        else
+            retSize = ex;
+    }
+    catch (...)
+    {
+        retSize = -1;
+    }
+    convertGlobalBuffer(output, outputSize);
+    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
+    MessageManager::setWinHandler(-1);
+    return retSize;
+}
+
 extern map<string, vector<LoopGraph*>> loopGraph; // file -> Info
 int SPF_GetGraphLoops(void*& context, int winHandler, short *options, short *projName, short *&result, short *&output, int *&outputSize,
                       short *&outputMessage, int *&outputMessageSize)
@@ -1948,6 +1995,8 @@ const wstring Sapfor_RunAnalysis(const char* analysisName_c, const char* options
             retCode = SPF_GetGCovInfo(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
         else if (whichRun == "SPF_ParseFiles")
             retCode = SPF_ParseFiles(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize);
+        else if (whichRun == "SPF_ParseFilesWithOrder")
+            retCode = SPF_ParseFilesWithOrder(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
         else if (whichRun == "SPF_StatisticAnalyzer")
             retCode = SPF_StatisticAnalyzer(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize);
         else if (whichRun == "SPF_GetPassesStateStr")
@@ -2058,7 +2107,7 @@ const wstring Sapfor_RunTransformation(const char* transformName_c, const char* 
     else if (whichRun == "SPF_DuplicateFunctionChains")
         retCode = SPF_DuplicateFunctionChains(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
     else if (whichRun == "SPF_InlineProcedures")
-        retCode = SPF_InlineProcedures(context, winHandler, optSh, projSh, fold, output, addOpt, outputSize, outputMessage, outputMessageSize);
+        retCode = SPF_InlineProcedures(context, winHandler, optSh, projSh, fold, addOpt, output, outputSize, outputMessage, outputMessageSize);
     else
     {
         if (showDebug)

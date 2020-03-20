@@ -2228,7 +2228,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         break;
     case PARSE_FILES:
         {
-            int err = parseFiles(proj_name);
+            int err = parseFiles(proj_name, filesCompilationOrder);
             if (err != 0)
                 throw err;
         }

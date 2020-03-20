@@ -258,6 +258,8 @@ int main(int argc, char *argv[]){
             out_upper_case = 1;
         else if (!strcmp(argv[0], "-noLimitLine"))  
             out_line_unlimit = 1; 
+        else if (!strcmp(argv[0], "-noRemote"))  
+            options.setOn(NO_REMOTE); 
         else if (!strcmp(argv[0], "-lgstd"))
         {
             (void)fprintf(stderr, "Illegal option -lgstd \n");
@@ -2183,6 +2185,8 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
        case(DVM_INDIRECT_GROUP_DIR):
        case(DVM_REMOTE_GROUP_DIR):
            {SgExpression * sl; 
+            if(options.isOn(NO_REMOTE))
+               continue;    
 	    for(sl=stmt->expr(0); sl; sl = sl->rhs()){
                SgArrayType *artype;
                artype = new SgArrayType(*SgTypeInt());  
@@ -3814,6 +3818,10 @@ EXEC_PART_:
               err("The directive is inside the range of PARALLEL loop", 98,stmt); 
               break;
             } 
+            if(options.isOn(NO_REMOTE)) {
+              pstmt = addToStmtList(pstmt, stmt);
+              break;
+            }
             LINE_NUMBER_AFTER(stmt,stmt);    
             doCallAfter(DeleteObject_H(GROUP_REF(stmt->symbol(),1)));               
             doAssignTo_After(GROUP_REF(stmt->symbol(),1),new SgValueExp(0));
@@ -3826,6 +3834,10 @@ EXEC_PART_:
               err("The directive is inside the range of PARALLEL loop", 98,stmt); 
               break;
             } 
+            if(options.isOn(NO_REMOTE)) {
+              pstmt = addToStmtList(pstmt, stmt);
+              break;
+            }
             {SgStatement *if_st,*endif_st;
             pref_st = addToStmtList(pref_st, stmt);//add to list of PREFETCH directive
             if_st = doIfThenConstrForPrefetch(stmt);
@@ -9567,6 +9579,8 @@ void RemoteVariableList(SgSymbol *group, SgExpression *rml, SgStatement *stmt)
   SgValueExp c0(0),cm1(-1),c1(1);
   st_sign = 0;
 
+  if(options.isOn(NO_REMOTE))
+     return;    
   if(IN_COMPUTE_REGION && group)
      err("Asynchronous REMOTE_ACCESS clause in compute region",574,stmt);
 
@@ -10311,8 +10325,7 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
 
        case(DVM_INDIRECT_GROUP_DIR):
        case(DVM_REMOTE_GROUP_DIR):
-	      //if(dvm_debug)
-           if (debug_regim)
+           if (debug_regim && !options.isOn(NO_REMOTE))
            {SgExpression * sl; 
 	    for(sl=stmt->expr(0); sl; sl = sl->rhs()){
                SgArrayType *artype;
