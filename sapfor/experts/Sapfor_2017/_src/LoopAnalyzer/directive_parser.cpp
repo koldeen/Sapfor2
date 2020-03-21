@@ -462,6 +462,30 @@ void fillShrinkFromComment(Statement *stIn, vector<pair<fillType, vector<int>>> 
 template void fillShrinkFromComment(Statement *stIn, vector<pair<SgSymbol *, vector<int>>> &varDims);
 template void fillShrinkFromComment(Statement *stIn, vector<pair<string, vector<int>>> &varDims);
 
+void fillCheckpointFromComment(Statement *stIn, vector<pair<int, SgExpression*>> &clauses, bool &hasInterval)
+{
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        if (st->variant() == SPF_CHECKPOINT_DIR)
+        {
+            SgExpression *exprList= st->expr(0);
+            while (exprList)
+            {
+                if (exprList->lhs())
+                {
+                    clauses.push_back(std::make_pair<int, SgExpression*>(exprList->lhs()->variant(), exprList->lhs()));
+                    if (exprList->lhs()->variant() == SPF_INTERVAL_OP)
+                        hasInterval = true;
+                }
+                exprList = exprList->rhs();
+            }
+        }
+    }
+}
+
+//template void fillCheckpointFromComment(Statement *stIn);
+
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
 {
     SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;

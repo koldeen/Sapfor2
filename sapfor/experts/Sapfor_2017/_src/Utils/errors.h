@@ -11,6 +11,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 // 10xx - analysis
 // 20xx - transform
 // 30xx - parallel
+// 50xx - checkpoint
 
 // 10xx ANALISYS GROUP
 //   01 "bad directive position, it can be placed only"
@@ -109,6 +110,11 @@ enum typeMessage { WARR, ERROR, NOTE };
 // 40xx LOW LEVEL WARNINGS
 //   01 
 //   02 Wrong pure declaration - INTENT mismatch
+
+// 50xx CHECKPOINT GROUP
+//   01 "first argument must be TIME or ITER and second must be integer in interval clause"
+//   02 "checkpoint directive with interval clause can be only at executable code section"
+//   03 "checkpoint directive with files clause must contain one integer value"
 
 extern int langOfMessages;
 struct Messages
@@ -513,3 +519,10 @@ static const wchar_t* R151 = L"R151:";
 //---TODO ошибки из SAGE
 //4002
 static const wchar_t *R143 = L"R143:";
+
+//5001
+static const wchar_t *R165 = L"R165:%s";
+//5002
+static const wchar_t *R166 = L"R166:%s";
+//5003
+static const wchar_t *R167 = L"R167:%s";
