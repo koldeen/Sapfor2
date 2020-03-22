@@ -1474,12 +1474,63 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                     }
                     break;
                 case SPF_VARLIST_OP:
-                    break;
                 case SPF_EXCEPT_OP:
+                {
+                    vector<SgSymbol*> vars;
+                    exprList = exprList->lhs();
+                    while (exprList)
+                    {
+                        if (exprList->lhs() && exprList->lhs()->symbol())
+                            vars.push_back(exprList->lhs()->symbol());
+                        exprList = exprList->rhs();
+                    }
+                    for (auto &var : vars)
+                    {
+                        bool local = false;
+                        // TODO: check variable declarations
+                        if (!local)
+                        {
+                            __spf_print(1, "variable %s in varlist and except clause must be declared at the same module in file '%s' on line %d\n",
+                                        var->identifier(), st->fileName(), attributeStatement->lineNumber());
+                            wstring messageE, messageR;
+                            __spf_printToLongBuf(messageE, L"variable %s in varlist and except clause must be declared at the same module in file '%s'",
+                                                 to_wstring(var->identifier()), to_wstring(st->fileName()).c_str());
+
+                            __spf_printToLongBuf(messageR, R168, to_wstring(st->fileName()).c_str());
+
+                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5004));
+                            retVal = false;
+                        }
+                    }
                     break;
+                }
                 case SPF_TYPE_OP:
+                {
+                    int count = 0;
+                    exprList = exprList->rhs();
+                    while (exprList)
+                    {
+                        if (exprList->lhs() && exprList->lhs()->variant() != ACC_ASYNC_OP &&
+                                               exprList->lhs()->variant() != SPF_FLEXIBLE_OP)
+                        {
+                            __spf_print(1, "illegal option in type clause in file '%s' on line %d\n",
+                                        st->fileName(), attributeStatement->lineNumber());
+                            wstring messageE, messageR;
+                            __spf_printToLongBuf(messageE, L"illegal option in type clause in file '%s'",
+                                                 to_wstring(st->fileName()).c_str());
+
+                            __spf_printToLongBuf(messageR, R169, to_wstring(st->fileName()).c_str());
+
+                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5005));
+                            retVal = false;
+                        }
+                        ++count;
+                        exprList = exprList->rhs();
+                    }
                     break;
+                }
                 default:
+
                     break;
                 }
             }

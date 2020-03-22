@@ -115,6 +115,8 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   01 "first argument must be TIME or ITER and second must be integer in interval clause"
 //   02 "checkpoint directive with interval clause can be only at executable code section"
 //   03 "checkpoint directive with files clause must contain one integer value"
+//   04 "variable %s in varlist and except clause must be declared at the same module"
+//   05 "illegal option in type clause"
 
 extern int langOfMessages;
 struct Messages
@@ -526,3 +528,7 @@ static const wchar_t *R165 = L"R165:%s";
 static const wchar_t *R166 = L"R166:%s";
 //5003
 static const wchar_t *R167 = L"R167:%s";
+//5004
+static const wchar_t *R168 = L"R168:%s";
+//5005
+static const wchar_t *R169 = L"R169:%s";
