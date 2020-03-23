@@ -605,6 +605,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
             if (mpiProgram == 0)
             {
+                auto callGraph = getObjectForFileFromMap(file_name, allFuncInfo);
+                map<string, FuncInfo*> mapFuncInfo;
+                createMapOfFunc(callGraph, mapFuncInfo);
+
                 for (int z = 0; z < parallelRegions.size(); ++z)
                 {
                     ParallelRegion* currReg = parallelRegions[z];
@@ -619,9 +623,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     const vector<vector<dist>> distrRulesSt = dataDirectives.GenRule(currentVariant, 0);
                     const vector<string> alignRules = dataDirectives.GenAlignsRules();
 
+
                     insertDistributionToFile(file, file_name, dataDirectives, distrArrays, distrRules, distrRulesSt, alignRules, loopGraph,
                         allArrays, reducedG, commentsToInclude, templateDeclInIncludes, extract, getObjectForFileFromMap(file_name, SPF_messages),
-                        arrayLinksByFuncCalls, currReg->GetId());
+                        arrayLinksByFuncCalls, mapFuncInfo, currReg->GetId());
                 }
             }
 
@@ -2030,9 +2035,10 @@ static SgProject* createProject(const char *proj_name)
     {
         SgFile* file = &(project->file(z));
         correctModuleSymbols(file);
-        //replaceStructuresToSimpleTypes(file);
-    }
+        replaceStructuresToSimpleTypes(file);
 
+        //file->unparsestdout();
+    }
     
     return project;
 }

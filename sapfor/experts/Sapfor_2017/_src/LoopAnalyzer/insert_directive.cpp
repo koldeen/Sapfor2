@@ -760,16 +760,14 @@ static pair<templateDir, string>
     return make_pair(retDir, lastReturn);
 }
 
-static string getWithSort(const set<SgSymbol*>& byUse)
+static pair<string, string> getModuleRename(const map<string, set<SgSymbol*>>& byUse, const DIST::Array* array)
 {
-    if (byUse.size() == 1)
-        return (*byUse.begin())->identifier();
-    if (byUse.size() == 0)
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    set<string> byUseStr;
+    auto declS = array->GetDeclSymbol()->GetOriginal();
     for (auto& elem : byUse)
-        byUseStr.insert(elem->identifier());
-    return *(byUseStr.begin());
+        for (auto& localS : elem.second)
+            if (OriginalSymbol(localS) == declS)
+                return make_pair(elem.first, localS->identifier());
+    return make_pair("", "");
 }
 
 static pair<DIST::Array*, string>
@@ -809,20 +807,13 @@ getNewDirective(const string &fullArrayName,
                     it = rule.find("ALIGN", it + 7);
                 }
 
-                for (auto byUseElem : byUse)
+                auto renamePair = getModuleRename(byUse, dataDir.alignRules[i].alignArray);
+                if (renamePair.first != "")
                 {
-                    if (byUseElem.second.size() == 0)
-                        continue;
-
-                    it = rule.find(byUseElem.first);
+                    it = rule.find(renamePair.first);
                     if (it != string::npos)
-                    {
-                        if (rule[it + byUseElem.first.size()] == '(' && rule[it - 1] == ' ')
-                        {
-                            rule = rule.replace(it, byUseElem.first.size(), getWithSort(byUseElem.second));
-                            break;
-                        }
-                    }
+                        if (rule[it + renamePair.first.size()] == '(' && rule[it - 1] == ' ')
+                            rule = rule.replace(it, renamePair.first.size(), renamePair.second);
                 }
             }
 
@@ -1429,6 +1420,27 @@ static vector<SgExpression*> createVarListFromDecl(const int currV, SgStatement 
     return varList;
 }
 
+static void createInherit(pair<SgStatement*, SgStatement*>& inheritDir, SgStatement* insertBefore, SgExpression* ref)
+{
+    if (inheritDir.first == NULL)
+    {
+
+        inheritDir.first = new SgStatement(DVM_INHERIT_DIR);
+        SgExpression* list = new SgExpression(EXPR_LIST);
+        list->setLhs(ref);
+        inheritDir.first->setExpression(0, *list);
+
+        inheritDir.second = insertBefore;
+    }
+    else
+    {
+        SgExpression* list = new SgExpression(EXPR_LIST);
+        list->setLhs(ref);
+        list->setRhs(inheritDir.first->expr(0));
+        inheritDir.first->setExpression(0, *list);
+    }
+}
+
 void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDirective &dataDir, 
                               const set<string> &distrArrays, const vector<string> &distrRules, 
                               const vector<vector<dist>> &distrRulesSt,
@@ -1439,6 +1451,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                               map<string, string> &templateDeclInIncludes,
                               const bool extractDir, vector<Messages> &messagesForFile,
                               const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                              const map<string, FuncInfo*>& funcsInFile,
                               const int regionId)
 {
     vector<SgStatement*> modulesAndFuncs;
@@ -1462,6 +1475,20 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
     for (int i = 0; i < modulesAndFuncs.size(); ++i)
     {
         SgStatement *st = modulesAndFuncs[i];
+        FuncInfo* currFI = NULL;
+        if (st->variant() != MODULE_STMT)
+        {
+            for (auto& funcs : funcsInFile)
+                if (funcs.second->funcPointer->GetOriginal() == st)
+                    currFI = funcs.second;
+            
+            if (currFI == NULL)
+            {
+                __spf_print(1, "function '%s' not found in map of functons\n", st->symbol()->identifier());
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+        }
+
         SgStatement *lastNode = st->lastNodeOfStmt();
         set<string> templateDelc;
         SgStatement *isModule = (st->variant() == MODULE_STMT) ? st : NULL;
@@ -1475,6 +1502,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
 
         // PAIR<dir, insertBefore>
         pair<SgStatement*, SgStatement*> inheritDir = make_pair((SgStatement*)NULL, (SgStatement*)NULL);
+        map<SgStatement*, pair<SgStatement*, SgStatement*>> inheritDirIface;
 
         while (st != lastNode)
         {
@@ -1505,6 +1533,60 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                         SgSymbol *currSymb = OriginalSymbol(varExp->symbol());
                         const string fullArrayName = getFullArrayName(currSymb);
                         
+                        if (isModule == NULL && extractDir == false)
+                        {
+                            SgStatement* st_cp = st->controlParent();
+                            if (st_cp->variant() == PROC_HEDR || st_cp->variant() == FUNC_HEDR)
+                            {
+                                if (st_cp->controlParent()->variant() == INTERFACE_STMT) // interface in procedure, check distribution state
+                                {
+                                    auto hedr = ((SgProgHedrStmt*)st_cp);
+                                    int numOfParams = hedr->numberOfParameters();
+                                    int z = 0;
+                                    for (; z < numOfParams; ++z)
+                                    {
+                                        auto t = hedr->parameter(z);
+                                        if (t == currSymb)
+                                            break;
+                                    }
+
+                                    if (numOfParams)
+                                    {
+                                        if (z == numOfParams)
+                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                        const string fName = hedr->name().identifier();
+                                        auto itIface = currFI->interfaceBlocks.find(fName);
+                                        if (itIface == currFI->interfaceBlocks.end())
+                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                        string oldFile = current_file->filename(); //save file
+                                        auto fPointer = itIface->second->funcPointer->GetOriginal();
+                                        if (!fPointer->switchToFile())
+                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                        auto hedrOfIface = (SgProgHedrStmt*)fPointer;
+                                        if (hedrOfIface->numberOfParameters() != numOfParams)
+                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                        auto sInIface = hedrOfIface->parameter(z);
+                                        const string fullArrayName = getFullArrayName(sInIface);
+                                        
+                                        if (SgFile::switchToFile(oldFile) == -1)
+                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                        if (distrArrays.find(fullArrayName) != distrArrays.end())
+                                        {
+                                            auto it = inheritDirIface.find(st_cp);
+                                            if (it == inheritDirIface.end())
+                                                it = inheritDirIface.insert(it, make_pair(st_cp, make_pair((SgStatement*)NULL, (SgStatement*)NULL)));
+                                            createInherit(it->second, st_cp, new SgVarRefExp(currSymb));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         if (distrArrays.find(fullArrayName) != distrArrays.end())
                         {
                             map<string, set<SgSymbol*>> byUseInFunc;
@@ -1542,30 +1624,8 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                 if (templDir.second == "!DVM$ INHERIT\n")
                                 {
                                     toInsert = "";
-
-                                    if (inheritDir.first == NULL)
-                                    {
-                                        if (extractDir == false)
-                                        {
-                                            inheritDir.first = new SgStatement(DVM_INHERIT_DIR);
-                                            SgExpression *list = new SgExpression(EXPR_LIST);
-                                            SgExpression *ref = new SgVarRefExp(findSymbolOrCreate(file, dirWithArray.first->GetShortName()));
-                                            list->setLhs(ref);
-                                            inheritDir.first->setExpression(0, *list);
-                                        }
-                                        inheritDir.second = st;
-                                    }
-                                    else 
-                                    {
-                                        if (extractDir == false)
-                                        {
-                                            SgExpression *list = new SgExpression(EXPR_LIST);
-                                            SgExpression *ref = new SgVarRefExp(findSymbolOrCreate(file, dirWithArray.first->GetShortName()));
-                                            list->setLhs(ref);
-                                            list->setRhs(inheritDir.first->expr(0));
-                                            inheritDir.first->setExpression(0, *list);
-                                        }
-                                    }
+                                    if (extractDir == false)
+                                        createInherit(inheritDir, st, new SgVarRefExp(findSymbolOrCreate(file, dirWithArray.first->GetShortName())));
                                 }
                                 else
                                     dynamicArraysLocal.insert(dirWithArray.first);
@@ -1804,15 +1864,24 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
             st = st->lexNext();
         }
 
-        if (inheritDir.second)
+        if (extractDir == false)
         {
-            if (extractDir == false)
+            if (inheritDir.second)
             {
                 inheritDir.second->insertStmtBefore(*inheritDir.first, *inheritDir.second->controlParent());
 
-                SgStatement *dynamicDir = new SgStatement(DVM_DYNAMIC_DIR);
+                SgStatement* dynamicDir = new SgStatement(DVM_DYNAMIC_DIR);
                 dynamicDir->setExpression(0, inheritDir.first->expr(0)->copy());
                 inheritDir.second->insertStmtBefore(*dynamicDir, *inheritDir.second->controlParent());
+            }
+
+            for (auto& inherit : inheritDirIface)
+            {
+                SgStatement* dynamicDir = new SgStatement(DVM_DYNAMIC_DIR);
+                dynamicDir->setExpression(0, inherit.second.first->expr(0)->copy());
+                inherit.first->insertStmtAfter(*dynamicDir, *inherit.first);
+
+                inherit.first->insertStmtAfter(*inherit.second.first, *inherit.first);
             }
         }
     }

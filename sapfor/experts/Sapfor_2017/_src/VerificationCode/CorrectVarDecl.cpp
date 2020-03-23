@@ -819,46 +819,67 @@ bool checkArgumentsDeclaration(SgProject *project,
     return error;
 }
 
-static map<SgFile*, map<SgSymbol*, SgSymbol*>> copied;
+static map<SgFile*, map<string, SgSymbol*>> copied;
 
-static void copySymbol(SgSymbol *&toCopy, SgSymbol *mainS, const vector<string> &structS, map<SgSymbol*, SgSymbol*> &copy)
+static string createKey(const vector<string>& structS, const string& mainS)
 {
-    toCopy = &mainS->copy();
     string new_name = "";
     for (int z = structS.size() - 1; z >= 0; --z)
         new_name += structS[z] + "_";
-    new_name += mainS->identifier();
+    return new_name + mainS;    
+}
+
+static void copySymbol(SgSymbol *&toCopy, SgSymbol *mainS, const vector<string> &structS, const int mainLineDecl, map<string, SgSymbol*> &copy)
+{
+    toCopy = &mainS->copy();
+    const string new_name = createKey(structS, mainS->identifier());    
     toCopy->changeName(new_name.c_str());
-    copy[mainS] = toCopy;
+    copy[new_name] = toCopy;
 
     SgStatement* decl = toCopy->makeVarDeclStmt();
+    decl->setlineNumber(mainLineDecl);
     SgStatement *scope = mainS->scope();
     scope->insertStmtBefore(*decl, *scope->controlParent());
 }
 
-static SgExpression* replaceStructS(SgExpression *ex, map<SgSymbol*, SgSymbol*> &copy)
+static SgExpression* replaceStructS(SgExpression *ex, map<string, SgSymbol*> &copy)
 {
     SgExpression* retF = ex;
     if (ex)
     {
         if (ex->variant() == RECORD_REF)
         {
-            auto mainS = ex->rhs()->symbol();
+            SgSymbol* mainS = ex->rhs()->symbol();
             vector<string> structS;
             SgExpression* exS = ex->lhs();
 
+            int lineDecl = -1;
             while (exS->variant() == RECORD_REF)
             {
                 structS.push_back(exS->rhs()->symbol()->identifier());
+                if (lineDecl == -1)
+                {
+                    auto declStat = exS->rhs()->symbol()->declaredInStmt();
+                    if (declStat)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    lineDecl = declStat->lineNumber();
+                }
                 exS = exS->lhs();
             }
             structS.push_back(exS->symbol()->identifier());
+            if (lineDecl == -1)
+            {
+                auto declStat = exS->symbol()->declaredInStmt();
+                checkNull(declStat, convertFileName(__FILE__).c_str(), __LINE__);
+                lineDecl = declStat->lineNumber();
+            }
 
             SgSymbol* toCopy = NULL;
-            if (copy.find(mainS) == copy.end())
-                copySymbol(toCopy, mainS, structS, copy);
+            string key = createKey(structS, mainS->identifier());
+            if (copy.find(key) == copy.end())
+                copySymbol(toCopy, mainS, structS, lineDecl, copy);
             else
-                toCopy = copy[mainS];
+                toCopy = copy[key];
            
             if (ex->rhs()->variant() == ARRAY_REF && ex->rhs()->type()->variant() != T_STRING)
                 retF = new SgArrayRefExp(*toCopy);
@@ -885,7 +906,7 @@ static SgExpression* replaceStructS(SgExpression *ex, map<SgSymbol*, SgSymbol*> 
 
 void replaceDerivedAssigns(SgFile *file, SgStatement *stToCopy, SgStatement *insertB, const map<string, SgStatement*> &derivedTypesDecl)
 {
-    map<SgSymbol*, SgSymbol*> &copy = copied[file];
+    map<string, SgSymbol*> &copy = copied[file];
 
     SgExpression* left = stToCopy->expr(0);
     SgExpression* right = stToCopy->expr(1);
@@ -929,7 +950,7 @@ void replaceDerivedAssigns(SgFile *file, SgStatement *stToCopy, SgStatement *ins
                         rS = elem.second;
                 }
                 if (!lS)
-                    copySymbol(lS, currS, structSL, copy);
+                    copySymbol(lS, currS, structSL, -2, copy);
 
                 SgStatement *ass = NULL;
                 if (structConstructor.size())
@@ -937,7 +958,7 @@ void replaceDerivedAssigns(SgFile *file, SgStatement *stToCopy, SgStatement *ins
                 else
                 {
                     if (!rS)
-                        copySymbol(rS, currS, structSR, copy);
+                        copySymbol(rS, currS, structSR, -2, copy);
                     ass = new SgAssignStmt(*new SgVarRefExp(lS), *new SgVarRefExp(rS));
                 }
                 ass->setProject(stToCopy->getProject());
@@ -1016,7 +1037,7 @@ map<string, SgStatement*> createDerivedTypeDeclMap(SgStatement *forS)
 
 void replaceStructuresToSimpleTypes(SgFile *file)
 {
-    copied[file] = map<SgSymbol*, SgSymbol*>();
+    copied[file] = map<string, SgSymbol*>();
 
     int numF = file->numberOfFunctions();
     for (int z = 0; z < numF; ++z)

@@ -130,6 +130,8 @@ struct FuncInfo
     std::vector<int> linesOfIO;
     std::vector<int> linesOfStop;
     
+    std::map<std::string, FuncInfo*> interfaceBlocks;
+
     bool isPure; // does this func or funcs called from this have common block[s] and have no side effects
     bool doNotInline;
     bool doNotAnalyze;

@@ -146,6 +146,21 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const 
             }
         }
     } while (changesDone);
+
+    for (auto& funcPair : mapFuncInfo)
+    {
+        FuncInfo* func = funcPair.second;
+        for (auto& interface : func->interfaceBlocks)
+        {
+            auto isCalled = func->callsFrom.find(interface.first);
+            if (isCalled != func->callsFrom.end())
+            {
+                auto itF = mapFuncInfo.find(*isCalled);
+                if (itF != mapFuncInfo.end())
+                    interface.second = itF->second;
+            }
+        }
+    }
 }
 
 int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>> &funcByFile, map<string, CallV> &V, vector<string> &E)
@@ -277,7 +292,8 @@ int CreateFuncInfo(const char *fileName, const map<string, vector<FuncInfo*>> &f
         funcOut += "FILE " + byFile.first + ":\n";
         for (auto &func : byFile.second)
         {
-            funcOut += "  FUNCTION '" + func->funcName + "' " + (func->isPure ? " is PURE" : "is IMPURE") +  "\n";
+            funcOut += (func->isInterface ? ("INTERFACE OF ") : "") + string("  FUNCTION '") + 
+                        func->funcName + "' " + (func->isPure ? " is PURE" : "is IMPURE") +  "\n";
             char buf[256];
             sprintf(buf, "    LINES [%d, %d] \n", func->linesNum.first, func->linesNum.second);
             funcOut += buf;
@@ -721,6 +737,7 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     map<string, FuncInfo*> funcByName;
     createMapOfFunc(allFuncInfo, funcByName);
     aggregateUsedArrays(funcByName, arrayLinksByFuncCalls);
+
 
     //debug dump
     /*for (auto &elem : declaredArrays)

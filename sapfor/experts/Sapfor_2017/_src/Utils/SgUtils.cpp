@@ -1919,35 +1919,16 @@ SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig
 
     if (byUse.size())
     {
-        auto it = byUse.find(orig->identifier());
-        if (it == byUse.end())
-            return orig;
-        else
+        for (auto& elem : byUse)
         {
-            if (it->second.size() == 0)
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-            map<string, SgSymbol*> byName;
-            for (auto& elem : it->second)
-                byName[elem->identifier()] = elem;
-            if (byName.size() == 1)
-                return byName.begin()->second;
-            else
+            for (auto& localS : elem.second)
             {
-                if (usedInBlock.size() == 0)
-                    return byName.begin()->second;
-                else
-                {
-                    for (auto &elem : byName)
-                        if (usedInBlock.find(elem.first) != usedInBlock.end())
-                            return elem.second;
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                }
+                if (OriginalSymbol(localS) == orig)
+                    return localS;
             }
         }
     }
-    else
-        return orig;
+    return orig;
 }
 
 map<string, set<string>> createMapOfModuleUses(SgFile *file)
