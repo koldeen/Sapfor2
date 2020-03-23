@@ -484,8 +484,6 @@ void fillCheckpointFromComment(Statement *stIn, vector<pair<int, SgExpression*>>
     }
 }
 
-//template void fillCheckpointFromComment(Statement *stIn);
-
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
 {
     SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;

@@ -1229,6 +1229,41 @@ static bool checkShrink(SgStatement *st,
     return retVal;
 }
 
+bool recIsVarUsed(SgStatement *st, SgExpression *exp, const string &varName)
+{
+    if (exp)
+    {
+        if (exp->symbol() && exp->symbol()->identifier() == varName)
+            return true;
+        return recIsVarUsed(st, exp->lhs(), varName) || recIsVarUsed(st, exp->rhs(), varName);
+    }
+    return false;
+}
+
+static bool isVarUsed(SgStatement *st, const string &varName)
+{
+    if (st)
+    {
+        set<int> additional;
+        auto funcSt = getFuncStat(st, additional);
+        for (auto st = funcSt; st != funcSt->lastNodeOfStmt(); st = st->lexNext())
+        {
+            for (auto i = 0; i < 3; ++i)
+            {
+                bool found = recIsVarUsed(st, st->expr(i), varName);
+                if (found)
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
+static int checkCheckpoint()
+{
+
+}
+
 static int countSPF_OP(Statement *stIn, const int type, const int op)
 {
     int count = 0;
@@ -1486,9 +1521,13 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                     }
                     for (auto &var : vars)
                     {
-                        bool local = false;
-                        // TODO: check variable declarations
-                        if (!local)
+                        bool local, implicit;
+                        local = implicit = false;
+                        vector<SgStatement*> allDecls;
+                        SgStatement *decl = declaratedInStmt(var, &allDecls, false);
+                        implicit = decl == NULL;
+                        local = isVarUsed(st, var->identifier());
+                        if (!implicit && !local)
                         {
                             __spf_print(1, "variable %s in varlist and except clause must be declared at the same module in file '%s' on line %d\n",
                                         var->identifier(), st->fileName(), attributeStatement->lineNumber());
@@ -1530,7 +1569,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                     break;
                 }
                 default:
-
+                    retVal = false;
                     break;
                 }
             }
