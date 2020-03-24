@@ -227,7 +227,7 @@ static void addInListIfNeed(SgSymbol *tmp, int type, reduction_operation_list *t
                     else
                         t.correctExp.push_back(new SgValueExp(1));
 
-                    // swap array's dimentions
+                    // swap array's dimentionss
                     if (inNewVars(tmp->identifier()))
                     {
                         if (ddot)

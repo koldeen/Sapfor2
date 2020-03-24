@@ -401,6 +401,24 @@ void DvmhRegionInserter::insertActualDirectives(const vector<ParallelRegion*>* r
     }
 }
 
+vector<SgExpression*> DvmhRegionInserter::getArrayList(Statement* start, Statement* end, bool left) const
+{
+    vector<SgExpression*> varList;
+    if (start && end)
+    {
+        for (auto st = start->GetOriginal(); st != end->GetOriginal(); st = st->lexNext())
+        {
+            if (st->variant() == ASSIGN_STAT)
+            {
+                SgExpression* ref = (left ? st->expr(0) : st->expr(1));
+                if (ref->variant() == ARRAY_REF)
+                    varList.push_back(ref);
+            }
+        }
+    }
+    return varList;
+}
+
 void DvmhRegionInserter::insertDirectives(const vector<ParallelRegion*> *regs)
 {
     __spf_print(1, "Find edges for regions\n");
@@ -424,6 +442,43 @@ void DvmhRegionInserter::insertDirectives(const vector<ParallelRegion*> *regs)
 
      __spf_print(1, "Insert actuals\n");
     insertActualDirectives(regs);
+
+    if (regs)
+    {
+        __spf_print(1, "Insert actuals for arrays copying before and after parallelization areas\n");
+        for (auto& area : *regs)
+        {
+            auto lines = area->GetLines(file->filename());
+            if (lines)
+            {
+                for (auto& regLine : *lines)
+                {
+                    if (!regLine.isImplicit())
+                    {
+                        auto forActual = getArrayList(regLine.intervalBefore.first, regLine.intervalBefore.second, true);
+                        auto forGetActual = getArrayList(regLine.intervalAfter.first, regLine.intervalAfter.second, false);
+                        
+                        Statement* forActualSt = regLine.intervalBefore.second;
+                        Statement* forGetActualSt = regLine.intervalAfter.first;
+                        
+                        if (forActual.size())
+                        {
+                            checkNull(forActualSt, convertFileName(__FILE__).c_str(), __LINE__);
+                            auto st = forActualSt->GetOriginal();
+                            st->insertStmtBefore(*new SgStatement(ACC_ACTUAL_DIR, makeExprList(forActual)), *st->controlParent());
+                        }
+                        
+                        if (forGetActual.size())
+                        {
+                            checkNull(forGetActualSt, convertFileName(__FILE__).c_str(), __LINE__);
+                            auto st = forGetActualSt->GetOriginal();
+                            st->insertStmtAfter(*new SgStatement(ACC_GET_ACTUAL_DIR, makeExprList(forGetActual)), *st->controlParent());
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &arraySet, int variant, bool moveComments, const set<string>* exceptSymbs)

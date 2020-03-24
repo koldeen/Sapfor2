@@ -58,6 +58,7 @@ class DvmhRegionInserter
 
     void parFuncsInNode(LoopGraph *loop, bool isParallel);
     bool isLoopParallel(const LoopGraph *loop) const;
+    std::vector<SgExpression*> getArrayList(Statement* start, Statement* end, bool left = false) const;
 public:
     DvmhRegionInserter(
         SgFile* curFile,

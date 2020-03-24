@@ -2182,6 +2182,7 @@ SgExpression* makeExprList(const vector<SgExpression*>& items)
     return list;
 }
 
+//if curr == NULL -> no insertion
 SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& sIn, vector<SgExpression*>* inits)
 {
     if (sIn.size() == 0)

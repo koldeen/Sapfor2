@@ -152,7 +152,8 @@ public:
     PTR_BFND thebif;
     SgStatement(int variant);
     SgStatement(PTR_BFND bif);
-    SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e1, SgExpression *e2, SgExpression *e3);
+    SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e1 = NULL, SgExpression *e2 = NULL, SgExpression *e3 = NULL);
+    SgStatement(int code, SgExpression* e1, SgExpression* e2 = NULL, SgExpression* e3 = NULL);
     SgStatement(SgStatement &);
     // info about statement
     inline int lineNumber();          // source text line number
@@ -2548,6 +2549,25 @@ public:
 
       SgExprListExp* list = (SgExprListExp*)ex;
       return list->elem(i);
+  }
+
+  inline bool addAttribute(SgExpression* attr)
+  {
+      SgExpression* ex = LlndMapping(BIF_LL3(thebif));
+      if (ex && ex->variant() != EXPR_LIST)
+          return false;
+
+      if (ex != NULL)
+      {
+          SgExprListExp* list = (SgExprListExp*)ex;
+          list->append(*attr);
+      }
+      else
+      {
+          ex = new SgExpression(EXPR_LIST, attr, NULL);
+          BIF_LL3(thebif) = ex->thellnd;
+      }
+      return true;
   }
 
   inline int numberOfSymbols();  // the number of variables declared;        

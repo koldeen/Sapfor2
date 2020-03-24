@@ -12,11 +12,14 @@
 
 #if _WIN32
 #include <filesystem>
+#include <direct.h>
 namespace fs = std::filesystem;
+#define getcwd _getcwd
 #else 
 //с++14 unix + -lstdc++fs
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
+#include <unistd.h> 
 #endif
 #include <stdlib.h>
 #include <string.h>
@@ -386,7 +389,10 @@ int main(int argc, char** argv)
     signal(SIGKILL, signal_handler);
 #endif
 
-    const string path = argv[0];
+    char buff[1024];
+    char* test = getcwd(buff, 1024);
+
+    const string path = test ? buff : argv[0];
     bool isSpfDeb = isSapforDebug(argc, argv);
     bool isVizDeb = isVizDebug(argc, argv);
 
