@@ -465,14 +465,14 @@ void DvmhRegionInserter::insertDirectives(const vector<ParallelRegion*> *regs)
                         {
                             checkNull(forActualSt, convertFileName(__FILE__).c_str(), __LINE__);
                             auto st = forActualSt->GetOriginal();
-                            st->insertStmtBefore(*new SgStatement(ACC_ACTUAL_DIR, makeExprList(forActual)), *st->controlParent());
+                            st->insertStmtBefore(*new SgStatement(ACC_ACTUAL_DIR, NULL, NULL, makeExprList(forActual)), *st->controlParent());
                         }
                         
                         if (forGetActual.size())
                         {
                             checkNull(forGetActualSt, convertFileName(__FILE__).c_str(), __LINE__);
                             auto st = forGetActualSt->GetOriginal();
-                            st->insertStmtAfter(*new SgStatement(ACC_GET_ACTUAL_DIR, makeExprList(forGetActual)), *st->controlParent());
+                            st->insertStmtAfter(*new SgStatement(ACC_GET_ACTUAL_DIR, NULL, NULL, makeExprList(forGetActual)), *st->controlParent());
                         }
                     }
                 }

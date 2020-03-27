@@ -153,7 +153,6 @@ public:
     SgStatement(int variant);
     SgStatement(PTR_BFND bif);
     SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e1 = NULL, SgExpression *e2 = NULL, SgExpression *e3 = NULL);
-    SgStatement(int code, SgExpression* e1, SgExpression* e2 = NULL, SgExpression* e3 = NULL);
     SgStatement(SgStatement &);
     // info about statement
     inline int lineNumber();          // source text line number
@@ -2551,7 +2550,7 @@ public:
       return list->elem(i);
   }
 
-  inline bool addAttribute(SgExpression* attr)
+  inline bool addAttributeExpression(SgExpression* attr)
   {
       SgExpression* ex = LlndMapping(BIF_LL3(thebif));
       if (ex && ex->variant() != EXPR_LIST)

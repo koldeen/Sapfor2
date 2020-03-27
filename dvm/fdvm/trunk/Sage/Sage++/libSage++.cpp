@@ -8846,8 +8846,6 @@ SgStatement::SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e
 #endif
 }
 
-SgStatement::SgStatement(int code, SgExpression* e1, SgExpression* e2, SgExpression* e3) : SgStatement(code, NULL, NULL, e1, e2, e3) { }
-
 SgType::SgType(int var, SgExpression *len, SgType *base)
 {
     if (!isATypeNode(var))
