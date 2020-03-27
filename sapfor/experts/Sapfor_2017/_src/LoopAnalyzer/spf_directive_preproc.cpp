@@ -1529,10 +1529,10 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                         local = isVarUsed(st, var->identifier());
                         if (!implicit && !local)
                         {
-                            __spf_print(1, "variable %s in varlist and except clause must be declared at the same module in file '%s' on line %d\n",
+                            __spf_print(1, "variable '%s' in varlist and except clause must be declared at the same module in file '%s' on line %d\n",
                                         var->identifier(), st->fileName(), attributeStatement->lineNumber());
                             wstring messageE, messageR;
-                            __spf_printToLongBuf(messageE, L"variable %s in varlist and except clause must be declared at the same module in file '%s'",
+                            __spf_printToLongBuf(messageE, L"variable '%s' in varlist and except clause must be declared at the same module in file '%s'",
                                                  to_wstring(var->identifier()), to_wstring(st->fileName()).c_str());
 
                             __spf_printToLongBuf(messageR, R168, to_wstring(st->fileName()).c_str());
