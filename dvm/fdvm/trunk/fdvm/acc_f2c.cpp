@@ -16,9 +16,7 @@ using std::make_pair;
 struct PrivateArrayInfo
 {
     string name;
-    vector<int> ddot;
     int dimSize;
-    vector<SgExpression*> ddotExp;
     vector<SgExpression*> correctExp;
     int typeRed;
     reduction_operation_list *rsl;
@@ -194,6 +192,7 @@ static bool inNewVars(const char *name)
 static void addInListIfNeed(SgSymbol *tmp, int type, reduction_operation_list *tmpR)
 {
     stack<SgExpression*> allArraySub;
+    stack<pair<SgExpression*, SgExpression*> > allArraySubConv;
     if (tmp)
     {
         if (isSgArrayType(tmp->type()))
@@ -204,46 +203,42 @@ static void addInListIfNeed(SgSymbol *tmp, int type, reduction_operation_list *t
                 PrivateArrayInfo t;
                 t.dimSize = isSgArrayType(tmp->type())->dimension();
 
+                int rank = 0;
                 while (dimList)
                 {
                     allArraySub.push(dimList->lhs());
+                    allArraySubConv.push(make_pair(LowerShiftForArrays(tmp, rank), UpperShiftForArrays(tmp, rank)));
+                    ++rank;
                     dimList = dimList->rhs();
                 }
+
                 dimList = isSgArrayType(tmp->type())->getDimList();
+                rank = 0;
+
                 while (dimList)
                 {
                     SgExpression *ex = allArraySub.top();
-                    if (ex->variant() == DDOT && ex->lhs())
+                    bool ddot = false;
+                    if (ex->variant() == DDOT && ex->lhs() || IS_ALLOCATABLE(tmp))
                     {
-                        t.ddot.push_back(true);
-                        t.ddotExp.push_back(&ex->copy());
-                        if (ex->lhs()->variant() == INT_VAL)
-                        {
-                            if (ex->lhs()->valueInteger() != 0)
-                                t.correctExp.push_back(new SgValueExp(ex->lhs()->valueInteger()));
-                            else
-                                t.correctExp.push_back(new SgValueExp(0));
-                        }
-                        else
-                            t.correctExp.push_back(ex->lhs());
+                        ddot = true;
+                        t.correctExp.push_back(LowerShiftForArrays(tmp, rank));
                     }
                     else
-                    {
-                        t.ddot.push_back(false);
-                        t.ddotExp.push_back(NULL);
                         t.correctExp.push_back(new SgValueExp(1));
-                    }
 
-                    // swap array's dimentions
+                    // swap array's dimentionss
                     if (inNewVars(tmp->identifier()))
                     {
-                        if (t.ddot[t.ddot.size() - 1])
-                            dimList->setLhs(*allArraySub.top()->rhs() - *allArraySub.top()->lhs() + *new SgValueExp(1));
+                        if (ddot)
+                            dimList->setLhs(*allArraySubConv.top().second - *allArraySubConv.top().first + *new SgValueExp(1));
                         else
-                            dimList->setLhs(allArraySub.top());
+                            dimList->setLhs(allArraySubConv.top().first);
                     }
 
                     allArraySub.pop();
+                    allArraySubConv.pop();
+                    ++rank;
                     dimList = dimList->rhs();
                 }
                 t.name = tmp->identifier();
@@ -1449,8 +1444,8 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
                     int k = 0;
                     for (int i = 0; i < dim; ++i)
                     {
-                        if (arrayInfo[idx].correctExp[k])
-                            tmp->setLhs(*allArraySub.top() - *arrayInfo[idx].correctExp[k]);
+                        if (arrayInfo[idx].correctExp[dim - 1 - k])
+                            tmp->setLhs(*allArraySub.top() - *arrayInfo[idx].correctExp[dim - 1 - k]);
                         else
                             tmp->setLhs(*allArraySub.top());
                         allArraySub.pop();

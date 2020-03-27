@@ -286,6 +286,9 @@ void fillRegionArrays(vector<ParallelRegion*> &regions,
                         if (isSPF_stat(iterator) || isDVM_stat(iterator))
                             continue;
 
+                        if (iterator->variant() == ALLOCATE_STMT || iterator->variant() == DEALLOCATE_STMT)
+                            continue;
+
                         for (int i = 0; i < 3; ++i)
                             recursiveFill(iterator, iterator->expr(i), region, fileLines.first, funcName, regionLines, funcMap, commonBlocks);
                     }
@@ -910,33 +913,14 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
 
         newArrSymb = &arrSymb->copy();
         newArrSymb->changeName(newArrName.c_str());
-        newDecl = newArrSymb->makeVarDeclStmt();
+        newDecl = makeDeclaration(NULL, { newArrSymb });
         decl->insertStmtAfter(*newDecl, *decl->controlParent());
 
         if (IS_ALLOCATABLE(arrSymb))
         {
-            // add parameter to allocatable operator
-            vector<SgStatement*> allDecls;
-            declaratedInStmt(arrSymb, &allDecls);
-
-            for (auto &decl : allDecls)
-            {
-                if (decl->variant() == ALLOCATABLE_STMT)
-                {
-                    SgExpression *list = decl->expr(0);
-                    SgExprListExp *newNode = new SgExprListExp();
-                    SgArrayRefExp *newArrRef = new SgArrayRefExp(*newArrSymb);
-
-                    while (list && list->rhs())
-                    {
-                        list = list->rhs();
-                    }
-
-                    list->setRhs(newNode);
-                    newNode->setLhs(newArrRef);
-                    break;
-                }
-            }
+            newArrSymb->setAttribute(newArrSymb->attributes() | ALLOCATABLE_BIT);
+            if (((SgVarDeclStmt*)newDecl)->addAttribute(new SgExpression(ALLOCATABLE_OP)) == false)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
             // add allocate/deallocate operators
             for (auto &data : getAttributes<SgStatement*, SgStatement*>(decl, set<int>{ ALLOCATE_STMT, DEALLOCATE_STMT }))
@@ -956,9 +940,7 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
                             if (data->variant() == ALLOCATE_STMT)
                             {
                                 while (list->rhs())
-                                {
                                     list = list->rhs();
-                                }
 
                                 list->setRhs(newNode);
                                 newNode->setLhs(newArrRef);
@@ -984,7 +966,6 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
                                 newNode->setRhs(data->expr(0));
                                 data->setExpression(0, *newNode);
                             }
-
                             break;
                         }
                     }
@@ -992,7 +973,6 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
                 }
             }
         }
-
         return make_pair(arrSymb, newArrSymb);
     }
     else

@@ -217,7 +217,7 @@ void splitString(const string &strIn, const char delim, vector<string> &result, 
             {
                 if (quStarted)
                 {
-                    item += elem;
+                    item += " " + elem;
                     if (elem[elem.size() - 1] == '"')
                     {
                         quStarted = false;

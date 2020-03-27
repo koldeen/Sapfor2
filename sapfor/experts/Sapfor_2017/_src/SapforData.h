@@ -83,6 +83,7 @@ std::set<passes> passesIgnoreStateDone;
 std::map<std::string, int> lineInfo; // file -> lines count
 std::map<std::string, std::pair<std::set<int>, std::set<int>>> dirsInfo; // file -> dirs <lines SPF, lines DVM> count
 std::map<std::string, std::set<std::string>> includeDependencies; // file -> includes
+std::vector<std::string> filesCompilationOrder; // order of files for unite to one file
 //
 
 //for FILL_COMMON_BLOCKS

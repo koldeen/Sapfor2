@@ -2833,8 +2833,10 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName
                 if (isExecutable)
                 {
                     if (st->variant() != ALLOCATE_STMT && st->variant() != DEALLOCATE_STMT)
+                    {
                         itNew->second.second->AddAccessInfo(st->fileName(), make_pair(st->lineNumber(), isWrite ? 1 : 0), fName, parN);
-                    itNew->second.first->AddUsagePlace(st->fileName(), st->lineNumber());
+                        itNew->second.first->AddUsagePlace(st->fileName(), st->lineNumber());
+                    }
                 }
                 
                 auto itDecl = declaratedArraysSt.find(decl);

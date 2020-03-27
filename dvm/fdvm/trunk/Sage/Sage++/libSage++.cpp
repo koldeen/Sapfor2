@@ -8793,24 +8793,19 @@ SgSymbol * SgDerivedTemplateType::typeName(){
 
 SgStatement::SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e1, SgExpression *e2, SgExpression *e3)
 {
-
     thebif = (PTR_BFND)newNode(code);
+
     BIF_SYMB(thebif) = NULL;
     BIF_LL1(thebif) = NULL;
     BIF_LL2(thebif) = NULL;
     BIF_LL3(thebif) = NULL;
     BIF_LABEL(thebif) = NULL;
 
-    if (lab)
-        BIF_LABEL(thebif) = lab->thelabel;
-    if (symb)
-        BIF_SYMB(thebif) = symb->thesymb;
-    if (e1)
-        BIF_LL1(thebif) = e1->thellnd;
-    if (e2)
-        BIF_LL2(thebif) = e2->thellnd;
-    if (e3)
-        BIF_LL3(thebif) = e3->thellnd;
+    if (lab)  BIF_LABEL(thebif) = lab->thelabel;
+    if (symb) BIF_SYMB(thebif) = symb->thesymb;
+    if (e1)   BIF_LL1(thebif) = e1->thellnd;
+    if (e2)   BIF_LL2(thebif) = e2->thellnd;
+    if (e3)   BIF_LL3(thebif) = e3->thellnd;
 
     // this should be function of low_level.c
     switch (BIF_CODE(thebif))
@@ -8821,7 +8816,7 @@ SgStatement::SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e
     case  PROS_HEDR:
     case  BASIC_BLOCK:
     case  IF_NODE:
-    case WHERE_BLOCK_STMT:
+    case  WHERE_BLOCK_STMT:
     case  LOOP_NODE:
     case  FOR_NODE:
     case  FORALL_NODE:
@@ -8838,7 +8833,7 @@ SgStatement::SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e
     case  TECLASS_DECL:
     case  COLLECTION_DECL:
     case  SWITCH_NODE:
-    case   EXTERN_C_STAT:
+    case  EXTERN_C_STAT:
         addControlEndToStmt(thebif);
         break;
     }
@@ -8851,6 +8846,7 @@ SgStatement::SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e
 #endif
 }
 
+SgStatement::SgStatement(int code, SgExpression* e1, SgExpression* e2, SgExpression* e3) : SgStatement(code, NULL, NULL, e1, e2, e3) { }
 
 SgType::SgType(int var, SgExpression *len, SgType *base)
 {

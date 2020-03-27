@@ -8728,8 +8728,10 @@ SgExpression *CreateRedDummyList()
             arg_list = AddListToList(arg_list, ae);
         }
         else                       // reduction array of unknown size
+        {
             arg_list = AddListToList(arg_list, &(rsl->dimSize_arg->copy()));
             arg_list = AddListToList(arg_list, &(rsl->lowBound_arg->copy()));
+        }
         if (options.isOn(C_CUDA))
         {
             ae = new SgArrayRefExp(*rsl->red_grid, *new SgExprListExp());
@@ -10676,13 +10678,11 @@ SgExpression *LinearFormForRedArray(SgSymbol *ar, SgExpression *el, reduction_op
 
     elin = ToInt(el->lhs());
     for (e = el->rhs(), i = 1; e; e = e->rhs(), i++)
-    {
         elin = &(*elin + (*ToInt(e->lhs()) * *coefProd(i, rsl->dimSize_arg))); //  + Ik * DimSize(k-1)
-    }
 
-    if (rsl->array_red_size <= 0)
-        elin = &(*elin * *BlockDimsProduct());
-
+    //XXX changed reduction scheme to atomic, Kolganov 19.03.2020
+    /*if (rsl->array_red_size <= 0)
+        elin = &(*elin * *BlockDimsProduct());*/
     return(new SgExprListExp(*elin));
 }
 
@@ -10709,7 +10709,7 @@ SgExpression *LowerShiftForArrays (SgSymbol *ar, int i)
     return e; 
 }
  
-SgExpression *UpperBoundForArrays (SgSymbol *ar, int i) 
+SgExpression *UpperShiftForArrays (SgSymbol *ar, int i) 
 {
     SgExpression *e = isConstantBound(ar, i, 0);
     if(!e)

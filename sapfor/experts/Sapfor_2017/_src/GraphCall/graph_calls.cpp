@@ -799,14 +799,14 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
-                
         string containsPrefix = "";
+
         SgStatement *st_cp = st->controlParent();
         if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
             containsPrefix = st_cp->symbol()->identifier() + string(".");
         else if (st_cp->variant() == INTERFACE_STMT)
             continue;
-        
+
         string currFunc = "";
         if (st->variant() == PROG_HEDR)
         {
@@ -886,6 +886,20 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
         {
             if (st->variant() == CONTAINS_STMT)
                 break;
+
+            if (st->variant() == INTERFACE_STMT)
+            {
+                st = st->lexNext();
+                while (st && !(st->controlParent()->variant() == INTERFACE_STMT && st->variant() == CONTROL_END))
+                {
+                    if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
+                    {
+                        currInfo->interfaceBlocks[st->symbol()->identifier()] = NULL;
+                        st = st->lastNodeOfStmt();
+                    }
+                    st = st->lexNext();
+                }
+            }
 
             if (st == NULL)
             {

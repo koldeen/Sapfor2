@@ -1350,7 +1350,7 @@ SgSymbol *dvm000SymbolForHost(int host_dvm, SgStatement *hedr);
 SgExpression *Red_grid_index(SgSymbol *sind);
 SgExpression *BlockDimsProduct();
 SgExpression *LowerShiftForArrays (SgSymbol *ar, int i);
-SgExpression *UpperBoundForArrays (SgSymbol *ar, int i);
+SgExpression *UpperShiftForArrays (SgSymbol *ar, int i);
 SgExpression *coefProd(int i, SgExpression *ec);
 SgExpression *LinearFormForRedArray (SgSymbol *ar,  SgExpression *el, reduction_operation_list *rsl);
 void CreateCalledFunctionDeclarations(SgStatement *st_hedr);
@@ -2140,7 +2140,7 @@ void ConvertLoopWithLabelToEnddoLoop (SgStatement *stat); /*OMP*/
 // options on FDVM converter
 enum OPTIONS {
     AUTO_TFM = 0, ONE_THREAD, SPEED_TEST_L0, SPEED_TEST_L1, GPU_O0, GPU_O1, RTC, C_CUDA, OPT_EXP_COMP,
-    O_HOST, NO_CUDA, NO_BL_INFO, LOOP_ANALYSIS, PRIVATE_ANALYSIS, IO_RTS, READ_ALL, NUM_OPT
+    O_HOST, NO_CUDA, NO_BL_INFO, LOOP_ANALYSIS, PRIVATE_ANALYSIS, IO_RTS, READ_ALL, NO_REMOTE, NUM_OPT
 };
 // ONE_THREAD - compile one thread CUDA-kernels only for across (TODO for all CUDA-kernels)
 // SPEED_TEST_L0, SPEED_TEST_L1 - debug options for speed testof CUDA-kernels for across
@@ -2153,6 +2153,8 @@ enum OPTIONS {
 // LOOP_ANALYSIS - enable loop analysis for all parallel loops (default: only for across parallel loops)
 // PRIVATE_ANALYSIS - enable private analysis for all parallel loops
 // IO_RTS - enable new interface for parallel IO operations on DVMH programs
+// READ_ALL - READ statement execution by all processes
+// NO_REMOTE - ignore REMOTE_ACCESS specifications (compilation mode for single processor execution)
 // NUM_OPT - it is not an option, it is a maximum value of enum
 
 class Options

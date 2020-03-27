@@ -95,6 +95,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                               std::map<std::string, std::string> &templateDeclInIncludes,
                               const bool extractDir, std::vector<Messages> &messagesForFile,
                               const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
+                              const std::map<std::string, FuncInfo*>& funcsInFile,
                               const int regionId);
 
 void insertShadowSpecToFile(SgFile *file, const char *fin_name, const std::set<std::string> &distrArrays,

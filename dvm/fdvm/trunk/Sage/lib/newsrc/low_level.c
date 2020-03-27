@@ -1088,7 +1088,9 @@ int open_proj_toolbox(char* proj_name, char* proj_file)
     t = tmp;
     while ((c = getc(fd)) != EOF) 
     {
+#ifndef __SPF
         if (c != ' ') /* assum no blanks in filename */
+#endif
         {
             if (c == '\n') 
             {

@@ -439,9 +439,25 @@ bool addRedistributionDirs(File *file, const vector<pair<DIST::Array*, const Dis
     return needToSkip;
 }
 
+static bool hasFunctionCall(SgExpression* ex)
+{
+    bool ret = false;
+    if (ex)
+    {
+        if (ex->variant() == FUNC_CALL)
+            return true;
+        ret |= hasFunctionCall(ex->lhs());
+        ret |= hasFunctionCall(ex->rhs());
+    }
+    return ret;
+}
+
 static bool splitToBase(SgExpression *ex, pair<SgExpression*, int> &splited)
 {
     bool res = true;
+    if (hasFunctionCall(ex))
+        return false;
+
     if (ex->variant() == VAR_REF || ex->variant() == ARRAY_REF || ex->variant() == MULT_OP)
         splited = make_pair(ex, 0);
     else

@@ -423,7 +423,6 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
         if (st->fileName() != fileN && st->variant() < 0 || st->getUnparseIgnore())
             st->setVariant(-1 * st->variant());
-
     return strUnparse;
 }
 
@@ -1920,35 +1919,16 @@ SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig
 
     if (byUse.size())
     {
-        auto it = byUse.find(orig->identifier());
-        if (it == byUse.end())
-            return orig;
-        else
+        for (auto& elem : byUse)
         {
-            if (it->second.size() == 0)
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-            map<string, SgSymbol*> byName;
-            for (auto& elem : it->second)
-                byName[elem->identifier()] = elem;
-            if (byName.size() == 1)
-                return byName.begin()->second;
-            else
+            for (auto& localS : elem.second)
             {
-                if (usedInBlock.size() == 0)
-                    return byName.begin()->second;
-                else
-                {
-                    for (auto &elem : byName)
-                        if (usedInBlock.find(elem.first) != usedInBlock.end())
-                            return elem.second;
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                }
+                if (OriginalSymbol(localS) == orig)
+                    return localS;
             }
         }
     }
-    else
-        return orig;
+    return orig;
 }
 
 map<string, set<string>> createMapOfModuleUses(SgFile *file)
@@ -2202,6 +2182,7 @@ SgExpression* makeExprList(const vector<SgExpression*>& items)
     return list;
 }
 
+//if curr == NULL -> no insertion
 SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& sIn, vector<SgExpression*>* inits)
 {
     if (sIn.size() == 0)
@@ -2484,6 +2465,7 @@ struct FileInfo
         error = -1;
         intcludesAdded = 0;
         style = -1;
+        lvl = 0;
     }
 
     FileInfo(const string& _fileName, const string& _options, const string& _errPath, const string& _outPath, 
@@ -2498,6 +2480,7 @@ struct FileInfo
         error = -1;
         intcludesAdded = 0;
         style = -1;
+        lvl = 0;
     }
 
     int error;
@@ -2509,6 +2492,7 @@ struct FileInfo
     string text;
     int style; // -1 unk, 0 fixed, 1 fixed ext, 2 free
     int intcludesAdded;
+    int lvl;
 };
 
 static vector<string> splitAndArgvCreate(const string& options)
@@ -2708,7 +2692,6 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
 
         string file = elem.fileName;
         string options = elem.options;
-
         vector<string> optSplited = splitAndArgvCreate(options);
 
         char** toParse = new char* [optSplited.size() + 1];
@@ -2778,9 +2761,12 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
             StdCapture::EndCapture();
             errorMessage = StdCapture::GetCapture();
 
+            if (elem.error != 0)
+                elem.lvl++;
+
             if (errorMessage.find("Warning 308") != string::npos)
                 if (elem.error == 0)
-                    elem.error = 1;
+                    elem.error = 1;            
         }
         catch (int err)
         {
@@ -2946,7 +2932,7 @@ static map<string, set<string>> createModuleOrder(const map<string, string> &mod
 }
 
 
-int parseFiles(const char* proj)
+int parseFiles(const char* proj, vector<string>& filesCompilationOrder)
 {
     FILE* list = fopen(proj, "r");
     if (!list)
@@ -3055,6 +3041,40 @@ int parseFiles(const char* proj)
             }
             lastChanged = changed;
         } while (changed);
+
+        /*string toPrint = "MODULE DEPS:\n";
+        for (auto& elem : mapModuleDeps)
+        {
+            toPrint += elem.first + '\n';
+            for (auto& setEl : elem.second)
+                toPrint += " " + setEl + '\n';
+        }
+        toPrint += "MODULE DIRECT ORDER:\n";
+        for (auto& elem : modDirectOrder)
+        {
+            toPrint += elem.first + '\n';
+            for (auto& setEl : elem.second)
+                toPrint += " " + setEl + '\n';
+        }
+        toPrint += "FILES LVL:\n";
+        for (auto& elem : listOfProject)
+            toPrint += elem.fileName + " " + elem.outDepPath + " lvl = " + std::to_string(elem.lvl) + '\n';
+        printf("%s\n", toPrint.c_str());*/
+
+        int added = 0;
+        int iter = 0;
+        while (added != listOfProject.size())
+        {
+            for (auto& elem : listOfProject)
+            {
+                if (elem.lvl == iter)
+                {
+                    filesCompilationOrder.push_back(elem.fileName);
+                    added++;
+                }
+            }
+            ++iter;
+        }
     }
     catch (int err)
     {
