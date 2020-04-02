@@ -408,6 +408,7 @@ static const wchar_t *R88 = L"R88:%s";
 static const wchar_t *R89 = L"R89:%s";
 static const wchar_t *R90 = L"R90:%s";
 static const wchar_t *R91 = L"R91:%s";
+static const wchar_t *R164 = L"R164:%s";
 //1048
 static const wchar_t *R92 = L"R92:%s#%s#%d#%s#%d";
 //1049

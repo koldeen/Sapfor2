@@ -2935,6 +2935,25 @@ static void findReshape(SgStatement *st, set<string> &privates, vector<Messages>
     }
 }
 
+static void findConstructorRef(SgStatement* st, set<string>& privates, vector<Messages>& currMessages)
+{
+    if (st->variant() == ASSIGN_STAT)
+    {
+        SgExpression* exL = st->expr(0);
+        SgExpression* exR = st->expr(1);
+
+        if (exR->variant() == CONSTRUCTOR_REF && exL->variant() == ARRAY_REF)
+        {
+            privates.insert(exL->symbol()->identifier());
+
+            wstring messageE, messageR;
+            __spf_printToLongBuf(messageE, L"Array '%s' can not be distributed because of initializer list", to_wstring(exL->symbol()->identifier()).c_str());
+            __spf_printToLongBuf(messageR, R164, to_wstring(exL->symbol()->identifier()).c_str());
+            currMessages.push_back(Messages(NOTE, st->lineNumber(), messageR, messageE, 1047));
+        }
+    }
+}
+
 void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays,
                             map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt, vector<Messages> &currMessages,
                             const vector<ParallelRegion*> &regions, const map<string, int>& keyValueFromGUI)
@@ -3025,6 +3044,7 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                     saveAllLocals = true;
 
             findReshape(iter, privates, currMessages);
+            findConstructorRef(iter, privates, currMessages);            
         }
 
         SgStatement* tmpModFind = st;

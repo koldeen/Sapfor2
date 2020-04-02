@@ -919,7 +919,7 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
         if (IS_ALLOCATABLE(arrSymb))
         {
             newArrSymb->setAttribute(newArrSymb->attributes() | ALLOCATABLE_BIT);
-            if (((SgVarDeclStmt*)newDecl)->addAttribute(new SgExpression(ALLOCATABLE_OP)) == false)
+            if (((SgVarDeclStmt*)newDecl)->addAttributeExpression(new SgExpression(ALLOCATABLE_OP)) == false)
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
             // add allocate/deallocate operators

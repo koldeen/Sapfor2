@@ -1420,6 +1420,25 @@ static vector<SgExpression*> createVarListFromDecl(const int currV, SgStatement 
     return varList;
 }
 
+static string getFullArrayNameOfParameter(SgStatement* fPointer, const int numOfParams, const int currPar)
+{
+    string oldFile = current_file->filename(); //save file    
+    if (!fPointer->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    auto hedrOfIface = (SgProgHedrStmt*)fPointer;
+    if (hedrOfIface->numberOfParameters() != numOfParams)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    auto sInIface = hedrOfIface->parameter(currPar);
+    const string fullArrayName = getFullArrayName(sInIface);
+
+    if (SgFile::switchToFile(oldFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    return fullArrayName;
+}
+
 static void createInherit(pair<SgStatement*, SgStatement*>& inheritDir, SgStatement* insertBefore, SgExpression* ref)
 {
     if (inheritDir.first == NULL)
@@ -1560,22 +1579,22 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                         if (itIface == currFI->interfaceBlocks.end())
                                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                                        string oldFile = current_file->filename(); //save file
-                                        auto fPointer = itIface->second->funcPointer->GetOriginal();
-                                        if (!fPointer->switchToFile())
+                                        if (itIface->second == NULL)
                                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                                        auto hedrOfIface = (SgProgHedrStmt*)fPointer;
-                                        if (hedrOfIface->numberOfParameters() != numOfParams)
-                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                        set<string> fullArrayNames;
+                                        if (itIface->second->fullCopiesOfThisFunction.size() == 0)
+                                            fullArrayNames.insert(getFullArrayNameOfParameter(itIface->second->funcPointer->GetOriginal(), numOfParams, z));
 
-                                        auto sInIface = hedrOfIface->parameter(z);
-                                        const string fullArrayName = getFullArrayName(sInIface);
-                                        
-                                        if (SgFile::switchToFile(oldFile) == -1)
-                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                        for (auto& fullCopies : itIface->second->fullCopiesOfThisFunction)
+                                            fullArrayNames.insert(getFullArrayNameOfParameter(fullCopies->funcPointer->GetOriginal(), numOfParams, z));
 
-                                        if (distrArrays.find(fullArrayName) != distrArrays.end())
+                                        bool needToInherit = false;
+                                        for (auto& fullArrayName : fullArrayNames)
+                                            if (distrArrays.find(fullArrayName) != distrArrays.end())
+                                                needToInherit = true;
+
+                                        if (needToInherit)
                                         {
                                             auto it = inheritDirIface.find(st_cp);
                                             if (it == inheritDirIface.end())

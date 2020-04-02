@@ -1323,6 +1323,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
 
         detectCopies(allFuncInfo);
+        fillInterfaceBlock(allFuncInfo);
 
         if (keepFiles)
             printArrayInfo("_arrayInfo.txt", declaredArrays);
@@ -2252,10 +2253,6 @@ bool runAsClient = false;
 
 int main(int argc, char **argv)
 {
-#if _WIN32 && _DEBUG
-    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-#endif
-
     int leakMemDump = 0;
 #if _WIN32
     bool withDel = true;
@@ -2384,7 +2381,12 @@ int main(int argc, char **argv)
                 else if (curr_arg[1] == 'h')
                     printHelp(passNames, EMPTY_PASS);
                 else if (string(curr_arg) == "-leak")
+                {
                     leakMemDump = 1;
+#if _WIN32 && _DEBUG
+                    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
+                }
                 else if (string(curr_arg) == "-f90")
                 {
                     out_free_form = 1;

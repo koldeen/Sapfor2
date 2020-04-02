@@ -2093,6 +2093,39 @@ void detectCopies(map<string, vector<FuncInfo*>> &allFuncInfo)
     }
 }
 
+void fillInterfaceBlock(map<string, vector<FuncInfo*>>& allFuncInfo)
+{
+    map<string, FuncInfo*> mapOfFunc;
+    createMapOfFunc(allFuncInfo, mapOfFunc);
+
+    for (auto& byFile : allFuncInfo)
+    {
+        for (auto& func : byFile.second)
+        {
+            for (auto& interface : func->interfaceBlocks)
+            {
+                auto itF = mapOfFunc.find(interface.first);
+                if (itF == mapOfFunc.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                set<string> namesToFind = { interface.first };
+                for (auto& elem : itF->second->fullCopiesOfThisFunction)
+                    namesToFind.insert(elem->funcName);
+
+                for (auto& elem : namesToFind)
+                {
+                    auto isCalled = func->callsFrom.find(elem);
+                    if (isCalled != func->callsFrom.end())
+                    {
+                        interface.second = itF->second;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
 void removeDistrStateFromDeadFunctions(const map<string, vector<FuncInfo*>>& allFuncInfo, 
                                        const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>>& declaredArrays)
 {

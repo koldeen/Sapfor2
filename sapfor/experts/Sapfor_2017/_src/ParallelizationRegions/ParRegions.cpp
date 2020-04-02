@@ -687,12 +687,16 @@ static pair<string, pair<int, int>> parseExpression(SgExpression *ex)
             else
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
-        else if (ex->variant() == KEYWORD_VAL)
+        else if (ex->variant() == KEYWORD_VAL) // *
         {
-            SgKeywordValExp *keyVal = (SgKeywordValExp*)ex;
+            SgKeywordValExp* keyVal = (SgKeywordValExp*)ex;
             if (keyVal->value())
                 retVal = make_pair(keyVal->value(), make_pair(0, 0));
         }
+        else if (ex->variant() == DDOT) // : equals *
+            retVal = make_pair("*", make_pair(0, 0));
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     return retVal;
 }
@@ -791,7 +795,7 @@ bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DI
             string tmp;            
             for (auto& elem : realAlignArrayRefsSet)
                 tmp += elem->GetName() + " ";
-            __spf_print(1, "align arrays from '%s' from user dir in line %d\n", tmp.c_str(), dir->lineNumber());
+            __spf_print(1, "align array%s '%s' from user dir in line %d\n", (realAlignArrayRefsSet.size() == 1 ? "" : "s"), tmp.c_str(), dir->lineNumber());
 
             for (int i = 0; i < alignTemplate.size(); ++i)
             {
