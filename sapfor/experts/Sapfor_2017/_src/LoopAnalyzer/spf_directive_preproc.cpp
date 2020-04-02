@@ -1244,8 +1244,8 @@ static bool isVarUsed(SgStatement *st, const string &varName)
 {
     if (st)
     {
-        set<int> additional;
-        auto funcSt = getFuncStat(st, additional);
+        auto funcSt = getFuncStat(st);
+        checkNull(funcSt, convertFileName(__FILE__).c_str(), __LINE__);
         for (auto st = funcSt; st != funcSt->lastNodeOfStmt(); st = st->lexNext())
         {
             for (auto i = 0; i < 3; ++i)
@@ -1328,7 +1328,7 @@ static bool checkCheckpoint(SgStatement *st,
                     exprList = exprList->rhs();
                 }
                 exprList = p.second;
-                if (count != 1 || exprList->lhs()->variant() != INT_VAL)
+                if (count != 1 || exprList && exprList->lhs()->variant() != INT_VAL)
                 {
                     __spf_print(1, "CHECKPOINT directive with FILES clause must contain one integer value in file '%s' on line %d.\n",
                                 st->fileName(), attributeStatement->lineNumber());
@@ -1356,13 +1356,12 @@ static bool checkCheckpoint(SgStatement *st,
             }
             for (auto &var : vars)
             {
-                bool local, implicit;
-                local = implicit = false;
+                bool local;
                 vector<SgStatement*> allDecls;
                 SgStatement *decl = declaratedInStmt(var, &allDecls, false);
-                implicit = decl == NULL;
                 local = isVarUsed(st, var->identifier());
-                if (!implicit && !local)
+                // TODO: check modules
+                if (!local)
                 {
                     __spf_print(1, "Variable '%s' in %s clause must be declared at the same module in file '%s' on line %d.\n",
                                 var->identifier(), p.first == SPF_VARLIST_OP ? "VARLIST" : "EXCEPT",

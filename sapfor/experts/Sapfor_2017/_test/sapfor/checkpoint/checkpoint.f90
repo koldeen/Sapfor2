@@ -1,8 +1,8 @@
-program SRSA4
-  call srsa43
+program CHECKPOINT
+  call check
 end
 
-subroutine srsa43     
+subroutine check
   parameter( N = 6,M=8,K=8,L=6, PN = 2,NL=1000)
 
 !$SPF CHECKPOINT(INTERVAL(TIME,10),VARLIST(A,B,C),EXCEPT(AA,D))
@@ -13,8 +13,8 @@ subroutine srsa43
   character*9 tname
   
 !$SPF CHECKPOINT(INTERVAL(TIME,10),FILES_COUNT(4),VARLIST(A,B,C),TYPE(ASYNC),EXCEPT(AA,D))
-!$SPF CHECKPOINT(INTERVAL(TIME,10),FILES_COUNT(a),VARLIST(A,B,C),TYPE(ASYNC,FLEXIBLE),EXCEPT(AA,D))
-  tname='srsa43'
+!$SPF CHECKPOINT(INTERVAL(TIME,10),FILES_COUNT(a),VARLIST(A,B,C),TYPE(ASYNC,FLEXIBLE),EXCEPT(AA,D,TEMP))
+  tname='check'
   NNL=NL    
   call serial4(C,N,M,K,L,NNL)
   nloopi=NL
