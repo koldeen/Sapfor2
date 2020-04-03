@@ -157,7 +157,7 @@ static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<string> &v
 
 static bool checkPrivate(SgStatement *st,
                          SgStatement *attributeStatement,
-                         const set<SgSymbol*> &privates,
+                         const set<Symbol*> &privates,
                          vector<Messages> &messagesForFile)
 {    
     // PRIVATE(VAR)
@@ -178,7 +178,7 @@ static bool checkPrivate(SgStatement *st,
 
         for (auto &privElemS : privates)
         {
-            const string privElem = privElemS->identifier();
+            const string privElem = privElemS->GetOriginal()->identifier();
             bool defCond = true;
             bool useCond = true;
 
@@ -255,7 +255,7 @@ static bool checkPrivate(SgStatement *st,
 
 static bool checkReduction(SgStatement *st,
                            SgStatement *attributeStatement,
-                           const map<string, set<SgSymbol*>> &reduction,
+                           const map<string, set<Symbol*>> &reduction,
                            vector<Messages> &messagesForFile)
 {
     // REDUCTION(OP(VAR))
@@ -275,7 +275,7 @@ static bool checkReduction(SgStatement *st,
         {
             for (auto &setElemS : redElem.second)
             {
-                const string setElem = setElemS->identifier();
+                const string setElem = setElemS->GetOriginal()->identifier();
                 bool defCond = true;
                 bool useCond = true;
 
@@ -319,7 +319,7 @@ static bool checkReduction(SgStatement *st,
 
 static bool checkReduction(SgStatement *st,
                            SgStatement *attributeStatement,
-                           const map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction,
+                           const map<string, set<tuple<Symbol*, Symbol*, int>>> &reduction,
                            vector<Messages> &messagesForFile)
 {
     // REDUCTION(MIN/MAXLOC(VAR, ARRAY, CONST))
@@ -327,8 +327,8 @@ static bool checkReduction(SgStatement *st,
 
     for (auto &redElem : reduction)
     {
-        set<SgSymbol*> vars;
-        set<SgSymbol*> arrs;
+        set<Symbol*> vars;
+        set<Symbol*> arrs;
 
         set<string> varsS;
         set<string> arrsS;
@@ -336,13 +336,13 @@ static bool checkReduction(SgStatement *st,
         for (auto &setElem : redElem.second)
         {
             vars.insert(std::get<0>(setElem));
-            varsS.insert(std::get<0>(setElem)->identifier());
+            varsS.insert(std::get<0>(setElem)->GetOriginal()->identifier());
 
             arrs.insert(std::get<1>(setElem));
-            arrsS.insert(std::get<1>(setElem)->identifier());
+            arrsS.insert(std::get<1>(setElem)->GetOriginal()->identifier());
 
             // CHECK ARRAY DECLARATION && DIMENTION
-            SgSymbol *arraySymbol = std::get<1>(setElem);
+            SgSymbol *arraySymbol = std::get<1>(setElem)->GetOriginal();
             SgStatement *declStatement = declaratedInStmt(arraySymbol);
             SgArrayType *arrayType = NULL;
             int count = std::get<2>(setElem);
@@ -462,8 +462,8 @@ static bool checkReduction(SgStatement *st,
             }
         }
 
-        map<string, set<SgSymbol*>> reductionVar;
-        map<string, set<SgSymbol*>> reductionArr;
+        map<string, set<Symbol*>> reductionVar;
+        map<string, set<Symbol*>> reductionArr;
 
         reductionVar[redElem.first] = vars;
         reductionArr[redElem.first] = arrs;
@@ -476,7 +476,7 @@ static bool checkReduction(SgStatement *st,
 
 static bool checkShadowAcross(SgStatement *st,
                               SgStatement *attributeStatement,
-                              const vector<pair<pair<SgSymbol*, string>, vector<pair<int, int>>>> &data,
+                              const vector<pair<pair<Symbol*, string>, vector<pair<int, int>>>> &data,
                               vector<Messages> &messagesForFile)
 {
     // SHADOW (VAR(list of  shadows)) / ACROSS (VAR(list of  shadows))
@@ -487,7 +487,7 @@ static bool checkShadowAcross(SgStatement *st,
     {
         for (int i = 0; i < data.size(); ++i)
         {
-            SgSymbol *arraySymbol = data[i].first.first;
+            SgSymbol *arraySymbol = data[i].first.first->GetOriginal();
             SgStatement *declStatement = declaratedInStmt(arraySymbol);
             const vector<pair<int, int>> &arrayDisc = data[i].second;
             bool notPrivCond = true;
@@ -582,7 +582,6 @@ static bool checkShadowAcross(SgStatement *st,
     return retVal;
 }
 
-
 static int hasName(SgExpression *exp, const string &varName)
 {
     if (exp)
@@ -640,7 +639,7 @@ static bool hasRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map
 
 static bool checkRemote(SgStatement *st,
                         SgStatement *attributeStatement,
-                        const map<pair<SgSymbol*, string>, Expression*> &remote,
+                        const map<pair<Symbol*, string>, Expression*> &remote,
                         vector<Messages> &messagesForFile)
 {
     // REMOTE_ACCESS (EXPR)
@@ -652,7 +651,7 @@ static bool checkRemote(SgStatement *st,
         for (auto &remElem : remote)
         {
             bool cond = false;
-            SgStatement *declStatement = declaratedInStmt(remElem.first.first);
+            SgStatement *declStatement = declaratedInStmt(remElem.first.first->GetOriginal());
             set<SgSymbol*> arraySymbols;
 
             vector<SgExpression*> dummy;
@@ -1143,12 +1142,12 @@ static bool checkShrink(SgStatement *st,
 {
     bool retVal = true;
     
-    vector<pair<SgSymbol *, vector<int>>> varDims;
+    vector<pair<Symbol *, vector<int>>> varDims;
     fillShrinkFromComment(new Statement(attributeStatement), varDims);
 
     for (auto &p : varDims)
     {
-        auto var = p.first;
+        auto var = p.first->GetOriginal();
         auto dims = p.second;
 
         // check variable type
@@ -1261,8 +1260,8 @@ static bool isVarUsed(SgStatement *st, const string &varName)
 
 static bool checkCheckpoint(SgStatement *st,
                             SgStatement *attributeStatement,
-                            const map<int, SgExpression*> &clauses,
-                            const set<SgSymbol*> &vars,
+                            const map<int, Expression*> &clauses,
+                            const set<Symbol*> &vars,
                             vector<Messages> &messagesForFile)
 {
     bool retVal = true;
@@ -1272,7 +1271,7 @@ static bool checkCheckpoint(SgStatement *st,
     for (auto &p : clauses)
     {
         auto op = p.first;
-        SgExpression *exprList = p.second;
+        SgExpression *exprList = p.second->GetOriginal();
         switch (op)
         {
         case SPF_INTERVAL_OP:
@@ -1371,8 +1370,9 @@ static bool checkCheckpoint(SgStatement *st,
         case SPF_VARLIST_OP:
         case SPF_EXCEPT_OP:
         {
-            for (auto &var : vars)
+            for (auto &varS : vars)
             {
+                auto var = varS->GetOriginal();
                 bool local;
                 vector<SgStatement*> allDecls;
                 SgStatement *decl = declaratedInStmt(var, &allDecls, false);
@@ -1495,7 +1495,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         {
             // !$SPF ANALYSIS
             // PRIVATE(VAR)
-            set<SgSymbol*> privates;
+            set<Symbol*> privates;
             fillPrivatesFromComment(new Statement(attributeStatement), privates);
             if (privates.size())
             {
@@ -1504,8 +1504,8 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             }
 
             // REDUCTION(OP(VAR), MIN/MAXLOC(VAR, ARRAY, CONST))
-            map<string, set<SgSymbol*>> reduction;
-            map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> reductionLoc;
+            map<string, set<Symbol*>> reduction;
+            map<string, set<tuple<Symbol*, Symbol*, int>>> reductionLoc;
             fillReductionsFromComment(new Statement(attributeStatement), reduction);
             fillReductionsFromComment(new Statement(attributeStatement), reductionLoc);
             if (reduction.size())
@@ -1519,7 +1519,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         {
             // !$SPF PARALLEL
             // SHADOW (VAR(list of  shadows)) / ACROSS (VAR(list of  shadows))
-            vector<pair<pair<SgSymbol*, string>, vector<pair<int, int>>>> data;
+            vector<pair<pair<Symbol*, string>, vector<pair<int, int>>>> data;
             fillShadowAcrossFromComment(SHADOW_OP, new Statement(attributeStatement), data);
             fillShadowAcrossFromComment(ACROSS_OP, new Statement(attributeStatement), data);
             if (data.size())
@@ -1529,7 +1529,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             }
 
             // REMOTE_ACCESS (EXPR)
-            map<pair<SgSymbol*, string>, Expression*> remote;
+            map<pair<Symbol*, string>, Expression*> remote;
             fillRemoteFromComment(new Statement(attributeStatement), remote, true);
             if (remote.size())
             {
@@ -1595,8 +1595,8 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         }
         else if (type == SPF_CHECKPOINT_DIR)
         {
-            map<int, SgExpression*> clauses;
-            set<SgSymbol*> vars;
+            map<int, Expression*> clauses;
+            set<Symbol*> vars;
             fillCheckpointFromComment(new Statement(attributeStatement), clauses, vars);
             if (clauses.size())
                 retVal = checkCheckpoint(st, attributeStatement, clauses, vars, messagesForFile);

@@ -37,7 +37,7 @@ template<typename fillType>
 void fillShrinkFromComment(Statement *stIn, std::vector<std::pair<fillType, std::vector<int>>> &varDims);
 
 template<typename fillType>
-void fillCheckpointFromComment(Statement *stIn, std::map<int, SgExpression*> &clauses, std::set<fillType> &vars);
+void fillCheckpointFromComment(Statement *stIn, std::map<int, Expression*> &clauses, std::set<fillType> &vars);
 
 struct OmpDir
 {

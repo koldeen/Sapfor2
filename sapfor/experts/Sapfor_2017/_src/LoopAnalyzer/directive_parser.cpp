@@ -114,7 +114,6 @@ void fillPrivatesFromComment(Statement *stIn, set<fillType> &privates)
 }
 
 template void fillPrivatesFromComment(Statement *st, set<string> &privates);
-template void fillPrivatesFromComment(Statement *st, set<SgSymbol*> &privates);
 template void fillPrivatesFromComment(Statement *st, set<Symbol*> &privates);
 
 //for simple reduction
@@ -166,7 +165,7 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<fillType>> &redu
 }
 
 template void fillReductionsFromComment(Statement *st, map<string, set<string>> &reduction, bool);
-template void fillReductionsFromComment(Statement *st, map<string, set<SgSymbol*>> &reduction, bool);
+template void fillReductionsFromComment(Statement *st, map<string, set<Symbol*>> &reduction, bool);
 
 //for min/max loc reduction
 template<typename fillType>
@@ -219,7 +218,7 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<tuple<fillType, 
 }
 
 template void fillReductionsFromComment(Statement *st, map<string, set<tuple<string, string, int>>> &reduction, bool);
-template void fillReductionsFromComment(Statement *st, map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction, bool);
+template void fillReductionsFromComment(Statement *st, map<string, set<tuple<Symbol*, Symbol*, int>>> &reduction, bool);
 
 template<typename fillType>
 static void fillShadowAcross(const int type, Statement *stIn, vector<pair<pair<fillType, string>, vector<pair<int, int>>>> &data, set<fillType> *corner = NULL)
@@ -309,7 +308,7 @@ void fillShadowAcrossFromComment(const int type, Statement *stIn, vector<pair<pa
 }
 
 template void fillShadowAcrossFromComment(const int type, Statement *st, vector<pair<pair<string, string>, vector<pair<int, int>>>> &data);
-template void fillShadowAcrossFromComment(const int type, Statement *st, vector<pair<pair<SgSymbol*, string>, vector<pair<int, int>>>> &data);
+template void fillShadowAcrossFromComment(const int type, Statement *st, vector<pair<pair<Symbol*, string>, vector<pair<int, int>>>> &data);
 
 
 template<typename fillType>
@@ -321,7 +320,7 @@ void fillShadowAcrossFromParallel(const int type, Statement *stIn, vector<pair<p
 }
 
 template void fillShadowAcrossFromParallel(const int type, Statement *st, vector<pair<pair<string, string>, vector<pair<int, int>>>> &data, set<string> &corner);
-template void fillShadowAcrossFromParallel(const int type, Statement *st, vector<pair<pair<SgSymbol*, string>, vector<pair<int, int>>>> &data, set<SgSymbol*> &corner);
+template void fillShadowAcrossFromParallel(const int type, Statement* st, vector<pair<pair<Symbol*, string>, vector<pair<int, int>>>>& data, set<Symbol*> &corner);
 
 
 template<typename fillType>
@@ -381,8 +380,8 @@ void fillRemoteFromComment(Statement *stIn, map<pair<fillType, string>, Expressi
 }
 
 template void fillRemoteFromComment(Statement *st, map<pair<string, string>, Expression*> &remote, bool isFull, int type);
-template void fillRemoteFromComment(Statement *st, map<pair<SgSymbol*, string>, Expression*> &remote, bool isFull, int type);
-template void fillRemoteFromComment(Statement *st, map<pair<SgExpression*, string>, Expression*> &remote, bool isFull, int type);
+template void fillRemoteFromComment(Statement *st, map<pair<Symbol*, string>, Expression*> &remote, bool isFull, int type);
+template void fillRemoteFromComment(Statement *st, map<pair<Expression*, string>, Expression*> &remote, bool isFull, int type);
 
 void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo)
 {
@@ -459,11 +458,11 @@ void fillShrinkFromComment(Statement *stIn, vector<pair<fillType, vector<int>>> 
     }
 }
 
-template void fillShrinkFromComment(Statement *stIn, vector<pair<SgSymbol *, vector<int>>> &varDims);
+template void fillShrinkFromComment(Statement *stIn, vector<pair<Symbol *, vector<int>>> &varDims);
 template void fillShrinkFromComment(Statement *stIn, vector<pair<string, vector<int>>> &varDims);
 
 template<typename fillType>
-void fillCheckpointFromComment(Statement *stIn, map<int, SgExpression*> &clauses, set<fillType> &vars)
+void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, set<fillType> &vars)
 {
     if (stIn)
     {
@@ -484,10 +483,10 @@ void fillCheckpointFromComment(Statement *stIn, map<int, SgExpression*> &clauses
                         toInsert = exprList->lhs()->lhs();
                     auto it = clauses.find(exprList->lhs()->variant());
                     if (it == clauses.end())
-                        it = clauses.insert(it, make_pair(exprList->lhs()->variant(), toInsert));
+                        it = clauses.insert(it, make_pair(exprList->lhs()->variant(), new Expression(toInsert)));
                     else
                     {
-                        auto expr = it->second;
+                        auto expr = it->second->GetOriginal();
                         while (expr && expr->rhs())
                             expr = expr->rhs();
                         expr->setRhs(toInsert);
@@ -500,7 +499,7 @@ void fillCheckpointFromComment(Statement *stIn, map<int, SgExpression*> &clauses
                         {
                             // get identifier
                             fillType var, *dummy = NULL; 
-                            var = getData(list->lhs(), dummy);
+                            var = getData(expr->lhs(), dummy);
 
                             auto it = vars.find(var);
                             if (it == vars.end())
@@ -515,8 +514,8 @@ void fillCheckpointFromComment(Statement *stIn, map<int, SgExpression*> &clauses
     }
 }
 
-void fillCheckpointFromComment(Statement *stIn, map<int, SgExpression*> &clauses, set<SgSymbol*> &vars);
-void fillCheckpointFromComment(Statement *stIn, map<int, SgExpression*> &clauses, set<string> &vars);
+template void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, set<Symbol*> &vars);
+template void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, set<string> &vars);
 
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
 {
