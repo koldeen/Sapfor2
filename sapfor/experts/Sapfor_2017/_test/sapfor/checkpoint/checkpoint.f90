@@ -5,7 +5,7 @@ end
 subroutine check
   parameter( N = 6,M=8,K=8,L=6, PN = 2,NL=1000)
 
-!$SPF CHECKPOINT(INTERVAL(TIME,10),VARLIST(A,B,C),EXCEPT(AA,D))
+!$SPF CHECKPOINT(INTERVAL(TIME,10),VARLIST(A,B),EXCEPT(AA,D),VARLIST(C))
 !$SPF CHECKPOINT(VARLIST(A,B,C),EXCEPT(AA,D))
   integer  A(N,M,K,L), B(N,M,K,L), C(N,M,K,L), D(N,M,K,L)
   integer  AA(N,M,K)

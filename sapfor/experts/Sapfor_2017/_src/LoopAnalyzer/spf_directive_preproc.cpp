@@ -1261,19 +1261,43 @@ static bool isVarUsed(SgStatement *st, const string &varName)
 
 static bool checkCheckpoint(SgStatement *st,
                             SgStatement *attributeStatement,
-                            const vector<pair<int, SgExpression*>> &clauses,
-                            const bool isExecutable,
-                            const bool hasInterval,
+                            const map<int, SgExpression*> &clauses,
+                            const set<SgSymbol*> &vars,
                             vector<Messages> &messagesForFile)
 {
     bool retVal = true;
+    bool hasInterval = clauses.find(SPF_INTERVAL_OP) == clauses.end();
+    bool isExecutable = isSgExecutableStatement(st);
 
     for (auto &p : clauses)
     {
+        auto op = p.first;
         SgExpression *exprList = p.second;
-        switch (p.first)
+        switch (op)
         {
         case SPF_INTERVAL_OP:
+        {
+            int count = 0;
+            while (exprList)
+            {
+                if (exprList->lhs())
+                    ++count;
+                exprList = exprList->rhs();
+            }
+            if (count != 1)
+            {
+                __spf_print(1, "INTERVAL clause can be used only once in file '%s' on line %d.\n",
+                            st->fileName(), attributeStatement->lineNumber());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"INTERVAL clause can be used only once in file '%s'.",
+                                     to_wstring(st->fileName()).c_str());
+
+                __spf_printToLongBuf(messageR, R170, to_wstring(st->fileName()).c_str());
+
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5001));
+                retVal = false;
+            }
+            exprList = p.second->lhs();
             if (!exprList || exprList->lhs()->variant() != SPF_TIME_OP &&
                              exprList->lhs()->variant() != SPF_ITER_OP ||
                              exprList->rhs()->variant() != INT_VAL)
@@ -1303,6 +1327,7 @@ static bool checkCheckpoint(SgStatement *st,
                 retVal = false;
             }
             break;
+        }
         case SPF_FILES_COUNT_OP:
             if (!isExecutable)
             {
@@ -1346,14 +1371,6 @@ static bool checkCheckpoint(SgStatement *st,
         case SPF_VARLIST_OP:
         case SPF_EXCEPT_OP:
         {
-            vector<SgSymbol*> vars;
-            exprList = exprList->lhs();
-            while (exprList)
-            {
-                if (exprList->lhs() && exprList->lhs()->symbol())
-                    vars.push_back(exprList->lhs()->symbol());
-                exprList = exprList->rhs();
-            }
             for (auto &var : vars)
             {
                 bool local;
@@ -1364,12 +1381,12 @@ static bool checkCheckpoint(SgStatement *st,
                 if (!local)
                 {
                     __spf_print(1, "Variable '%s' in %s clause must be declared at the same module in file '%s' on line %d.\n",
-                                var->identifier(), p.first == SPF_VARLIST_OP ? "VARLIST" : "EXCEPT",
+                                var->identifier(), op == SPF_VARLIST_OP ? "VARLIST" : "EXCEPT",
                                 st->fileName(), attributeStatement->lineNumber());
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"Variable '%s' in %s clause must be declared at the same module in file '%s'.",
                                          to_wstring(var->identifier()),
-                                         p.first == SPF_VARLIST_OP ? to_wstring("VARLIST") : to_wstring("EXCEPT"),
+                                         op == SPF_VARLIST_OP ? to_wstring("VARLIST") : to_wstring("EXCEPT"),
                                          to_wstring(st->fileName()).c_str());
 
                     __spf_printToLongBuf(messageR, R168, to_wstring(st->fileName()).c_str());
@@ -1578,12 +1595,11 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         }
         else if (type == SPF_CHECKPOINT_DIR)
         {
-            bool hasInterval = false;
-            bool isExecutable = isSgExecutableStatement(st);
-            vector<pair<int, SgExpression*>> clauses;
-            fillCheckpointFromComment(new Statement(attributeStatement), clauses, hasInterval);
+            map<int, SgExpression*> clauses;
+            set<SgSymbol*> vars;
+            fillCheckpointFromComment(new Statement(attributeStatement), clauses, vars);
             if (clauses.size())
-                retVal = checkCheckpoint(st, attributeStatement, clauses, isExecutable, hasInterval, messagesForFile);
+                retVal = checkCheckpoint(st, attributeStatement, clauses, vars, messagesForFile);
         }
     }
 

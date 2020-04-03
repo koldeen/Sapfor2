@@ -462,7 +462,8 @@ void fillShrinkFromComment(Statement *stIn, vector<pair<fillType, vector<int>>> 
 template void fillShrinkFromComment(Statement *stIn, vector<pair<SgSymbol *, vector<int>>> &varDims);
 template void fillShrinkFromComment(Statement *stIn, vector<pair<string, vector<int>>> &varDims);
 
-void fillCheckpointFromComment(Statement *stIn, vector<pair<int, SgExpression*>> &clauses, bool &hasInterval)
+template<typename fillType>
+void fillCheckpointFromComment(Statement *stIn, map<int, SgExpression*> &clauses, set<fillType> &vars)
 {
     if (stIn)
     {
@@ -474,15 +475,48 @@ void fillCheckpointFromComment(Statement *stIn, vector<pair<int, SgExpression*>>
             {
                 if (exprList->lhs())
                 {
-                    clauses.push_back(std::make_pair<int, SgExpression*>(exprList->lhs()->variant(), exprList->lhs()));
+                    SgExpression *toInsert = NULL;
                     if (exprList->lhs()->variant() == SPF_INTERVAL_OP)
-                        hasInterval = true;
+                        toInsert = new SgExpression(EXPR_LIST, exprList->lhs(), NULL);
+                    else if (exprList->lhs()->variant() == SPF_FILES_COUNT_OP)
+                        toInsert = new SgExpression(EXPR_LIST, exprList->lhs()->lhs(), NULL);
+                    else
+                        toInsert = exprList->lhs()->lhs();
+                    auto it = clauses.find(exprList->lhs()->variant());
+                    if (it == clauses.end())
+                        it = clauses.insert(it, make_pair(exprList->lhs()->variant(), toInsert));
+                    else
+                    {
+                        auto expr = it->second;
+                        while (expr && expr->rhs())
+                            expr = expr->rhs();
+                        expr->setRhs(toInsert);
+                    }
+                    if (exprList->lhs()->variant() == SPF_VARLIST_OP ||
+                        exprList->lhs()->variant() == SPF_EXCEPT_OP)
+                    {
+                        auto expr = exprList->lhs()->lhs();
+                        while (expr)
+                        {
+                            // get identifier
+                            fillType var, *dummy = NULL; 
+                            var = getData(list->lhs(), dummy);
+
+                            auto it = vars.find(var);
+                            if (it == vars.end())
+                                vars.insert(var);
+                            expr = expr->rhs();
+                        }
+                    }
                 }
                 exprList = exprList->rhs();
             }
         }
     }
 }
+
+void fillCheckpointFromComment(Statement *stIn, map<int, SgExpression*> &clauses, set<SgSymbol*> &vars);
+void fillCheckpointFromComment(Statement *stIn, map<int, SgExpression*> &clauses, set<string> &vars);
 
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
 {

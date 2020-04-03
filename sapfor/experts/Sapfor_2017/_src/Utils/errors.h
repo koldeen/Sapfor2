@@ -117,6 +117,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   03 "checkpoint directive with files clause must contain one integer value"
 //   04 "variable '%s' in varlist and except clause must be declared at the same module"
 //   05 "illegal option in type clause"
+//   06 "INTERVAL clause can be used only once"
 
 extern int langOfMessages;
 struct Messages
@@ -245,7 +246,7 @@ static void printStackTrace() { };
     } \
 } while (0)
 
-// Сводобный - R170
+// Сводобный - R171
 // Гайд по русификации сообщений: При добавлении нового сообщения, меняется последний сводобный идентификатор.
 // В этом файле остаются только спецификаторы, для которых будет заполнен текст. Полный текст пишется в файле
 // russian_errors_text.txt. Специикаторы там тоже сохраняются, по ним в визуализаторе будет восстановлен 
@@ -533,3 +534,5 @@ static const wchar_t *R167 = L"R167:%s";
 static const wchar_t *R168 = L"R168:%s";
 //5005
 static const wchar_t *R169 = L"R169:%s";
+//5006
+static const wchar_t *R170 = L"R170:%s";
