@@ -693,10 +693,13 @@ static pair<string, pair<int, int>> parseExpression(SgExpression *ex)
             if (keyVal->value())
                 retVal = make_pair(keyVal->value(), make_pair(0, 0));
         }
-        else if (ex->variant() == DDOT) // : equals *
+        else if (ex->variant() == DDOT || ex->variant() == INT_VAL || ex->variant() == CONST_REF) // ':' | 'digit' equal '*'
             retVal = make_pair("*", make_pair(0, 0));
         else
+        {
+            __spf_print(1, "align pattern: '%s'\n", ex->unparse());
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
     }
     return retVal;
 }
@@ -796,6 +799,12 @@ bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DI
             for (auto& elem : realAlignArrayRefsSet)
                 tmp += elem->GetName() + " ";
             __spf_print(1, "align array%s '%s' from user dir in line %d\n", (realAlignArrayRefsSet.size() == 1 ? "" : "s"), tmp.c_str(), dir->lineNumber());
+            __spf_print(1, "template align:\n");
+            for (int i = 0; i < alignTemplate.size(); ++i)
+                __spf_print(1, "-- %d: %s -- [%d, %d]\n", i, alignTemplate[i].first.c_str(), alignTemplate[i].second.first, alignTemplate[i].second.second);
+            __spf_print(1, "template align with:\n");
+            for (int i = 0; i < alignWithTemplate.size(); ++i)
+                __spf_print(1, "-- %d: %s -- [%d, %d]\n", i, alignWithTemplate[i].first.c_str(), alignWithTemplate[i].second.first, alignWithTemplate[i].second.second);
 
             for (int i = 0; i < alignTemplate.size(); ++i)
             {

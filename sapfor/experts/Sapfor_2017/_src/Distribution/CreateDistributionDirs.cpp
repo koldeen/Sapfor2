@@ -341,7 +341,7 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
 
 static void createNewAlignRule(DIST::Array *alignArray, const DIST::Arrays<int> &allArrays,
                                vector<tuple<DIST::Array*, int, pair<int, int>>> &rules,
-                               DataDirective &dataDirectives)
+                               DataDirective &dataDirectives, map<string, vector<Messages>>& SPF_messages)
 {
     DIST::Array *alignWith = NULL;
     bool hasFreeDims = false;
@@ -358,7 +358,18 @@ static void createNewAlignRule(DIST::Array *alignArray, const DIST::Arrays<int> 
 
     //TODO:
     if (alignWith == NULL)
+    {
+        auto allDecl = alignArray->GetDeclInfo();
+        for (auto& decl : allDecl)
+        {
+            std::wstring bufE, bufR;
+            __spf_printToLongBuf(bufE, L"Can not find align rules for array '%s'", to_wstring(alignArray->GetShortName()).c_str());
+            __spf_printToLongBuf(bufR, R171, to_wstring(alignArray->GetShortName()).c_str());
+            getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufR, bufE, 3020));
+        }
+
         __spf_print(1, "can not find align rules for array '%s' (full name '%s')\n", alignArray->GetShortName().c_str(), alignArray->GetName().c_str());
+    }
     checkNull(alignWith, convertFileName(__FILE__).c_str(), __LINE__);
 
     if (hasFreeDims)
@@ -539,7 +550,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, const DIST:
                 }
 
                 if (isAllRulesEqualWithoutArray(rules))
-                    createNewAlignRule(array, allArrays, rules[0], dataDirectives);
+                    createNewAlignRule(array, allArrays, rules[0], dataDirectives, SPF_messages);
                 else
                     manyDistrRules.insert(make_pair(array, rules));
             }

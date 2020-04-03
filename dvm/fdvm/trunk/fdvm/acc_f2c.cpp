@@ -11,6 +11,7 @@ using std::deque;
 using std::make_pair;
 
 #define TRACE 0
+#define INTEL_LOGICAL_TYPE 0
 
 // for non linear array list
 struct PrivateArrayInfo
@@ -220,12 +221,8 @@ static void addInListIfNeed(SgSymbol *tmp, int type, reduction_operation_list *t
                     SgExpression *ex = allArraySub.top();
                     bool ddot = false;
                     if (ex->variant() == DDOT && ex->lhs() || IS_ALLOCATABLE(tmp))
-                    {
                         ddot = true;
-                        t.correctExp.push_back(LowerShiftForArrays(tmp, rank));
-                    }
-                    else
-                        t.correctExp.push_back(new SgValueExp(1));
+                    t.correctExp.push_back(LowerShiftForArrays(tmp, rank));
 
                     // swap array's dimentionss
                     if (inNewVars(tmp->identifier()))
@@ -1485,21 +1482,19 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
             retExp = &expr->copy();
         else if (var == NEQV_OP)
         {
-            SgExpression *eqv_op = new SgExpression(XOR_OP);
-            eqv_op->setLhs(*lhs);
-            eqv_op->setRhs(*rhs);
-            retExp = eqv_op;
+#if INTEL_LOGICAL_TYPE
+            retExp  = new SgExpression(XOR_OP, lhs, rhs);
+#else
+            retExp = &(*lhs != *rhs);
+#endif
         }
         else if (var == EQV_OP)
         {
-            SgExpression *eqv_op = new SgExpression(XOR_OP);
-            SgExpression *bit_ne = new SgExpression(BIT_COMPLEMENT_OP);
-
-            eqv_op->setLhs(*lhs);
-            eqv_op->setRhs(*rhs);
-
-            bit_ne->setLhs(eqv_op);
-            retExp = bit_ne;
+#if INTEL_LOGICAL_TYPE
+            retExp = new SgExpression(BIT_COMPLEMENT_OP, new SgExpression(XOR_OP, lhs, rhs), NULL);
+#else
+        retExp = &(*lhs == *rhs);
+#endif
         }
         else if (var == AND_OP)
         {
@@ -1517,14 +1512,20 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
         }
         else if (var == NOT_OP)
         {
-            SgExpression *bit_ne = new SgExpression(BIT_COMPLEMENT_OP);
-            bit_ne->setLhs(*lhs);
-            retExp = bit_ne;
+#if INTEL_LOGICAL_TYPE
+            retExp = new SgExpression(BIT_COMPLEMENT_OP, lhs, NULL);
+#else
+            retExp = new SgExpression(NE_OP, lhs, new SgKeywordValExp("true"));
+#endif
         }
         else if (var == BOOL_VAL)
         {         
             bool val = ((SgValueExp*)expr)->boolValue();
+#if INTEL_LOGICAL_TYPE
             retExp = val ? new SgExpression(BIT_COMPLEMENT_OP, new SgValueExp(0), NULL) : new SgValueExp(0);
+#else
+            retExp = new SgKeywordValExp(val ? "true" : "false");
+#endif
         }
         else
         {
