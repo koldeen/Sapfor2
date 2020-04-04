@@ -1020,7 +1020,7 @@ SgSymbol *RedBlockSymbolInKernel(SgSymbol *s,SgType *type);
 void CreateReductionBlocks(SgStatement *stat,int nloop,SgExpression *red_op_list,SgSymbol *red_count_symb);
 SgSymbol *IndVarInKernel(SgSymbol *s);
 void ReductionBlockInKernel(SgStatement *stat,int nloop,SgSymbol *i_var,SgSymbol *j_var,SgExpression *ered, reduction_operation_list *rsl,SgSymbol *red_count_symb,int n);
-void ReductionBlockInKernel_On_C_Cuda(SgStatement*, SgSymbol*, SgExpression*, reduction_operation_list*, SgIfStmt*, SgIfStmt*&, SgIfStmt*&, int&);
+void ReductionBlockInKernel_On_C_Cuda(SgStatement*, SgSymbol*, SgExpression*, reduction_operation_list*, SgIfStmt*, SgIfStmt*&, SgIfStmt*&, int&, bool withGridRed = false, bool across = false);
 SgSymbol *SyncthreadsSymbol();
 const char* RedFunctionInKernelC(const int num_red, const unsigned num_E, const unsigned num_IE);
 SgStatement *RedOp_Assign(SgSymbol *i_var, SgSymbol *s_block, SgExpression *ered, SgSymbol *d, int k);

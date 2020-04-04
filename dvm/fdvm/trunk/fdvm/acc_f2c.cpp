@@ -11,7 +11,6 @@ using std::deque;
 using std::make_pair;
 
 #define TRACE 0
-#define INTEL_LOGICAL_TYPE 0
 
 // for non linear array list
 struct PrivateArrayInfo
@@ -1482,7 +1481,7 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
             retExp = &expr->copy();
         else if (var == NEQV_OP)
         {
-#if INTEL_LOGICAL_TYPE
+#ifdef INTEL_LOGICAL_TYPE
             retExp  = new SgExpression(XOR_OP, lhs, rhs);
 #else
             retExp = &(*lhs != *rhs);
@@ -1490,29 +1489,19 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
         }
         else if (var == EQV_OP)
         {
-#if INTEL_LOGICAL_TYPE
+#ifdef INTEL_LOGICAL_TYPE
             retExp = new SgExpression(BIT_COMPLEMENT_OP, new SgExpression(XOR_OP, lhs, rhs), NULL);
 #else
         retExp = &(*lhs == *rhs);
 #endif
         }
         else if (var == AND_OP)
-        {
-            SgExpression *and_op = new SgExpression(BITAND_OP);
-            and_op->setLhs(*lhs);
-            and_op->setRhs(*rhs);
-            retExp = and_op;
-        }
+            retExp = new SgExpression(BITAND_OP, lhs, rhs);
         else if (var == OR_OP)
-        {
-            SgExpression *or_op = new SgExpression(BITOR_OP);
-            or_op->setLhs(*lhs);
-            or_op->setRhs(*rhs);
-            retExp = or_op;
-        }
+            retExp = new SgExpression(BITOR_OP, lhs, rhs);
         else if (var == NOT_OP)
         {
-#if INTEL_LOGICAL_TYPE
+#ifdef INTEL_LOGICAL_TYPE
             retExp = new SgExpression(BIT_COMPLEMENT_OP, lhs, NULL);
 #else
             retExp = new SgExpression(NE_OP, lhs, new SgKeywordValExp("true"));
@@ -1521,7 +1510,7 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
         else if (var == BOOL_VAL)
         {         
             bool val = ((SgValueExp*)expr)->boolValue();
-#if INTEL_LOGICAL_TYPE
+#ifdef INTEL_LOGICAL_TYPE
             retExp = val ? new SgExpression(BIT_COMPLEMENT_OP, new SgValueExp(0), NULL) : new SgValueExp(0);
 #else
             retExp = new SgKeywordValExp(val ? "true" : "false");
