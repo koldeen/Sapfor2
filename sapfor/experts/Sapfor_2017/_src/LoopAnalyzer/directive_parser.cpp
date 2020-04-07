@@ -65,7 +65,7 @@ static inline string getData(SgExpression *symb, string*, bool moduleNameAdd = f
         return string(scope->symbol()->identifier()) + "::" + symbOr->identifier();
     }
 }
-
+/*
 static inline SgSymbol* getData(SgExpression *symb, SgSymbol**, bool moduleNameAdd = false) 
 {
     return OriginalSymbol(symb->symbol()); 
@@ -74,6 +74,11 @@ static inline SgSymbol* getData(SgExpression *symb, SgSymbol**, bool moduleNameA
 static inline SgExpression* getData(SgExpression *symb, SgExpression**, bool moduleNameAdd = false) 
 { 
     return symb; 
+}
+*/
+static inline Expression* getData(SgExpression *symb, Expression**, bool moduleNameAdd = false) 
+{ 
+    return new Expression(symb);
 }
 
 static inline Symbol* getData(SgExpression *symb, Symbol**, bool moduleNameAdd = false)
@@ -458,7 +463,7 @@ void fillShrinkFromComment(Statement *stIn, vector<pair<fillType, vector<int>>> 
     }
 }
 
-template void fillShrinkFromComment(Statement *stIn, vector<pair<Symbol *, vector<int>>> &varDims);
+template void fillShrinkFromComment(Statement *stIn, vector<pair<Symbol*, vector<int>>> &varDims);
 template void fillShrinkFromComment(Statement *stIn, vector<pair<string, vector<int>>> &varDims);
 
 template<typename fillType>
@@ -529,14 +534,14 @@ void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *direct
         fillShadowAcrossFromComment(SHADOW_OP, sData, directive->shadowRenew);
         fillShadowAcrossFromComment(ACROSS_OP, sData, directive->across);
 
-        map<pair<SgSymbol*, string>, Expression*> remotes;
+        map<pair<Symbol*, string>, Expression*> remotes;
         fillRemoteFromComment(sData, remotes);
         for (auto& elem : remotes)
         {
-            SgSymbol* symb = OriginalSymbol(elem.first.first);
+            SgSymbol* symb = OriginalSymbol(elem.first.first->GetOriginal());
             auto uniqKey = getFromUniqTable(symb);
             
-            directive->remoteAccess[make_pair(make_pair(elem.first.first->identifier(), getShortName(uniqKey)), elem.first.second)] = new Expression(elem.second->GetOriginal());
+            directive->remoteAccess[make_pair(make_pair(elem.first.first->GetOriginal()->identifier(), getShortName(uniqKey)), elem.first.second)] = new Expression(elem.second->GetOriginal());
         }        
     }
 }

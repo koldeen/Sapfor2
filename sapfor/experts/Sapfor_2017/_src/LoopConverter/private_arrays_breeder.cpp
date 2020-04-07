@@ -683,13 +683,13 @@ int breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs, const set<SgS
         auto attrsTr = getAttributes<SgStatement*, SgStatement*>(loop->loop->GetOriginal(), set<int>{ SPF_TRANSFORM_DIR });
         auto attrsPriv = getAttributes<SgStatement*, SgStatement*>(loop->loop->GetOriginal(), set<int>{ SPF_ANALYSIS_DIR });
         
-        set<SgSymbol*> privates;
+        set<Symbol*> privates;
         set<SgSymbol*> arrayPrivates;
         for (auto &spf : attrsPriv)
             fillPrivatesFromComment(new Statement(spf), privates);
         for (auto &s : privates)
             if (s->type()->variant() == T_ARRAY)
-                arrayPrivates.insert(s);
+                arrayPrivates.insert(s->GetOriginal());
 
         arrayPrivates.insert(doForThisPrivates.begin(), doForThisPrivates.end());
 

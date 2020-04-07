@@ -1166,13 +1166,16 @@ static bool checkShrink(SgStatement *st,
         else
         {
             // check private directives
+            set<Symbol*> privatesS;
             set<SgSymbol*> privates;
             for (int i = 0; i < st->numberOfAttributes(); ++i)
             {
                 SgAttribute *attr = st->getAttribute(i);
                 SgStatement *attributeStatement = (SgStatement *)(attr->getAttributeData());
-                fillPrivatesFromComment(new Statement(attributeStatement), privates);
+                fillPrivatesFromComment(new Statement(attributeStatement), privatesS);
             }
+            for (auto &elem : privatesS)
+                privates.insert(elem->GetOriginal());
 
             auto it = privates.find(var);
             if (it == privates.end())

@@ -779,10 +779,10 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                 if (itFound->second.first->GetNonDistributeFlagVal() != DIST::DISTR)
                 {
                     set<string> loopsPrivates;
-                    set<SgSymbol*> loopsPrivatesS;
+                    set<Symbol*> loopsPrivatesS;
                     set<string> loopsRedUnited;
-                    map<string, set<SgSymbol*>> loopsReductions;
-                    map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> loopsReductionsLoc;
+                    map<string, set<Symbol*>> loopsReductions;
+                    map<string, set<tuple<Symbol*, Symbol*, int>>> loopsReductionsLoc;
 
                     
                     for (int z = 0; z < parentLoops.size(); ++z)
@@ -792,7 +792,7 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                         {
                             fillPrivatesFromComment(new Statement(data), loopsPrivatesS);
                             for (auto& elem : loopsPrivatesS)
-                                loopsPrivates.insert(elem->identifier());
+                                loopsPrivates.insert(elem->GetOriginal()->identifier());
                             fillReductionsFromComment(new Statement(data), loopsReductions);
                             fillReductionsFromComment(new Statement(data), loopsReductionsLoc);
                         }
@@ -812,8 +812,8 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                     {
                         for (auto &setElem : elem.second)
                         {
-                            loopsPrivates.insert(setElem->identifier());
-                            loopsRedUnited.insert(setElem->identifier());
+                            loopsPrivates.insert(setElem->GetOriginal()->identifier());
+                            loopsRedUnited.insert(setElem->GetOriginal()->identifier());
                         }
                     }
 
@@ -821,10 +821,10 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                     {
                         for (auto &setElem : elem.second)
                         {
-                            loopsPrivates.insert(get<0>(setElem)->identifier());
-                            loopsPrivates.insert(get<1>(setElem)->identifier());
-                            loopsRedUnited.insert(get<0>(setElem)->identifier());
-                            loopsRedUnited.insert(get<1>(setElem)->identifier());
+                            loopsPrivates.insert(get<0>(setElem)->GetOriginal()->identifier());
+                            loopsPrivates.insert(get<1>(setElem)->GetOriginal()->identifier());
+                            loopsRedUnited.insert(get<0>(setElem)->GetOriginal()->identifier());
+                            loopsRedUnited.insert(get<1>(setElem)->GetOriginal()->identifier());
                         }
                     }
 
@@ -2235,9 +2235,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                         auto loopRef = sortedLoopGraph[loopLine];
                         SgStatement *loopSt = loopRef->loop;
 
-                        map<string, set<SgSymbol*>> reductions;
-                        map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> reductionsLoc;
-                        set<SgSymbol*> privatesS;
+                        map<string, set<Symbol*>> reductions;
+                        map<string, set<tuple<Symbol*, Symbol*, int>>> reductionsLoc;
+                        set<Symbol*> privatesS;
                                                 
                         for (auto &data : getAttributes<SgStatement*, SgStatement*>(loopSt, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR }))
                         {
@@ -2260,7 +2260,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
 
                         set<string> privates;
                         for (auto& elem : privatesS)
-                            privates.insert(elem->identifier());
+                            privates.insert(elem->GetOriginal()->identifier());
 
                         for (SgStatement *start = loopSt->lexNext(); start != loopSt->lastNodeOfStmt(); start = start->lexNext())
                         {
@@ -2996,8 +2996,8 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
         getCommonBlocksRef(commonBlocks, st, lastNode);
         set<string> privates;
         set<string> deprecatedByIO;
-        map<string, set<SgSymbol*>> reductions;
-        map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> reductionsLoc;
+        map<string, set<Symbol*>> reductions;
+        map<string, set<tuple<Symbol*, Symbol*, int>>> reductionsLoc;
         set<string> funcParNames;
 
         if (st->variant() != PROG_HEDR)
@@ -3015,25 +3015,25 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             //after SPF preprocessing 
             for (auto& data : getAttributes<SgStatement*, SgStatement*>(iter, set<int>{ SPF_ANALYSIS_DIR }))
             {
-                set<SgSymbol*> privatesS;
+                set<Symbol*> privatesS;
                 fillPrivatesFromComment(new Statement(data), privatesS);
                 fillReductionsFromComment(new Statement(data), reductions);
                 fillReductionsFromComment(new Statement(data), reductionsLoc);
 
                 for (auto& elem : privatesS)
-                    privates.insert(elem->identifier());
+                    privates.insert(elem->GetOriginal()->identifier());
             }
 
             //before SPF preprocessing 
             if (iter->variant() == SPF_ANALYSIS_DIR)
             {
-                set<SgSymbol*> privatesS;
+                set<Symbol*> privatesS;
                 fillPrivatesFromComment(new Statement(iter), privatesS);
                 fillReductionsFromComment(new Statement(iter), reductions);
                 fillReductionsFromComment(new Statement(iter), reductionsLoc);
 
                 for (auto& elem : privatesS)
-                    privates.insert(elem->identifier());
+                    privates.insert(elem->GetOriginal()->identifier());
             }
 
             if (iter->variant() == USE_STMT)
