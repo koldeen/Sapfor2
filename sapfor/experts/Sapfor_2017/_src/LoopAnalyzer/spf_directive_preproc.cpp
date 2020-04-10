@@ -1261,10 +1261,48 @@ static bool isVarUsed(SgStatement *st, const string &varName)
     return false;
 }
 
+static bool checkCheckpointVarsDecl(SgStatement *st,
+                                    SgStatement *attributeStatement,
+                                    const set<Symbol*> &vars,
+                                    const string &op,
+                                    vector<Messages> &messagesForFile)
+{
+    bool retVal = true;
+    for (auto &varS : vars)
+    {
+        auto var = varS->GetOriginal();
+        bool module = var->scope()->variant() == MODULE_STMT;
+        if (!module)
+        {
+            bool local = isVarUsed(st, var->identifier());
+            vector<SgStatement*> allDecls;
+            SgStatement *decl = declaratedInStmt(var, &allDecls, false);
+            if (!local)
+            {
+                __spf_print(1, "Variable '%s' in %s clause must be declared at the same module in file '%s' on line %d.\n",
+                            var->identifier(), op.c_str(), st->fileName(), attributeStatement->lineNumber());
+
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"Variable '%s' in %s clause must be declared at the same module in file '%s'.",
+                                        to_wstring(var->identifier()),
+                                        to_wstring(op),
+                                        to_wstring(st->fileName()).c_str());
+
+                __spf_printToLongBuf(messageR, R168, to_wstring(var->identifier()), to_wstring(op), to_wstring(st->fileName()).c_str());
+
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5004));
+                retVal = false;
+            }
+        }
+    }
+    return retVal;
+}
+
 static bool checkCheckpoint(SgStatement *st,
                             SgStatement *attributeStatement,
                             const map<int, Expression*> &clauses,
                             const set<Symbol*> &vars,
+                            const set<Symbol*> &expt,
                             vector<Messages> &messagesForFile)
 {
     bool retVal = true;
@@ -1382,34 +1420,29 @@ static bool checkCheckpoint(SgStatement *st,
             break;
         }
         case SPF_VARLIST_OP:
-        case SPF_EXCEPT_OP:
         {
+            retVal = retVal && checkCheckpointVarsDecl(st, attributeStatement, vars, string("VARLIST"), messagesForFile);
             for (auto &varS : vars)
             {
-                auto var = varS->GetOriginal();
-                bool local;
-                vector<SgStatement*> allDecls;
-                SgStatement *decl = declaratedInStmt(var, &allDecls, false);
-                local = isVarUsed(st, var->identifier());
-                // TODO: check modules
-                if (!local)
+                if (expt.find(varS) != expt.end())
                 {
-                    __spf_print(1, "Variable '%s' in %s clause must be declared at the same module in file '%s' on line %d.\n",
-                                var->identifier(), op == SPF_VARLIST_OP ? "VARLIST" : "EXCEPT",
-                                st->fileName(), attributeStatement->lineNumber());
+                    __spf_print(1, "Variable '%s' can't be used in FILES and EXCEPT clauses at the same time in file '%s' on line %d.\n",
+                                varS->GetOriginal()->identifier(), st->fileName(), attributeStatement->lineNumber());
                     wstring messageE, messageR;
-                    __spf_printToLongBuf(messageE, L"Variable '%s' in %s clause must be declared at the same module in file '%s'.",
-                                         to_wstring(var->identifier()),
-                                         op == SPF_VARLIST_OP ? to_wstring("VARLIST") : to_wstring("EXCEPT"),
-                                         to_wstring(st->fileName()).c_str());
+                    __spf_printToLongBuf(messageE, L"Variable '%s' can't be used in FILES and EXCEPT clauses at the same time in file '%s'.",
+                                        to_wstring(varS->GetOriginal()->identifier()), to_wstring(st->fileName()).c_str());
 
-                    __spf_printToLongBuf(messageR, R168, to_wstring(var->identifier()),
-                                         op == SPF_VARLIST_OP ? to_wstring("VARLIST") : to_wstring("EXCEPT"), to_wstring(st->fileName()).c_str());
+                    __spf_printToLongBuf(messageR, R171, to_wstring(st->fileName()).c_str());
 
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5004));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5007));
                     retVal = false;
                 }
             }
+            break;
+        }
+        case SPF_EXCEPT_OP:
+        {
+            retVal = retVal && checkCheckpointVarsDecl(st, attributeStatement, vars, string("EXEPT"), messagesForFile);
             break;
         }
         case SPF_TYPE_OP:
@@ -1611,10 +1644,10 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         else if (type == SPF_CHECKPOINT_DIR)
         {
             map<int, Expression*> clauses;
-            set<Symbol*> vars;
-            fillCheckpointFromComment(new Statement(attributeStatement), clauses, vars);
+            set<Symbol*> vars, expt;
+            fillCheckpointFromComment(new Statement(attributeStatement), clauses, vars, expt);
             if (clauses.size())
-                retVal = checkCheckpoint(st, attributeStatement, clauses, vars, messagesForFile);
+                retVal = checkCheckpoint(st, attributeStatement, clauses, vars, expt, messagesForFile);
         }
     }
 

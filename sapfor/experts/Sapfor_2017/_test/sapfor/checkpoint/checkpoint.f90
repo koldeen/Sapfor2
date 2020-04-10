@@ -2,7 +2,19 @@ program CHECKPOINT
   call check
 end
 
+module constants
+implicit none
+   real, parameter,private :: pi = 3.1415926536
+   real, parameter, private :: e = 2.7182818285
+contains
+   subroutine show_consts()
+      print*, "Pi = ", pi
+      print*, "e = ", e
+   end subroutine show_consts
+end module constants
+
 subroutine check
+  use constants, P=>pi
   parameter( N = 6,M=8,K=8,L=6, PN = 2,NL=1000)
 
 !$SPF CHECKPOINT(INTERVAL(TIME,10),VARLIST(A,B),EXCEPT(AA,D),VARLIST(C))

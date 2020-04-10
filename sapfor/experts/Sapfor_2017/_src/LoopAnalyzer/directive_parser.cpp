@@ -65,17 +65,7 @@ static inline string getData(SgExpression *symb, string*, bool moduleNameAdd = f
         return string(scope->symbol()->identifier()) + "::" + symbOr->identifier();
     }
 }
-/*
-static inline SgSymbol* getData(SgExpression *symb, SgSymbol**, bool moduleNameAdd = false) 
-{
-    return OriginalSymbol(symb->symbol()); 
-}
 
-static inline SgExpression* getData(SgExpression *symb, SgExpression**, bool moduleNameAdd = false) 
-{ 
-    return symb; 
-}
-*/
 static inline Expression* getData(SgExpression *symb, Expression**, bool moduleNameAdd = false) 
 { 
     return new Expression(symb);
@@ -467,7 +457,7 @@ template void fillShrinkFromComment(Statement *stIn, vector<pair<Symbol*, vector
 template void fillShrinkFromComment(Statement *stIn, vector<pair<string, vector<int>>> &varDims);
 
 template<typename fillType>
-void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, set<fillType> &vars)
+void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, set<fillType> &vars, set<fillType> &expt)
 {
     if (stIn)
     {
@@ -505,10 +495,18 @@ void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, 
                             // get identifier
                             fillType var, *dummy = NULL; 
                             var = getData(expr->lhs(), dummy);
-
-                            auto it = vars.find(var);
-                            if (it == vars.end())
-                                vars.insert(var);
+                            if (exprList->lhs()->variant() == SPF_VARLIST_OP)
+                            {
+                                auto it = vars.find(var);
+                                if (it == vars.end())
+                                    vars.insert(var);
+                            }
+                            else
+                            {
+                                auto it = expt.find(var);
+                                if (it == expt.end())
+                                    expt.insert(var);
+                            }
                             expr = expr->rhs();
                         }
                     }
@@ -519,8 +517,8 @@ void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, 
     }
 }
 
-template void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, set<Symbol*> &vars);
-template void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, set<string> &vars);
+template void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, set<Symbol*> &vars, set<Symbol*> &expt);
+template void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, set<string> &vars, set<string> &expt);
 
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
 {
