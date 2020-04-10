@@ -1294,15 +1294,15 @@ static bool checkCheckpoint(SgStatement *st,
                 __spf_printToLongBuf(messageE, L"INTERVAL clause can be used only once in file '%s'.",
                                      to_wstring(st->fileName()).c_str());
 
-                __spf_printToLongBuf(messageR, R170, to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageR, R170, L"INTERVAL", to_wstring(st->fileName()).c_str());
 
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5001));
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5006));
                 retVal = false;
             }
             exprList = p.second->lhs();
-            if (!exprList || exprList->lhs()->variant() != SPF_TIME_OP &&
-                             exprList->lhs()->variant() != SPF_ITER_OP ||
-                             exprList->rhs()->variant() != INT_VAL)
+            if (!exprList || exprList->rhs()->variant() != INT_VAL ||
+                             exprList->lhs()->variant() != SPF_TIME_OP &&
+                             exprList->lhs()->variant() != SPF_ITER_OP)
             {
                 __spf_print(1, "The first argument must be TIME or ITER and the second must be integer in INTERVAL clause in file '%s' on line %d.\n",
                             st->fileName(), attributeStatement->lineNumber());
@@ -1323,7 +1323,7 @@ static bool checkCheckpoint(SgStatement *st,
                 __spf_printToLongBuf(messageE, L"CHECKPOINT directive with INTERVAL clause can be only at executable code section in file '%s'.",
                                      to_wstring(st->fileName()).c_str());
 
-                __spf_printToLongBuf(messageR, R166, to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageR, R166, L"INTERVAL", to_wstring(st->fileName()).c_str());
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5002));
                 retVal = false;
@@ -1331,6 +1331,7 @@ static bool checkCheckpoint(SgStatement *st,
             break;
         }
         case SPF_FILES_COUNT_OP:
+        {
             if (!isExecutable)
             {
                 __spf_print(1, "CHECKPOINT directive with FILES clause can be only at executable code section in file '%s' on line %d.\n",
@@ -1339,37 +1340,47 @@ static bool checkCheckpoint(SgStatement *st,
                 __spf_printToLongBuf(messageE, L"CHECKPOINT directive with FILES clause can be only at executable code section in file '%s'.",
                                      to_wstring(st->fileName()).c_str());
 
-                __spf_printToLongBuf(messageR, R166, to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageR, R166, L"FILES", to_wstring(st->fileName()).c_str());
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5002));
                 retVal = false;
             }
-            else
+            int count = 0;
+            while (exprList)
             {
-                bool error = false;
-                int count = 0;
-                while (exprList)
-                {
-                    if (exprList->lhs())
-                        ++count;
-                    exprList = exprList->rhs();
-                }
-                exprList = p.second;
-                if (count != 1 || exprList && exprList->lhs()->variant() != INT_VAL)
-                {
-                    __spf_print(1, "CHECKPOINT directive with FILES clause must contain one integer value in file '%s' on line %d.\n",
-                                st->fileName(), attributeStatement->lineNumber());
-                    wstring messageE, messageR;
-                    __spf_printToLongBuf(messageE, L"CHECKPOINT directive with FILES clause must contain one integer value in file '%s'.",
-                                         to_wstring(st->fileName()).c_str());
+                if (exprList->lhs())
+                    ++count;
+                exprList = exprList->rhs();
+            }
+            exprList = p.second;
+            if (count != 1)
+            {
+                __spf_print(1, "FILES clause can be used only once in file '%s' on line %d.\n",
+                            st->fileName(), attributeStatement->lineNumber());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"FILES clause can be used only once in file '%s'.",
+                                        to_wstring(st->fileName()).c_str());
 
-                    __spf_printToLongBuf(messageR, R167, to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageR, R170, L"FILES", to_wstring(st->fileName()).c_str());
 
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5003));
-                    retVal = false;
-                }
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5006));
+                retVal = false;
+            }
+            if (exprList && exprList->lhs()->variant() != INT_VAL)
+            {
+                __spf_print(1, "CHECKPOINT directive with FILES clause must contain integer value in file '%s' on line %d.\n",
+                            st->fileName(), attributeStatement->lineNumber());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"CHECKPOINT directive with FILES clause must contain integer value in file '%s'.",
+                                        to_wstring(st->fileName()).c_str());
+
+                __spf_printToLongBuf(messageR, R167, to_wstring(st->fileName()).c_str());
+
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5003));
+                retVal = false;
             }
             break;
+        }
         case SPF_VARLIST_OP:
         case SPF_EXCEPT_OP:
         {
@@ -1392,7 +1403,8 @@ static bool checkCheckpoint(SgStatement *st,
                                          op == SPF_VARLIST_OP ? to_wstring("VARLIST") : to_wstring("EXCEPT"),
                                          to_wstring(st->fileName()).c_str());
 
-                    __spf_printToLongBuf(messageR, R168, to_wstring(st->fileName()).c_str());
+                    __spf_printToLongBuf(messageR, R168, to_wstring(var->identifier()),
+                                         op == SPF_VARLIST_OP ? to_wstring("VARLIST") : to_wstring("EXCEPT"), to_wstring(st->fileName()).c_str());
 
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5004));
                     retVal = false;

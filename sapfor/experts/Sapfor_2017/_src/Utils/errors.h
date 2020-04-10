@@ -113,11 +113,11 @@ enum typeMessage { WARR, ERROR, NOTE };
 
 // 50xx CHECKPOINT GROUP
 //   01 "first argument must be TIME or ITER and second must be integer in interval clause"
-//   02 "checkpoint directive with interval or files clause can be only at executable code section"
-//   03 "checkpoint directive with files clause must contain one integer value"
-//   04 "variable '%s' in varlist and except clause must be declared at the same module"
-//   05 "illegal option in type clause"
-//   06 "INTERVAL clause can be used only once"
+//   02 "checkpoint directive with %s clause can be only at executable code section"
+//   03 "checkpoint directive with FILES clause must contain integer value"
+//   04 "variable '%s' in %s clause must be declared at the same module"
+//   05 "illegal option in TYPE clause"
+//   06 "%s clause can be used only once"
 
 extern int langOfMessages;
 struct Messages
