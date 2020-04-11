@@ -1920,13 +1920,9 @@ SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig
     if (byUse.size())
     {
         for (auto& elem : byUse)
-        {
             for (auto& localS : elem.second)
-            {
-                if (OriginalSymbol(localS) == orig)
+                if (OriginalSymbol(localS)->thesymb == orig->thesymb)
                     return localS;
-            }
-        }
     }
     return orig;
 }
