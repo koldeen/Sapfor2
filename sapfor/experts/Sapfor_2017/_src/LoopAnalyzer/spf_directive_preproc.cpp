@@ -1271,7 +1271,9 @@ static bool checkCheckpointVarsDecl(SgStatement *st,
     for (auto &varS : vars)
     {
         auto var = varS->GetOriginal();
-        bool module = var->scope()->variant() == MODULE_STMT;
+        // TODO: fix checking of module variables
+        //bool module = var->scope()->variant() == MODULE_STMT;
+        bool module = false;
         if (!module)
         {
             bool local = isVarUsed(st, var->identifier());
@@ -1432,7 +1434,7 @@ static bool checkCheckpoint(SgStatement *st,
                     __spf_printToLongBuf(messageE, L"Variable '%s' can't be used in FILES and EXCEPT clauses at the same time in file '%s'.",
                                         to_wstring(varS->GetOriginal()->identifier()), to_wstring(st->fileName()).c_str());
 
-                    __spf_printToLongBuf(messageR, R171, to_wstring(st->fileName()).c_str());
+                    __spf_printToLongBuf(messageR, R172, to_wstring(st->fileName()).c_str());
 
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5007));
                     retVal = false;
