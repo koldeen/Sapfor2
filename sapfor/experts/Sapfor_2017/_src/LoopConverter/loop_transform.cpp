@@ -75,9 +75,9 @@ void reverseCreatedNestedLoops(const string &file, vector<LoopGraph*> &loopsInFi
     }*/
 }
 
-static void fillPrivateAndReductionFromComment(SgStatement *st, set<SgSymbol*> &privates, 
-                                               map<string, set<SgSymbol*>> &reduction,
-                                               map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction_loc)
+static void fillPrivateAndReductionFromComment(SgStatement *st, set<Symbol*> &privates, 
+                                               map<string, set<Symbol*>> &reduction,
+                                               map<string, set<tuple<Symbol*, Symbol*, int>>> &reduction_loc)
 {
     for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR }))
     {

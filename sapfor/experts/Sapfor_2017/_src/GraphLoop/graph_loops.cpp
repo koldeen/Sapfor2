@@ -903,14 +903,14 @@ map<DIST::Array*, vector<long>> fillRemoteInParallel(Statement *loop)
     SgStatement *st = loop->lexPrev();
     if (st->variant() == DVM_PARALLEL_ON_DIR)
     {       
-        map<pair<SgExpression*, string>, Expression*> remotes;
+        map<pair<Expression*, string>, Expression*> remotes;
         fillRemoteFromComment(new Statement(st), remotes, false, DVM_PARALLEL_ON_DIR);
 
         for (auto &newRem : remotes)
         {
-            auto key = make_pair(string(newRem.first.first->symbol()->identifier()), newRem.first.second);                
-            DIST::Array *currArr = getArrayFromDeclarated(declaratedInStmt(newRem.first.first->symbol()), key.first);
-            newRem.first.first->addAttribute(ARRAY_REF, currArr, sizeof(DIST::Array));                
+            auto key = make_pair(string(newRem.first.first->GetOriginal()->symbol()->identifier()), newRem.first.second);                
+            DIST::Array *currArr = getArrayFromDeclarated(declaratedInStmt(newRem.first.first->GetOriginal()->symbol()), key.first);
+            newRem.first.first->GetOriginal()->addAttribute(ARRAY_REF, currArr, sizeof(DIST::Array));
             if (toRet.find(currArr) != toRet.end())
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
@@ -936,13 +936,13 @@ vector<std::tuple<DIST::Array*, vector<long>, pair<string, int>>> findAllSingleR
             ParallelRegion *currReg = getRegionByLine(regions, st->fileName(), st->lineNumber());
             if (currReg)
             {
-                map<pair<SgSymbol*, string>, Expression*> remotes;
+                map<pair<Symbol*, string>, Expression*> remotes;
                 fillRemoteFromComment(new Statement(st), remotes, false, DVM_REMOTE_ACCESS_DIR);
 
                 for (auto &array : remotes)
                 {
-                    auto arrName = array.first.first;
-                    DIST::Array *currArr = getArrayFromDeclarated(declaratedInStmt(array.first.first), array.first.first->identifier());
+                    auto arrName = array.first.first->GetOriginal();
+                    DIST::Array *currArr = getArrayFromDeclarated(declaratedInStmt(arrName), arrName->identifier());
                     checkNull(currArr, convertFileName(__FILE__).c_str(), __LINE__);
 
                     vector<long> coords(currArr->GetDimSize());

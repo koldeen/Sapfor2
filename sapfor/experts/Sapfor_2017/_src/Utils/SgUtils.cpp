@@ -621,7 +621,7 @@ void getModulesAndFunctions(SgFile *file, vector<SgStatement*> &modulesAndFuncti
 
 void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privates)
 {
-    set<SgSymbol*> privatesVars;
+    set<Symbol*> privatesVars;
     for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR }))
     {
         if (data)
@@ -632,8 +632,8 @@ void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privates)
             // try to find reductions and set its symbols as private in 
             // current loop analysis for correct scalar detection in 
             // tryToFindDependencies() function
-            map<string, set<SgSymbol*>> reductions;
-            map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> reductionsLoc;
+            map<string, set<Symbol*>> reductions;
+            map<string, set<tuple<Symbol*, Symbol*, int>>> reductionsLoc;
 
             fillReductionsFromComment(sData, reductions);
             fillReductionsFromComment(sData, reductionsLoc);
@@ -653,7 +653,7 @@ void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privates)
     }
 
     for (auto& elem : privatesVars)
-        privates.insert(elem->identifier());
+        privates.insert(elem->GetOriginal()->identifier());
 }
 
 void fillNonDistrArraysAsPrivate(SgStatement *st,

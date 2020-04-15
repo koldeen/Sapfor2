@@ -11,6 +11,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 // 10xx - analysis
 // 20xx - transform
 // 30xx - parallel
+// 50xx - checkpoint
 
 // 10xx ANALISYS GROUP
 //   01 "bad directive position, it can be placed only"
@@ -110,6 +111,15 @@ enum typeMessage { WARR, ERROR, NOTE };
 // 40xx LOW LEVEL WARNINGS
 //   01 
 //   02 Wrong pure declaration - INTENT mismatch
+
+// 50xx CHECKPOINT GROUP
+//   01 "The first argument must be TIME or ITER and the second must be integer in INTERVAL clause."
+//   02 "CHECKPOINT directive with %s clause can be only at executable code section."
+//   03 "CHECKPOINT directive with FILES clause must contain integer value."
+//   04 "Variable '%s' in %s clause must be declared at the same module."
+//   05 "Illegal option in TYPE clause."
+//   06 "%s clause can be used only once."
+//   07 "Variable '%s' can't be used in FILES and EXCEPT clauses at the same time."
 
 extern int langOfMessages;
 struct Messages
@@ -238,7 +248,7 @@ static void printStackTrace() { };
     } \
 } while (0)
 
-// Сводобный - R172
+// Сводобный - R173
 // Гайд по русификации сообщений: При добавлении нового сообщения, меняется последний сводобный идентификатор.
 // В этом файле остаются только спецификаторы, для которых будет заполнен текст. Полный текст пишется в файле
 // russian_errors_text.txt. Специикаторы там тоже сохраняются, по ним в визуализаторе будет восстановлен 
@@ -517,3 +527,18 @@ static const wchar_t* R171 = L"R171:%s";
 //---TODO ошибки из SAGE
 //4002
 static const wchar_t *R143 = L"R143:";
+
+//5001
+static const wchar_t *R165 = L"R165:%s";
+//5002
+static const wchar_t *R166 = L"R166:%s";
+//5003
+static const wchar_t *R167 = L"R167:%s";
+//5004
+static const wchar_t *R168 = L"R168:%s";
+//5005
+static const wchar_t *R169 = L"R169:%s";
+//5006
+static const wchar_t *R170 = L"R170:%s";
+//5007
+static const wchar_t *R172 = L"R172:%s";

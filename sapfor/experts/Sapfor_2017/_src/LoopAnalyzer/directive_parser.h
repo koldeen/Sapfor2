@@ -36,6 +36,9 @@ void fillFissionPrivatesExpansionFromComment(Statement *stIn, std::vector<std::s
 template<typename fillType>
 void fillShrinkFromComment(Statement *stIn, std::vector<std::pair<fillType, std::vector<int>>> &varDims);
 
+template<typename fillType>
+void fillCheckpointFromComment(Statement *stIn, std::map<int, Expression*> &clauses, std::set<fillType> &vars, std::set<fillType> &expt);
+
 struct OmpDir
 {
     std::set<std::string> privVars;

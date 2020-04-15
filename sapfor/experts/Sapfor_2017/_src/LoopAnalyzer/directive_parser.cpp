@@ -66,14 +66,9 @@ static inline string getData(SgExpression *symb, string*, bool moduleNameAdd = f
     }
 }
 
-static inline SgSymbol* getData(SgExpression *symb, SgSymbol**, bool moduleNameAdd = false) 
-{
-    return OriginalSymbol(symb->symbol()); 
-}
-
-static inline SgExpression* getData(SgExpression *symb, SgExpression**, bool moduleNameAdd = false) 
+static inline Expression* getData(SgExpression *symb, Expression**, bool moduleNameAdd = false) 
 { 
-    return symb; 
+    return new Expression(symb);
 }
 
 static inline Symbol* getData(SgExpression *symb, Symbol**, bool moduleNameAdd = false)
@@ -114,7 +109,6 @@ void fillPrivatesFromComment(Statement *stIn, set<fillType> &privates)
 }
 
 template void fillPrivatesFromComment(Statement *st, set<string> &privates);
-template void fillPrivatesFromComment(Statement *st, set<SgSymbol*> &privates);
 template void fillPrivatesFromComment(Statement *st, set<Symbol*> &privates);
 
 //for simple reduction
@@ -166,7 +160,7 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<fillType>> &redu
 }
 
 template void fillReductionsFromComment(Statement *st, map<string, set<string>> &reduction, bool);
-template void fillReductionsFromComment(Statement *st, map<string, set<SgSymbol*>> &reduction, bool);
+template void fillReductionsFromComment(Statement *st, map<string, set<Symbol*>> &reduction, bool);
 
 //for min/max loc reduction
 template<typename fillType>
@@ -219,7 +213,7 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<tuple<fillType, 
 }
 
 template void fillReductionsFromComment(Statement *st, map<string, set<tuple<string, string, int>>> &reduction, bool);
-template void fillReductionsFromComment(Statement *st, map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction, bool);
+template void fillReductionsFromComment(Statement *st, map<string, set<tuple<Symbol*, Symbol*, int>>> &reduction, bool);
 
 template<typename fillType>
 static void fillShadowAcross(const int type, Statement *stIn, vector<pair<pair<fillType, string>, vector<pair<int, int>>>> &data, set<fillType> *corner = NULL)
@@ -309,7 +303,7 @@ void fillShadowAcrossFromComment(const int type, Statement *stIn, vector<pair<pa
 }
 
 template void fillShadowAcrossFromComment(const int type, Statement *st, vector<pair<pair<string, string>, vector<pair<int, int>>>> &data);
-template void fillShadowAcrossFromComment(const int type, Statement *st, vector<pair<pair<SgSymbol*, string>, vector<pair<int, int>>>> &data);
+template void fillShadowAcrossFromComment(const int type, Statement *st, vector<pair<pair<Symbol*, string>, vector<pair<int, int>>>> &data);
 
 
 template<typename fillType>
@@ -321,7 +315,7 @@ void fillShadowAcrossFromParallel(const int type, Statement *stIn, vector<pair<p
 }
 
 template void fillShadowAcrossFromParallel(const int type, Statement *st, vector<pair<pair<string, string>, vector<pair<int, int>>>> &data, set<string> &corner);
-template void fillShadowAcrossFromParallel(const int type, Statement *st, vector<pair<pair<SgSymbol*, string>, vector<pair<int, int>>>> &data, set<SgSymbol*> &corner);
+template void fillShadowAcrossFromParallel(const int type, Statement* st, vector<pair<pair<Symbol*, string>, vector<pair<int, int>>>>& data, set<Symbol*> &corner);
 
 
 template<typename fillType>
@@ -381,8 +375,8 @@ void fillRemoteFromComment(Statement *stIn, map<pair<fillType, string>, Expressi
 }
 
 template void fillRemoteFromComment(Statement *st, map<pair<string, string>, Expression*> &remote, bool isFull, int type);
-template void fillRemoteFromComment(Statement *st, map<pair<SgSymbol*, string>, Expression*> &remote, bool isFull, int type);
-template void fillRemoteFromComment(Statement *st, map<pair<SgExpression*, string>, Expression*> &remote, bool isFull, int type);
+template void fillRemoteFromComment(Statement *st, map<pair<Symbol*, string>, Expression*> &remote, bool isFull, int type);
+template void fillRemoteFromComment(Statement *st, map<pair<Expression*, string>, Expression*> &remote, bool isFull, int type);
 
 void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo)
 {
@@ -459,8 +453,72 @@ void fillShrinkFromComment(Statement *stIn, vector<pair<fillType, vector<int>>> 
     }
 }
 
-template void fillShrinkFromComment(Statement *stIn, vector<pair<SgSymbol *, vector<int>>> &varDims);
+template void fillShrinkFromComment(Statement *stIn, vector<pair<Symbol*, vector<int>>> &varDims);
 template void fillShrinkFromComment(Statement *stIn, vector<pair<string, vector<int>>> &varDims);
+
+template<typename fillType>
+void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, set<fillType> &vars, set<fillType> &expt)
+{
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        if (st->variant() == SPF_CHECKPOINT_DIR)
+        {
+            SgExpression *exprList= st->expr(0);
+            while (exprList)
+            {
+                if (exprList->lhs())
+                {
+                    SgExpression *toInsert = NULL;
+                    if (exprList->lhs()->variant() == SPF_INTERVAL_OP)
+                        toInsert = new SgExpression(EXPR_LIST, exprList->lhs(), NULL);
+                    else if (exprList->lhs()->variant() == SPF_FILES_COUNT_OP)
+                        toInsert = new SgExpression(EXPR_LIST, exprList->lhs()->lhs(), NULL);
+                    else
+                        toInsert = exprList->lhs()->lhs();
+                    auto it = clauses.find(exprList->lhs()->variant());
+                    if (it == clauses.end())
+                        it = clauses.insert(it, make_pair(exprList->lhs()->variant(), new Expression(toInsert)));
+                    else
+                    {
+                        auto expr = it->second->GetOriginal();
+                        while (expr && expr->rhs())
+                            expr = expr->rhs();
+                        expr->setRhs(toInsert);
+                    }
+                    if (exprList->lhs()->variant() == SPF_VARLIST_OP ||
+                        exprList->lhs()->variant() == SPF_EXCEPT_OP)
+                    {
+                        auto expr = exprList->lhs()->lhs();
+                        while (expr)
+                        {
+                            // get identifier
+                            fillType var, *dummy = NULL; 
+                            var = getData(expr->lhs(), dummy);
+                            if (exprList->lhs()->variant() == SPF_VARLIST_OP)
+                            {
+                                auto it = vars.find(var);
+                                if (it == vars.end())
+                                    vars.insert(var);
+                            }
+                            else
+                            {
+                                auto it = expt.find(var);
+                                if (it == expt.end())
+                                    expt.insert(var);
+                            }
+                            expr = expr->rhs();
+                        }
+                    }
+                }
+                exprList = exprList->rhs();
+            }
+        }
+    }
+}
+
+template void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, set<Symbol*> &vars, set<Symbol*> &expt);
+template void fillCheckpointFromComment(Statement *stIn, map<int, Expression*> &clauses, set<string> &vars, set<string> &expt);
 
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
 {
@@ -474,14 +532,14 @@ void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *direct
         fillShadowAcrossFromComment(SHADOW_OP, sData, directive->shadowRenew);
         fillShadowAcrossFromComment(ACROSS_OP, sData, directive->across);
 
-        map<pair<SgSymbol*, string>, Expression*> remotes;
+        map<pair<Symbol*, string>, Expression*> remotes;
         fillRemoteFromComment(sData, remotes);
         for (auto& elem : remotes)
         {
-            SgSymbol* symb = OriginalSymbol(elem.first.first);
+            SgSymbol* symb = OriginalSymbol(elem.first.first->GetOriginal());
             auto uniqKey = getFromUniqTable(symb);
             
-            directive->remoteAccess[make_pair(make_pair(elem.first.first->identifier(), getShortName(uniqKey)), elem.first.second)] = new Expression(elem.second->GetOriginal());
+            directive->remoteAccess[make_pair(make_pair(elem.first.first->GetOriginal()->identifier(), getShortName(uniqKey)), elem.first.second)] = new Expression(elem.second->GetOriginal());
         }        
     }
 }

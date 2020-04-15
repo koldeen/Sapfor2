@@ -157,7 +157,7 @@ static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<string> &v
 
 static bool checkPrivate(SgStatement *st,
                          SgStatement *attributeStatement,
-                         const set<SgSymbol*> &privates,
+                         const set<Symbol*> &privates,
                          vector<Messages> &messagesForFile)
 {    
     // PRIVATE(VAR)
@@ -178,7 +178,7 @@ static bool checkPrivate(SgStatement *st,
 
         for (auto &privElemS : privates)
         {
-            const string privElem = privElemS->identifier();
+            const string privElem = privElemS->GetOriginal()->identifier();
             bool defCond = true;
             bool useCond = true;
 
@@ -255,7 +255,7 @@ static bool checkPrivate(SgStatement *st,
 
 static bool checkReduction(SgStatement *st,
                            SgStatement *attributeStatement,
-                           const map<string, set<SgSymbol*>> &reduction,
+                           const map<string, set<Symbol*>> &reduction,
                            vector<Messages> &messagesForFile)
 {
     // REDUCTION(OP(VAR))
@@ -275,7 +275,7 @@ static bool checkReduction(SgStatement *st,
         {
             for (auto &setElemS : redElem.second)
             {
-                const string setElem = setElemS->identifier();
+                const string setElem = setElemS->GetOriginal()->identifier();
                 bool defCond = true;
                 bool useCond = true;
 
@@ -319,7 +319,7 @@ static bool checkReduction(SgStatement *st,
 
 static bool checkReduction(SgStatement *st,
                            SgStatement *attributeStatement,
-                           const map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction,
+                           const map<string, set<tuple<Symbol*, Symbol*, int>>> &reduction,
                            vector<Messages> &messagesForFile)
 {
     // REDUCTION(MIN/MAXLOC(VAR, ARRAY, CONST))
@@ -327,8 +327,8 @@ static bool checkReduction(SgStatement *st,
 
     for (auto &redElem : reduction)
     {
-        set<SgSymbol*> vars;
-        set<SgSymbol*> arrs;
+        set<Symbol*> vars;
+        set<Symbol*> arrs;
 
         set<string> varsS;
         set<string> arrsS;
@@ -336,13 +336,13 @@ static bool checkReduction(SgStatement *st,
         for (auto &setElem : redElem.second)
         {
             vars.insert(std::get<0>(setElem));
-            varsS.insert(std::get<0>(setElem)->identifier());
+            varsS.insert(std::get<0>(setElem)->GetOriginal()->identifier());
 
             arrs.insert(std::get<1>(setElem));
-            arrsS.insert(std::get<1>(setElem)->identifier());
+            arrsS.insert(std::get<1>(setElem)->GetOriginal()->identifier());
 
             // CHECK ARRAY DECLARATION && DIMENTION
-            SgSymbol *arraySymbol = std::get<1>(setElem);
+            SgSymbol *arraySymbol = std::get<1>(setElem)->GetOriginal();
             SgStatement *declStatement = declaratedInStmt(arraySymbol);
             SgArrayType *arrayType = NULL;
             int count = std::get<2>(setElem);
@@ -462,8 +462,8 @@ static bool checkReduction(SgStatement *st,
             }
         }
 
-        map<string, set<SgSymbol*>> reductionVar;
-        map<string, set<SgSymbol*>> reductionArr;
+        map<string, set<Symbol*>> reductionVar;
+        map<string, set<Symbol*>> reductionArr;
 
         reductionVar[redElem.first] = vars;
         reductionArr[redElem.first] = arrs;
@@ -476,7 +476,7 @@ static bool checkReduction(SgStatement *st,
 
 static bool checkShadowAcross(SgStatement *st,
                               SgStatement *attributeStatement,
-                              const vector<pair<pair<SgSymbol*, string>, vector<pair<int, int>>>> &data,
+                              const vector<pair<pair<Symbol*, string>, vector<pair<int, int>>>> &data,
                               vector<Messages> &messagesForFile)
 {
     // SHADOW (VAR(list of  shadows)) / ACROSS (VAR(list of  shadows))
@@ -487,7 +487,7 @@ static bool checkShadowAcross(SgStatement *st,
     {
         for (int i = 0; i < data.size(); ++i)
         {
-            SgSymbol *arraySymbol = data[i].first.first;
+            SgSymbol *arraySymbol = data[i].first.first->GetOriginal();
             SgStatement *declStatement = declaratedInStmt(arraySymbol);
             const vector<pair<int, int>> &arrayDisc = data[i].second;
             bool notPrivCond = true;
@@ -582,7 +582,6 @@ static bool checkShadowAcross(SgStatement *st,
     return retVal;
 }
 
-
 static int hasName(SgExpression *exp, const string &varName)
 {
     if (exp)
@@ -640,7 +639,7 @@ static bool hasRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map
 
 static bool checkRemote(SgStatement *st,
                         SgStatement *attributeStatement,
-                        const map<pair<SgSymbol*, string>, Expression*> &remote,
+                        const map<pair<Symbol*, string>, Expression*> &remote,
                         vector<Messages> &messagesForFile)
 {
     // REMOTE_ACCESS (EXPR)
@@ -652,7 +651,7 @@ static bool checkRemote(SgStatement *st,
         for (auto &remElem : remote)
         {
             bool cond = false;
-            SgStatement *declStatement = declaratedInStmt(remElem.first.first);
+            SgStatement *declStatement = declaratedInStmt(remElem.first.first->GetOriginal());
             set<SgSymbol*> arraySymbols;
 
             vector<SgExpression*> dummy;
@@ -1143,12 +1142,12 @@ static bool checkShrink(SgStatement *st,
 {
     bool retVal = true;
     
-    vector<pair<SgSymbol *, vector<int>>> varDims;
+    vector<pair<Symbol *, vector<int>>> varDims;
     fillShrinkFromComment(new Statement(attributeStatement), varDims);
 
     for (auto &p : varDims)
     {
-        auto var = p.first;
+        auto var = p.first->GetOriginal();
         auto dims = p.second;
 
         // check variable type
@@ -1167,13 +1166,16 @@ static bool checkShrink(SgStatement *st,
         else
         {
             // check private directives
+            set<Symbol*> privatesS;
             set<SgSymbol*> privates;
             for (int i = 0; i < st->numberOfAttributes(); ++i)
             {
                 SgAttribute *attr = st->getAttribute(i);
                 SgStatement *attributeStatement = (SgStatement *)(attr->getAttributeData());
-                fillPrivatesFromComment(new Statement(attributeStatement), privates);
+                fillPrivatesFromComment(new Statement(attributeStatement), privatesS);
             }
+            for (auto &elem : privatesS)
+                privates.insert(elem->GetOriginal());
 
             auto it = privates.find(var);
             if (it == privates.end())
@@ -1229,6 +1231,256 @@ static bool checkShrink(SgStatement *st,
     return retVal;
 }
 
+bool recIsVarUsed(SgStatement *st, SgExpression *exp, const string &varName)
+{
+    if (exp)
+    {
+        if (exp->symbol() && exp->symbol()->identifier() == varName)
+            return true;
+        return recIsVarUsed(st, exp->lhs(), varName) || recIsVarUsed(st, exp->rhs(), varName);
+    }
+    return false;
+}
+
+static bool isVarUsed(SgStatement *st, const string &varName)
+{
+    if (st)
+    {
+        auto funcSt = getFuncStat(st);
+        checkNull(funcSt, convertFileName(__FILE__).c_str(), __LINE__);
+        for (auto st = funcSt; st != funcSt->lastNodeOfStmt(); st = st->lexNext())
+        {
+            for (auto i = 0; i < 3; ++i)
+            {
+                bool found = recIsVarUsed(st, st->expr(i), varName);
+                if (found)
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
+static bool checkCheckpointVarsDecl(SgStatement *st,
+                                    SgStatement *attributeStatement,
+                                    const set<Symbol*> &vars,
+                                    const string &op,
+                                    vector<Messages> &messagesForFile)
+{
+    bool retVal = true;
+    for (auto &varS : vars)
+    {
+        auto var = varS->GetOriginal();
+        // TODO: fix checking of module variables
+        //bool module = var->scope()->variant() == MODULE_STMT;
+        bool module = false;
+        if (!module)
+        {
+            bool local = isVarUsed(st, var->identifier());
+            vector<SgStatement*> allDecls;
+            SgStatement *decl = declaratedInStmt(var, &allDecls, false);
+            if (!local)
+            {
+                __spf_print(1, "Variable '%s' in %s clause must be declared at the same module in file '%s' on line %d.\n",
+                            var->identifier(), op.c_str(), st->fileName(), attributeStatement->lineNumber());
+
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"Variable '%s' in %s clause must be declared at the same module in file '%s'.",
+                                        to_wstring(var->identifier()),
+                                        to_wstring(op),
+                                        to_wstring(st->fileName()).c_str());
+
+                __spf_printToLongBuf(messageR, R168, to_wstring(var->identifier()), to_wstring(op), to_wstring(st->fileName()).c_str());
+
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5004));
+                retVal = false;
+            }
+        }
+    }
+    return retVal;
+}
+
+static bool checkCheckpoint(SgStatement *st,
+                            SgStatement *attributeStatement,
+                            const map<int, Expression*> &clauses,
+                            const set<Symbol*> &vars,
+                            const set<Symbol*> &expt,
+                            vector<Messages> &messagesForFile)
+{
+    bool retVal = true;
+    bool hasInterval = clauses.find(SPF_INTERVAL_OP) == clauses.end();
+    bool isExecutable = isSgExecutableStatement(st);
+
+    for (auto &p : clauses)
+    {
+        auto op = p.first;
+        SgExpression *exprList = p.second->GetOriginal();
+        switch (op)
+        {
+        case SPF_INTERVAL_OP:
+        {
+            int count = 0;
+            while (exprList)
+            {
+                if (exprList->lhs())
+                    ++count;
+                exprList = exprList->rhs();
+            }
+            if (count != 1)
+            {
+                __spf_print(1, "INTERVAL clause can be used only once in file '%s' on line %d.\n",
+                            st->fileName(), attributeStatement->lineNumber());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"INTERVAL clause can be used only once in file '%s'.",
+                                     to_wstring(st->fileName()).c_str());
+
+                __spf_printToLongBuf(messageR, R170, L"INTERVAL", to_wstring(st->fileName()).c_str());
+
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5006));
+                retVal = false;
+            }
+            exprList = p.second->lhs();
+            if (!exprList || exprList->rhs()->variant() != INT_VAL ||
+                             exprList->lhs()->variant() != SPF_TIME_OP &&
+                             exprList->lhs()->variant() != SPF_ITER_OP)
+            {
+                __spf_print(1, "The first argument must be TIME or ITER and the second must be integer in INTERVAL clause in file '%s' on line %d.\n",
+                            st->fileName(), attributeStatement->lineNumber());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"The first argument must be TIME or ITER and the second must be integer in INTERVAL clause in file '%s'.",
+                                     to_wstring(st->fileName()).c_str());
+
+                __spf_printToLongBuf(messageR, R165, to_wstring(st->fileName()).c_str());
+
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5001));
+                retVal = false;
+            }
+            if (!isExecutable)
+            {
+                __spf_print(1, "CHECKPOINT directive with INTERVAL clause can be only at executable code section in file '%s' on line %d.\n",
+                            st->fileName(), attributeStatement->lineNumber());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"CHECKPOINT directive with INTERVAL clause can be only at executable code section in file '%s'.",
+                                     to_wstring(st->fileName()).c_str());
+
+                __spf_printToLongBuf(messageR, R166, L"INTERVAL", to_wstring(st->fileName()).c_str());
+
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5002));
+                retVal = false;
+            }
+            break;
+        }
+        case SPF_FILES_COUNT_OP:
+        {
+            if (!isExecutable)
+            {
+                __spf_print(1, "CHECKPOINT directive with FILES clause can be only at executable code section in file '%s' on line %d.\n",
+                            st->fileName(), attributeStatement->lineNumber());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"CHECKPOINT directive with FILES clause can be only at executable code section in file '%s'.",
+                                     to_wstring(st->fileName()).c_str());
+
+                __spf_printToLongBuf(messageR, R166, L"FILES", to_wstring(st->fileName()).c_str());
+
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5002));
+                retVal = false;
+            }
+            int count = 0;
+            while (exprList)
+            {
+                if (exprList->lhs())
+                    ++count;
+                exprList = exprList->rhs();
+            }
+            exprList = p.second;
+            if (count != 1)
+            {
+                __spf_print(1, "FILES clause can be used only once in file '%s' on line %d.\n",
+                            st->fileName(), attributeStatement->lineNumber());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"FILES clause can be used only once in file '%s'.",
+                                        to_wstring(st->fileName()).c_str());
+
+                __spf_printToLongBuf(messageR, R170, L"FILES", to_wstring(st->fileName()).c_str());
+
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5006));
+                retVal = false;
+            }
+            if (exprList && exprList->lhs()->variant() != INT_VAL)
+            {
+                __spf_print(1, "CHECKPOINT directive with FILES clause must contain integer value in file '%s' on line %d.\n",
+                            st->fileName(), attributeStatement->lineNumber());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"CHECKPOINT directive with FILES clause must contain integer value in file '%s'.",
+                                        to_wstring(st->fileName()).c_str());
+
+                __spf_printToLongBuf(messageR, R167, to_wstring(st->fileName()).c_str());
+
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5003));
+                retVal = false;
+            }
+            break;
+        }
+        case SPF_VARLIST_OP:
+        {
+            retVal = retVal && checkCheckpointVarsDecl(st, attributeStatement, vars, string("VARLIST"), messagesForFile);
+            for (auto &varS : vars)
+            {
+                if (expt.find(varS) != expt.end())
+                {
+                    __spf_print(1, "Variable '%s' can't be used in FILES and EXCEPT clauses at the same time in file '%s' on line %d.\n",
+                                varS->GetOriginal()->identifier(), st->fileName(), attributeStatement->lineNumber());
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"Variable '%s' can't be used in FILES and EXCEPT clauses at the same time in file '%s'.",
+                                        to_wstring(varS->GetOriginal()->identifier()), to_wstring(st->fileName()).c_str());
+
+                    __spf_printToLongBuf(messageR, R172, to_wstring(st->fileName()).c_str());
+
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5007));
+                    retVal = false;
+                }
+            }
+            break;
+        }
+        case SPF_EXCEPT_OP:
+        {
+            retVal = retVal && checkCheckpointVarsDecl(st, attributeStatement, vars, string("EXEPT"), messagesForFile);
+            break;
+        }
+        case SPF_TYPE_OP:
+        {
+            int count = 0;
+            exprList = exprList->rhs();
+            while (exprList)
+            {
+                if (exprList->lhs() && exprList->lhs()->variant() != ACC_ASYNC_OP &&
+                                       exprList->lhs()->variant() != SPF_FLEXIBLE_OP)
+                {
+                    __spf_print(1, "Illegal option in TYPE clause in file '%s' on line %d.\n",
+                                st->fileName(), attributeStatement->lineNumber());
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"Illegal option in TYPE clause in file '%s'.",
+                                         to_wstring(st->fileName()).c_str());
+
+                    __spf_printToLongBuf(messageR, R169, to_wstring(st->fileName()).c_str());
+
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5005));
+                    retVal = false;
+                }
+                ++count;
+                exprList = exprList->rhs();
+            }
+            break;
+        }
+        default:
+            retVal = false;
+            break;
+        }
+    }
+
+    return retVal;
+}
+
 static int countSPF_OP(Statement *stIn, const int type, const int op)
 {
     int count = 0;
@@ -1256,8 +1508,12 @@ static bool isSPF_OP(Statement *stIn, const int op)
     {
         SgStatement *st = stIn->GetOriginal();
         SgExpression *exprList = st->expr(0);
-        if (exprList && exprList->lhs()->variant() == op)
-            return true;
+        while (exprList)
+        {
+            if (exprList->lhs() && exprList->lhs()->variant() == op)
+                return true;
+            exprList = exprList->rhs();
+        }
     }
     return false;
 }
@@ -1289,7 +1545,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         {
             // !$SPF ANALYSIS
             // PRIVATE(VAR)
-            set<SgSymbol*> privates;
+            set<Symbol*> privates;
             fillPrivatesFromComment(new Statement(attributeStatement), privates);
             if (privates.size())
             {
@@ -1298,8 +1554,8 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             }
 
             // REDUCTION(OP(VAR), MIN/MAXLOC(VAR, ARRAY, CONST))
-            map<string, set<SgSymbol*>> reduction;
-            map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> reductionLoc;
+            map<string, set<Symbol*>> reduction;
+            map<string, set<tuple<Symbol*, Symbol*, int>>> reductionLoc;
             fillReductionsFromComment(new Statement(attributeStatement), reduction);
             fillReductionsFromComment(new Statement(attributeStatement), reductionLoc);
             if (reduction.size())
@@ -1313,7 +1569,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         {
             // !$SPF PARALLEL
             // SHADOW (VAR(list of  shadows)) / ACROSS (VAR(list of  shadows))
-            vector<pair<pair<SgSymbol*, string>, vector<pair<int, int>>>> data;
+            vector<pair<pair<Symbol*, string>, vector<pair<int, int>>>> data;
             fillShadowAcrossFromComment(SHADOW_OP, new Statement(attributeStatement), data);
             fillShadowAcrossFromComment(ACROSS_OP, new Statement(attributeStatement), data);
             if (data.size())
@@ -1323,7 +1579,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             }
 
             // REMOTE_ACCESS (EXPR)
-            map<pair<SgSymbol*, string>, Expression*> remote;
+            map<pair<Symbol*, string>, Expression*> remote;
             fillRemoteFromComment(new Statement(attributeStatement), remote, true);
             if (remote.size())
             {
@@ -1333,8 +1589,9 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         }
         else if (type == SPF_TRANSFORM_DIR)
         {
-            int count;
             // !$SPF TRANSFORM
+            int count;
+
             // NOINLINE
             if (isSPF_NoInline(new Statement(st)))
             {
@@ -1346,8 +1603,9 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                     retVal = false;
                 }
             }
+
             // FISSION
-            else if (isSPF_OP(new Statement(attributeStatement), SPF_FISSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_FISSION_OP)))
+            if (isSPF_OP(new Statement(attributeStatement), SPF_FISSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_FISSION_OP)))
             {
                 attributeStatement->setLocalLineNumber(-1);
                 if (count > 1 || st->variant() != FOR_NODE)
@@ -1358,8 +1616,9 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                 else
                     retVal = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile, true);
             }
+
             // PRIVATES_EXPANSION
-            else if (isSPF_OP(new Statement(attributeStatement), SPF_PRIVATES_EXPANSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_PRIVATES_EXPANSION_OP)))
+            if (isSPF_OP(new Statement(attributeStatement), SPF_PRIVATES_EXPANSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_PRIVATES_EXPANSION_OP)))
             {
                 attributeStatement->setLocalLineNumber(-1);
                 if (count > 1 || st->variant() != FOR_NODE)
@@ -1370,8 +1629,9 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                 else
                     retVal = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile);
             }
+
             // SHRINK
-            else if (isSPF_OP(new Statement(attributeStatement), SPF_SHRINK_OP))
+            if (isSPF_OP(new Statement(attributeStatement), SPF_SHRINK_OP))
             {
                 attributeStatement->setLocalLineNumber(-1); // is it needed?
                 if (st->variant() != FOR_NODE)
@@ -1385,7 +1645,11 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         }
         else if (type == SPF_CHECKPOINT_DIR)
         {
-            //TODO
+            map<int, Expression*> clauses;
+            set<Symbol*> vars, expt;
+            fillCheckpointFromComment(new Statement(attributeStatement), clauses, vars, expt);
+            if (clauses.size())
+                retVal = checkCheckpoint(st, attributeStatement, clauses, vars, expt, messagesForFile);
         }
     }
 
