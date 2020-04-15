@@ -26,6 +26,7 @@ extern SgExpression *CudaReplicate(SgSymbol *, SgSymbol *, SgSymbol *, SgSymbol 
 extern SgStatement *IncludeLine(char*);
 extern void optimizeLoopBodyForOne(vector<newInfo> &allNewInfo);
 extern void searchIdxs(vector<acrossInfo> &allInfo, SgExpression *st);
+extern int warpSize;
 
 // local functions
 ArgsForKernel **Create_C_Adapter_Function_Across_variants(SgSymbol*, SgSymbol*, const int, const int, const int, SageSymbols**, SageSymbols**);
@@ -2580,7 +2581,11 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
             mywarn("strat: in red section");
             if (loopV != 0)
             {
-                e = &SgAssignOp(*new SgVarRefExp(*red_blocks), *new SgRecordRefExp(*s_blocks, "x") * *new SgRecordRefExp(*s_blocks, "y") * *new SgRecordRefExp(*s_blocks, "z"));
+                // (blocks.x * blocks.y * blocks.z * threads.x * threads.y * threads.z) / warpSize)
+                e = &SgAssignOp(*new SgVarRefExp(*red_blocks), 
+                    (*new SgRecordRefExp(*s_blocks, "x") * *new SgRecordRefExp(*s_blocks, "y") * *new SgRecordRefExp(*s_blocks, "z") * 
+                    *new SgRecordRefExp(*s_threads, "x") * *new SgRecordRefExp(*s_threads, "y") * *new SgRecordRefExp(*s_threads, "z"))
+                    / *new SgValueExp(warpSize));
                 stmt = new SgCExpStmt(*e);
                 st_end->insertStmtBefore(*stmt, *st_hedr);
             }
@@ -6173,7 +6178,20 @@ void CreateReductionBlocksAcross(SgStatement *stat, int nloop, SgExpression *red
         re = &(*re + (*ThreadIdxRefExpr("y")) * (*new SgRecordRefExp(*s_blockdim, "x")));
     if (nloop > 2)
         re = &(*re + (*ThreadIdxRefExpr("z")) * (*new SgRecordRefExp(*s_blockdim, "x") * (*new SgRecordRefExp(*s_blockdim, "y"))));
-    ass = AssignStatement(new SgVarRefExp(i_var), re);
+    
+    if (options.isOn(C_CUDA)) // global cuda index
+    {
+        SgExpression& globalX = (*new SgRecordRefExp(*s_blockdim, "x") * *new SgRecordRefExp(*s_blockidx, "x") + *new SgRecordRefExp(*s_threadidx, "x"));
+        SgExpression& globalY = (*new SgRecordRefExp(*s_blockdim, "y") * *new SgRecordRefExp(*s_blockidx, "y") + *new SgRecordRefExp(*s_threadidx, "y"));
+        SgExpression& globalZ = (*new SgRecordRefExp(*s_blockdim, "z") * *new SgRecordRefExp(*s_blockidx, "z") + *new SgRecordRefExp(*s_threadidx, "z"));
+
+        SgExpression& globalDimX = (*new SgRecordRefExp(*s_griddim, "x") * *new SgRecordRefExp(*s_blockdim, "x"));
+        SgExpression& globalDimY = (*new SgRecordRefExp(*s_griddim, "y") * *new SgRecordRefExp(*s_blockdim, "y") * globalDimX);
+
+        ass = new SgAssignStmt(*new SgVarRefExp(i_var), globalX + globalY * globalDimX + globalZ * globalDimY);
+    }
+    else
+        ass = AssignStatement(new SgVarRefExp(i_var), re);
     stat->insertStmtBefore(*ass, *stat->controlParent());
     if (options.isOn(C_CUDA))
         ass->addComment("// Reduction");
@@ -6194,7 +6212,7 @@ void CreateReductionBlocksAcross(SgStatement *stat, int nloop, SgExpression *red
     for (er = red_op_list, rsl = red_struct_list, n = 1; er; er = er->rhs(), rsl = rsl->next, n++)
     {
         if (options.isOn(C_CUDA))
-            ReductionBlockInKernel_On_C_Cuda(stat, i_var, er->lhs(), rsl, if_st, if_del, if_new, declArrayVars);
+            ReductionBlockInKernel_On_C_Cuda(stat, i_var, er->lhs(), rsl, if_st, if_del, if_new, declArrayVars, true, true);
         else
             ReductionBlockInKernel(stat, nloop, i_var, j_var, er->lhs(), rsl, red_count_symb, n);
     }

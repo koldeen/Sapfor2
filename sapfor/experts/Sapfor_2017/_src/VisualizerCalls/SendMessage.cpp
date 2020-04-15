@@ -73,11 +73,16 @@ static int decodeMessage(const string& message, vector<string>& pars, int &winH,
         pars.push_back(par);
     }
 
-    string d = "";
+    string d = "", toPrint = "";
     for (; sI != message.size() && message[sI] != ' '; ++sI)
         d += message[sI];
 
-    __print(CLIENT, "Read port from '%s'", d.c_str());
+    if (d[d.size() - 1] == '\n' && d.size() >= 2)
+        toPrint = d.substr(0, d.size() - 2);
+    else
+        toPrint = d;
+
+    __print(CLIENT, "Read port from '%s'", toPrint.c_str());
     if (sscanf(d.c_str(), "%d", &winH) != 1)
     {
         __print(CLIENT, "PORT ERROR");

@@ -52,10 +52,10 @@ static const char *red_kernel_func_names[] = {
     "__dvmh_blockReduceNEQN", "__dvmh_blockReduceEQN"
 };
 static const char *fermiPreprocDir = "CUDA_FERMI_ARCH";
-static const int warpSize = 32;
 static SgSymbol *s_CudaIndexType, *s_CudaOffsetTypeRef, *s_DvmType;
 static SgStatement *end_block, *end_info_block;
 
+int warpSize = 32;
 reduction_operation_list *red_struct_list;
 symb_list *shared_list, *acc_call_list, *by_value_list;
 
@@ -9632,7 +9632,7 @@ char* getMultipleTypeName(SgType *base, int num)
 }
 
 void ReductionBlockInKernel_On_C_Cuda(SgStatement *stat, SgSymbol *i_var, SgExpression *ered, reduction_operation_list *rsl,
-    SgIfStmt *if_st, SgIfStmt *&delIf, SgIfStmt *&newIf, int &declArrayVars)
+    SgIfStmt *if_st, SgIfStmt *&delIf, SgIfStmt *&newIf, int &declArrayVars, bool withGridReduction, bool across)
 {
     SgStatement *newst;
     SgFunctionCallExp *fun_ref = NULL;
@@ -9871,12 +9871,58 @@ void ReductionBlockInKernel_On_C_Cuda(SgStatement *stat, SgSymbol *i_var, SgExpr
     else    // scalar reduction
     {
         //  <red_var> = __dvmh_blockReduce<red-op>(<red_var>)
-        fun_ref = new SgFunctionCallExp(*RedFunctionSymbolInKernel((char *)RedFunctionInKernelC((const int)RedFuncNumber(ered->lhs()), 1, 0)));
+        fun_ref = new SgFunctionCallExp(*RedFunctionSymbolInKernel((char *)RedFunctionInKernelC(RedFuncNumber(ered->lhs()), 1, 0)));
         fun_ref->addArg(*new SgVarRefExp(*rsl->redvar));
         newst = AssignStatement(new SgVarRefExp(*rsl->redvar), fun_ref);
         stat->insertStmtBefore(*newst, *stat->controlParent());
 
-        newst = AssignStatement(new SgArrayRefExp(*rsl->red_grid, *BlockIdxRefExpr("x") * *ex1 + *ex), new SgVarRefExp(rsl->redvar));
+        if (withGridReduction)
+        {
+            SgExpression* gridRef = NULL;
+            if (across)
+                gridRef = new SgArrayRefExp(*rsl->red_grid, *ex);
+            else
+                gridRef = new SgArrayRefExp(*rsl->red_grid, *BlockIdxRefExpr("x") * *ex1 + *ex);
+
+            SgExpression* redRef = new SgVarRefExp(rsl->redvar);
+            int redVar = RedFuncNumber(ered->lhs());
+            if (redVar == 1) // sum
+                newst = AssignStatement(gridRef, &(gridRef->copy() + *redRef));
+            if (redVar == 2) // product
+                newst = AssignStatement(gridRef, &(gridRef->copy() * *redRef));
+            if (redVar == 3) // max
+            {
+                SgFunctionCallExp* fCall = new SgFunctionCallExp(*new SgSymbol(FUNCTION_NAME, "max"));
+                fCall->addArg(gridRef->copy());
+                fCall->addArg(*redRef);
+                newst = AssignStatement(gridRef, fCall);
+            }
+            if (redVar == 4) // min
+            {
+                SgFunctionCallExp* fCall = new SgFunctionCallExp(*new SgSymbol(FUNCTION_NAME, "min"));
+                fCall->addArg(gridRef->copy());
+                fCall->addArg(*redRef);
+                newst = AssignStatement(gridRef, fCall);
+            }
+            if (redVar == 5) // and
+                newst = AssignStatement(gridRef, new SgExpression(BITAND_OP, &gridRef->copy(), redRef));
+            if (redVar == 6) // or
+                newst = AssignStatement(gridRef, new SgExpression(BITOR_OP, &gridRef->copy(), redRef));
+
+#ifdef INTEL_LOGICAL_TYPE
+            if (redVar == 7) // neqv
+                newst = AssignStatement(gridRef, new SgExpression(XOR_OP, &gridRef->copy(), redRef));
+            if (redVar == 8) // eqv
+                newst = AssignStatement(gridRef, new SgExpression(BIT_COMPLEMENT_OP, new SgExpression(XOR_OP, &gridRef->copy(), redRef), NULL));            
+#else
+            if (redVar == 7) // neqv
+                newst = AssignStatement(gridRef, &(gridRef->copy() != *redRef));
+            if (redVar == 8) // eqv
+                newst = AssignStatement(gridRef, &(gridRef->copy() == *redRef));
+#endif
+        }
+        else
+            newst = AssignStatement(new SgArrayRefExp(*rsl->red_grid, *BlockIdxRefExpr("x") * *ex1 + *ex), new SgVarRefExp(rsl->redvar));
         if_st->insertStmtAfter(*newst);
     }
 }

@@ -106,6 +106,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   19 "Can not find execution time for this loop, try to get times statistic"
 //   20 "detected distributed and non distributed array links by function's calls for array %s\n"
 //   21 "empty parallel regions is forbidden"
+//   22 "Can not find align rules"
 
 // 40xx LOW LEVEL WARNINGS
 //   01 
@@ -519,6 +520,8 @@ static const wchar_t* R153 = L"R153:%s";
 static const wchar_t *R142 = L"R142:%s";
 //3021
 static const wchar_t* R151 = L"R151:";
+//3022
+static const wchar_t* R171 = L"R171:%s";
 
 //4001
 //---TODO ошибки из SAGE

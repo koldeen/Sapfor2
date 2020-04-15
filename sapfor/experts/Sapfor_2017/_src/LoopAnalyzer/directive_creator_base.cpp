@@ -557,6 +557,7 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                 int k = 0;
 
                 vector<pair<string, pair<int, pair<int, int>>>> accesses;
+                map<int, set<pair<int, int>>> sameDims;
                 for (auto i = arrayWriteAcc.begin(); i != arrayWriteAcc.end(); ++i, ++k)
                 {
                     const auto uniqKey = i->first;
@@ -573,12 +574,28 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                         minDim = currDim;
                         posDim = k;
                     }
+                    sameDims[currDim].insert(make_pair(k, i->first->GetSizes()[i->second.first].second - i->first->GetSizes()[i->second.first].first + 1));
+
                     __spf_print(PRINT_DIR_RESULT, "    found writes for array %s -> [%d %d]\n", uniqKey->GetShortName().c_str(), i->second.second.first, i->second.second.second);
                     accesses.push_back(make_pair(uniqKey->GetName(), i->second));
                 }
 
                 if (posDim == -1)
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                auto itDim = sameDims.find(minDim);
+                if (itDim == sameDims.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                
+                int maxArraySize = -1;
+                for (auto& elem : itDim->second)
+                {
+                    if (elem.second > maxArraySize)
+                    {
+                        maxArraySize = elem.second;
+                        posDim = elem.first;
+                    }
+                }
 
                 vector<set<DIST::Array*>> realArrayRefs(accesses.size());
                 for (int i = 0; i < (int)accesses.size(); ++i)
