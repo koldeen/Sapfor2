@@ -1242,11 +1242,11 @@ bool recIsVarUsed(SgStatement *st, SgExpression *exp, const string &varName)
     return false;
 }
 
-static bool isVarUsed(SgStatement *st, const string &varName)
+static bool isVarUsed(SgStatement *st, const string &varName, bool doNotGetFuncStat = false)
 {
     if (st)
     {
-        auto funcSt = getFuncStat(st);
+        auto funcSt = doNotGetFuncStat ? st : getFuncStat(st);
         checkNull(funcSt, convertFileName(__FILE__).c_str(), __LINE__);
         for (auto st = funcSt; st != funcSt->lastNodeOfStmt(); st = st->lexNext())
         {
@@ -1261,6 +1261,104 @@ static bool isVarUsed(SgStatement *st, const string &varName)
     return false;
 }
 
+bool recFindVarUseInModule(SgStatement *useSt,
+                           const string &varName,
+                           const vector<SgStatement*> &modules,
+                           const map<string, set<string>> &mapOfUses)
+{
+    bool retVal = false;
+    bool only = false;
+    // check renaming
+    set<string> renamedVas;
+    SgExpression *ex = useSt->expr(0);
+    if (ex && ex->variant() == ONLY_NODE)
+    {
+        only = true;
+        ex = ex->lhs();
+    }
+    for (auto exI = ex; exI; exI = exI->rhs())
+    {
+        if (exI->lhs()->variant() == RENAME_NODE)
+        {
+            SgExpression *ren = exI->lhs();
+            if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
+                //byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
+                renamedVas.insert(ren->lhs()->symbol()->identifier());
+        }
+    }
+    if (renamedVas.find(varName) != renamedVas.end())
+        return true;
+    // check whole module
+    if (!only)
+    {
+        string modName = useSt->symbol()->identifier();
+        auto it = mapOfUses.find(modName);
+        if (it == mapOfUses.end())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        set<string> modulesToCheck(it->second);
+        modulesToCheck.insert(modName);
+        for (auto &modName : modulesToCheck)
+        {
+            bool found = false;
+            for (auto i = 0; i < modules.size(); ++i)
+            {
+                if (modName == modules[i]->symbol()->identifier())
+                {
+                    found = true;
+                    if (isVarUsed(modules[i], varName, true))
+                        return true;
+                    vector<SgStatement*> usingStats;
+                    for (SgStatement *stat = modules[i]->lexNext(); stat != modules[i]->lastNodeOfStmt(); stat = stat->lexNext())
+                        if (stat->variant() == USE_STMT)
+                            usingStats.push_back(stat);
+                    for (auto & use : usingStats)
+                        if (recFindVarUseInModule(use, varName, modules, mapOfUses))
+                            return true;
+                }
+            }
+            if (!found)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+    }
+    return retVal;
+}
+
+void fillUsedModulesInFunction(SgStatement *st, vector<SgStatement*> &usingStats)
+{
+    int var = st->variant();
+    while (var != PROG_HEDR && var != PROC_HEDR && var != FUNC_HEDR)
+    {
+        st = st->controlParent();
+        if (st == NULL)
+            return;
+        var = st->variant();
+    }
+    for (SgStatement *stat = st->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
+        if (stat->variant() == USE_STMT)
+            usingStats.push_back(stat);
+}
+
+static bool isModuleVar(SgStatement *st,
+                        SgStatement *attributeStatement, 
+                        const string &varName,
+                        const vector<SgStatement*> &modules,
+                        const map<string, set<string>> &mapOfUses)
+{
+    auto moduleSymbols = moduleRefsByUseInFunction(st);
+    // check renamed vars
+    for (auto &elem : moduleSymbols)
+        for (auto &var : elem.second)
+            if (varName == var->identifier())
+                return true;
+    // check all used modules in function
+    vector<SgStatement*> usingStats;
+    fillUsedModulesInFunction(st, usingStats);
+    for (auto &use : usingStats)
+        if (recFindVarUseInModule(use, varName, modules, mapOfUses))
+            return true;
+    return false;
+}
+
 static bool checkCheckpointVarsDecl(SgStatement *st,
                                     SgStatement *attributeStatement,
                                     const set<Symbol*> &vars,
@@ -1268,12 +1366,15 @@ static bool checkCheckpointVarsDecl(SgStatement *st,
                                     vector<Messages> &messagesForFile)
 {
     bool retVal = true;
+    vector<SgStatement*> modules;
+    findModulesInFile(st->getFile(), modules);
+    auto mapOfUses = createMapOfModuleUses(st->getFile());
     for (auto &varS : vars)
     {
         auto var = varS->GetOriginal();
         // TODO: fix checking of module variables
-        //bool module = var->scope()->variant() == MODULE_STMT;
-        bool module = false;
+        bool module = isModuleVar(st, attributeStatement, var->identifier(), modules, mapOfUses);
+        //bool module = false;
         if (!module)
         {
             bool local = isVarUsed(st, var->identifier());
