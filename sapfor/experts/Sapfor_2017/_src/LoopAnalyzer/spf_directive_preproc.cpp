@@ -1231,7 +1231,7 @@ static bool checkShrink(SgStatement *st,
     return retVal;
 }
 
-bool recIsVarUsed(SgStatement *st, SgExpression *exp, const string &varName)
+static bool recIsVarUsed(SgStatement *st, SgExpression *exp, const string &varName)
 {
     if (exp)
     {
@@ -1242,7 +1242,7 @@ bool recIsVarUsed(SgStatement *st, SgExpression *exp, const string &varName)
     return false;
 }
 
-static bool isVarUsed(SgStatement *st, const string &varName, bool doNotGetFuncStat = false)
+bool isVarUsed(SgStatement *st, const string &varName, bool doNotGetFuncStat = false)
 {
     if (st)
     {
@@ -1261,9 +1261,9 @@ static bool isVarUsed(SgStatement *st, const string &varName, bool doNotGetFuncS
     return false;
 }
 
-bool recFindVarUseInModule(SgStatement *useSt,
-                           const string &varName,
-                           const vector<SgStatement*> &modules)
+static bool recFindVarUseInModule(SgStatement *useSt,
+                                  const string &varName,
+                                  const vector<SgStatement*> &modules)
 {
     bool only = false;
     // check renaming
