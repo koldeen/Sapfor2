@@ -1280,7 +1280,6 @@ static bool recFindVarUseInModule(SgStatement *useSt,
         {
             SgExpression *ren = exI->lhs();
             if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
-                //byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
                 renamedVas.insert(ren->lhs()->symbol()->identifier());
         }
     }
@@ -1295,7 +1294,6 @@ static bool recFindVarUseInModule(SgStatement *useSt,
         {
             if (modName == modules[i]->symbol()->identifier())
             {
-                found = true;
                 if (isVarUsed(modules[i], varName, true))
                     return true;
                 vector<SgStatement*> useStats;
@@ -1305,6 +1303,8 @@ static bool recFindVarUseInModule(SgStatement *useSt,
                 for (auto & use : useStats)
                     if (recFindVarUseInModule(use, varName, modules))
                         return true;
+                found = true;
+                break;
             }
         }
         if (!found)
@@ -1367,8 +1367,6 @@ static bool checkCheckpointVarsDecl(SgStatement *st,
         if (!module)
         {
             bool local = isVarUsed(st, var->identifier());
-            vector<SgStatement*> allDecls;
-            SgStatement *decl = declaratedInStmt(var, &allDecls, false);
             if (!local)
             {
                 __spf_print(1, "Variable '%s' in %s clause must be declared at the same module in file '%s' on line %d.\n",
