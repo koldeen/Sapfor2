@@ -1242,7 +1242,7 @@ static bool recIsVarUsed(SgStatement *st, SgExpression *exp, const string &varNa
     return false;
 }
 
-bool isVarUsed(SgStatement *st, const string &varName, bool doNotGetFuncStat = false)
+static bool isVarUsed(SgStatement *st, const string &varName, bool doNotGetFuncStat = false)
 {
     if (st)
     {
@@ -1269,11 +1269,13 @@ static bool recFindVarUseInModule(SgStatement *useSt,
     // check renaming
     set<string> renamedVas;
     SgExpression *ex = useSt->expr(0);
+
     if (ex && ex->variant() == ONLY_NODE)
     {
         only = true;
         ex = ex->lhs();
     }
+
     for (auto exI = ex; exI; exI = exI->rhs())
     {
         if (exI->lhs()->variant() == RENAME_NODE)
@@ -1283,12 +1285,14 @@ static bool recFindVarUseInModule(SgStatement *useSt,
                 renamedVas.insert(ren->lhs()->symbol()->identifier());
         }
     }
+
     if (renamedVas.find(varName) != renamedVas.end())
         return true;
+
     // check whole module
     if (!only)
     {
-        string modName = useSt->symbol()->identifier();
+        const string modName(useSt->symbol()->identifier());
         bool found = false;
         for (auto i = 0; i < modules.size(); ++i)
         {
@@ -1296,35 +1300,40 @@ static bool recFindVarUseInModule(SgStatement *useSt,
             {
                 if (isVarUsed(modules[i], varName, true))
                     return true;
+
                 vector<SgStatement*> useStats;
                 for (SgStatement *stat = modules[i]->lexNext(); stat != modules[i]->lastNodeOfStmt(); stat = stat->lexNext())
                     if (stat->variant() == USE_STMT)
                         useStats.push_back(stat);
-                for (auto & use : useStats)
+
+                for (auto& use : useStats)
                     if (recFindVarUseInModule(use, varName, modules))
                         return true;
+
                 found = true;
                 break;
             }
         }
+
         if (!found)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     return false;
 }
 
-void fillUsedModulesInFunction(SgStatement *st, vector<SgStatement*> &useStats)
+//TODO: what about contains ??? need to improve this function
+static void fillUsedModulesInFunction(SgStatement *st, vector<SgStatement*> &useStats)
 {
-    if (!st)
-        return;
+    checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
+
     int var = st->variant();
     while (var != PROG_HEDR && var != PROC_HEDR && var != FUNC_HEDR)
     {
         st = st->controlParent();
-        if (st == NULL)
-            return;
+        checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
         var = st->variant();
     }
+
     for (SgStatement *stat = st->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
         if (stat->variant() == USE_STMT)
             useStats.push_back(stat);
@@ -1416,12 +1425,10 @@ static bool checkCheckpoint(SgStatement *st,
             }
             if (count != 1)
             {
-                __spf_print(1, "INTERVAL clause can be used only once in file '%s' on line %d.\n",
-                            st->fileName(), attributeStatement->lineNumber());
                 wstring messageE, messageR;
-                __spf_printToLongBuf(messageE, L"INTERVAL clause can be used only once in file '%s'.",
-                                     to_wstring(st->fileName()).c_str());
-
+                __spf_print(1, "INTERVAL clause can be used only once in file '%s' on line %d.\n", st->fileName(), attributeStatement->lineNumber());
+                
+                __spf_printToLongBuf(messageE, L"INTERVAL clause can be used only once in file '%s'.", to_wstring(st->fileName()).c_str());
                 __spf_printToLongBuf(messageR, R170, L"INTERVAL", to_wstring(st->fileName()).c_str());
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5006));
@@ -1429,28 +1436,30 @@ static bool checkCheckpoint(SgStatement *st,
             }
             exprList = p.second->lhs();
             if (!exprList || exprList->rhs()->variant() != INT_VAL ||
-                             exprList->lhs()->variant() != SPF_TIME_OP &&
-                             exprList->lhs()->variant() != SPF_ITER_OP)
+                exprList->lhs()->variant() != SPF_TIME_OP && exprList->lhs()->variant() != SPF_ITER_OP)
             {
+                wstring messageE, messageR;
+
                 __spf_print(1, "The first argument must be TIME or ITER and the second must be integer in INTERVAL clause in file '%s' on line %d.\n",
                             st->fileName(), attributeStatement->lineNumber());
-                wstring messageE, messageR;
+                
                 __spf_printToLongBuf(messageE, L"The first argument must be TIME or ITER and the second must be integer in INTERVAL clause in file '%s'.",
                                      to_wstring(st->fileName()).c_str());
-
                 __spf_printToLongBuf(messageR, R165, to_wstring(st->fileName()).c_str());
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5001));
                 retVal = false;
             }
+
             if (!isExecutable)
             {
+                wstring messageE, messageR;
+
                 __spf_print(1, "CHECKPOINT directive with INTERVAL clause can be only at executable code section in file '%s' on line %d.\n",
                             st->fileName(), attributeStatement->lineNumber());
-                wstring messageE, messageR;
+                
                 __spf_printToLongBuf(messageE, L"CHECKPOINT directive with INTERVAL clause can be only at executable code section in file '%s'.",
                                      to_wstring(st->fileName()).c_str());
-
                 __spf_printToLongBuf(messageR, R166, L"INTERVAL", to_wstring(st->fileName()).c_str());
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5002));
@@ -1462,17 +1471,19 @@ static bool checkCheckpoint(SgStatement *st,
         {
             if (!isExecutable)
             {
+                wstring messageE, messageR;
+
                 __spf_print(1, "CHECKPOINT directive with FILES clause can be only at executable code section in file '%s' on line %d.\n",
                             st->fileName(), attributeStatement->lineNumber());
-                wstring messageE, messageR;
+                
                 __spf_printToLongBuf(messageE, L"CHECKPOINT directive with FILES clause can be only at executable code section in file '%s'.",
                                      to_wstring(st->fileName()).c_str());
-
                 __spf_printToLongBuf(messageR, R166, L"FILES", to_wstring(st->fileName()).c_str());
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5002));
                 retVal = false;
             }
+
             int count = 0;
             while (exprList)
             {
@@ -1481,14 +1492,14 @@ static bool checkCheckpoint(SgStatement *st,
                 exprList = exprList->rhs();
             }
             exprList = p.second;
+
             if (count != 1)
             {
+                wstring messageE, messageR;
                 __spf_print(1, "FILES clause can be used only once in file '%s' on line %d.\n",
                             st->fileName(), attributeStatement->lineNumber());
-                wstring messageE, messageR;
-                __spf_printToLongBuf(messageE, L"FILES clause can be used only once in file '%s'.",
-                                        to_wstring(st->fileName()).c_str());
-
+                
+                __spf_printToLongBuf(messageE, L"FILES clause can be used only once in file '%s'.", to_wstring(st->fileName()).c_str());
                 __spf_printToLongBuf(messageR, R170, L"FILES", to_wstring(st->fileName()).c_str());
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5006));
@@ -1496,12 +1507,13 @@ static bool checkCheckpoint(SgStatement *st,
             }
             if (exprList && exprList->lhs()->variant() != INT_VAL)
             {
+                wstring messageE, messageR;
+
                 __spf_print(1, "CHECKPOINT directive with FILES clause must contain integer value in file '%s' on line %d.\n",
                             st->fileName(), attributeStatement->lineNumber());
-                wstring messageE, messageR;
+                
                 __spf_printToLongBuf(messageE, L"CHECKPOINT directive with FILES clause must contain integer value in file '%s'.",
-                                        to_wstring(st->fileName()).c_str());
-
+                                               to_wstring(st->fileName()).c_str());
                 __spf_printToLongBuf(messageR, R167, to_wstring(st->fileName()).c_str());
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5003));
@@ -1516,12 +1528,13 @@ static bool checkCheckpoint(SgStatement *st,
             {
                 if (expt.find(varS) != expt.end())
                 {
+                    wstring messageE, messageR;
+
                     __spf_print(1, "Variable '%s' can't be used in FILES and EXCEPT clauses at the same time in file '%s' on line %d.\n",
                                 varS->GetOriginal()->identifier(), st->fileName(), attributeStatement->lineNumber());
-                    wstring messageE, messageR;
+                    
                     __spf_printToLongBuf(messageE, L"Variable '%s' can't be used in FILES and EXCEPT clauses at the same time in file '%s'.",
                                          to_wstring(varS->GetOriginal()->identifier()).c_str(), to_wstring(st->fileName()).c_str());
-
                     __spf_printToLongBuf(messageR, R172, to_wstring(st->fileName()).c_str());
 
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5007));
@@ -1541,15 +1554,13 @@ static bool checkCheckpoint(SgStatement *st,
             exprList = exprList->rhs();
             while (exprList)
             {
-                if (exprList->lhs() && exprList->lhs()->variant() != ACC_ASYNC_OP &&
-                                       exprList->lhs()->variant() != SPF_FLEXIBLE_OP)
+                if (exprList->lhs() && exprList->lhs()->variant() != ACC_ASYNC_OP && exprList->lhs()->variant() != SPF_FLEXIBLE_OP)
                 {
-                    __spf_print(1, "Illegal option in TYPE clause in file '%s' on line %d.\n",
-                                st->fileName(), attributeStatement->lineNumber());
                     wstring messageE, messageR;
-                    __spf_printToLongBuf(messageE, L"Illegal option in TYPE clause in file '%s'.",
-                                         to_wstring(st->fileName()).c_str());
 
+                    __spf_print(1, "Illegal option in TYPE clause in file '%s' on line %d.\n", st->fileName(), attributeStatement->lineNumber());
+                    
+                    __spf_printToLongBuf(messageE, L"Illegal option in TYPE clause in file '%s'.", to_wstring(st->fileName()).c_str());
                     __spf_printToLongBuf(messageR, R169, to_wstring(st->fileName()).c_str());
 
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5005));
