@@ -2,6 +2,18 @@ program CHECKPOINT
   call check
 end
 
+module testA
+  real modA
+end
+
+module testB
+  use testA, modB=>modA
+end
+
+module testC
+  use testB, modC=>modB
+end
+
 module constants
 implicit none
    real, parameter,private :: pi = 3.1415926536
@@ -13,8 +25,15 @@ contains
    end subroutine show_consts
 end module constants
 
+module test
+implicit none
+  use constants, only: pi
+end
+
 subroutine check
-  use constants, P=>pi
+  !use constants, only: P=>pi,P1=>pi
+  use test
+  use testC
   parameter( N = 6,M=8,K=8,L=6, PN = 2,NL=1000)
 
 !$SPF CHECKPOINT(INTERVAL(TIME,10),VARLIST(A,B),EXCEPT(AA,D),VARLIST(C))
@@ -26,6 +45,7 @@ subroutine check
   
 !$SPF CHECKPOINT(INTERVAL(TIME,10),FILES_COUNT(4),VARLIST(A,B,C),TYPE(ASYNC),EXCEPT(AA,D))
 !$SPF CHECKPOINT(INTERVAL(TIME,10),FILES_COUNT(a),VARLIST(A,B,C),TYPE(ASYNC,FLEXIBLE),EXCEPT(AA,D,TEMP))
+!$SPF CHECKPOINT(INTERVAL(TIME,10),VARLIST(A,B),EXCEPT(AA,D,pi),VARLIST(C,e,modB))
   tname='check'
   NNL=NL    
   call serial4(C,N,M,K,L,NNL)
