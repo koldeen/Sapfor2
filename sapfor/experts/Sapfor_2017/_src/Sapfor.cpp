@@ -1047,6 +1047,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             convertSaveToModule(file);
         else if (curr_regime == PROCESS_IO)
             preprocessOpenOperators(file, filesInfo);
+        else if (curr_regime == FUNCTION_CLEARING)
+            functionCleaning(getObjectForFileFromMap(file_name, allFuncInfo));
 
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, allIncludeFiles);
     } // end of FOR by files
@@ -2186,6 +2188,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         }
     }
         break;
+    case FUNCTION_CLEARING:
     case CREATE_NESTED_LOOPS:
     case CONVERT_TO_ENDDO:
     case CORRECT_CODE_STYLE:

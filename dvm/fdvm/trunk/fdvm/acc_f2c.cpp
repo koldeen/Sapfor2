@@ -907,6 +907,7 @@ static bool isPrivate(const string& array)
     return false;
 }
 
+//#define DEB
 static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
 {
     bool ret = true;
@@ -988,7 +989,7 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
         {
             SgExpression *argInCall = listArgs;
             for (int i = 0; i < num; ++i, argInCall = argInCall->rhs())
-            {                                
+            {
                 if (argInCall->lhs() == NULL)
                 {
                     Error("Internal inconsistency in F->C convertation", "", 900, first_do_par);
@@ -997,17 +998,29 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                 }
                 
                 SgType *typeInCall;
+                SgSymbol* parS = NULL;
                 if (argInCall->lhs()->symbol()) // simple argument
+                {
                     typeInCall = argInCall->lhs()->symbol()->type();
+                    parS = argInCall->lhs()->symbol();
+#ifdef DEB
+                    printf("simple type of typeInCall %d\n", typeInCall->variant());
+#endif
+                }
                 else                      // expression
+                {
                     typeInCall = argInCall->lhs()->type();
+#ifdef DEB
+                    printf("expression type of typeInCall %d\n", typeInCall->variant());
+#endif
+                }
                 SgType *typeInProt = (*prototype)[i];
                 SgType* typeInProtSave = (*prototype)[i];
                 
                 int countOfSubscrInCall = 0;
                 int dimSizeInProt = 0;
                 if (argInCall->lhs()->variant() == ARRAY_REF)
-                {                    
+                {
                     SgExpression *subs = argInCall->lhs()->lhs();
                     while (subs)
                     {
@@ -1015,14 +1028,29 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                         subs = subs->rhs();
                     }
 
-                    SgArrayType* inCall = isSgArrayType(typeInCall);
+                    SgArrayType* inCall = isSgArrayType(typeInCall);                    
                     SgArrayType* inProt = isSgArrayType(typeInProt);
                     if (countOfSubscrInCall == 0)
                     {
                         if (inCall == NULL || inProt == NULL) // inconsistency
-                            typeInCall = NULL;
+                        {
+                            if (isSgPointerType(typeInCall) && inProt)
+                                typeInCall = typeInProt;
+                            else
+                            {
+                                typeInCall = NULL;
+#ifdef DEB
+                                printf("typeInCall NULL 1\n");
+#endif
+                            }
+                        }
                         else if (inCall->dimension() != inProt->dimension())
+                        {
                             typeInCall = NULL;
+#ifdef DEB
+                            printf("typeInCall NULL 2\n");
+#endif
+                        }
                         else
                             typeInCall = typeInProt;
                     }
@@ -1041,15 +1069,30 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                                 const int arrayDim = isPrivate(argInCall->lhs()->symbol()->identifier()) ? inCall->dimension() : 1;
 
                                 if (isSgArrayType(typeInProt)) // inconsistency
+                                {
                                     typeInCall = NULL;
+#ifdef DEB
+                                    printf("typeInCall NULL 3\n");
+#endif
+                                }
                                 else if (arrayDim - countOfSubscrInCall == 0)
                                     typeInCall = typeInProt;
                                 else // TODO
+                                {
                                     typeInCall = NULL;
+#ifdef DEB
+                                    printf("typeInCall NULL 4\n");
+#endif
+                                }
                             }
                         }
                         else if (inProt) // inconsistency
+                        {
                             typeInCall = NULL;
+#ifdef DEB
+                            printf("typeInCall NULL 5\n");
+#endif
+                        }
                         else if (inCall)
                         {
                             const int arrayDim = isPrivate(argInCall->lhs()->symbol()->identifier()) ? inCall->dimension() : 1;
@@ -1057,7 +1100,12 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                             if (arrayDim - countOfSubscrInCall == 0)
                                 typeInCall = typeInProt;
                             else
+                            {
                                 typeInCall = NULL;
+#ifdef DEB
+                                printf("typeInCall NULL 6\n");
+#endif
+                            }
                         }
                     }
                 }
@@ -1070,12 +1118,22 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                         if (typeInProt->variant() == typeInCall->variant())
                         {
                             if (typeInProt->hasBaseType() && !typeInCall->hasBaseType()) // inconsistency
+                            {
                                 typeInCall = NULL;
+#ifdef DEB
+                                printf("typeInCall NULL 7\n");
+#endif
+                            }
 
                             if (typeInProt->hasBaseType() && typeInCall)
                             {
                                 if (typeInProt->baseType()->variant() != typeInCall->baseType()->variant()) // inconsistency
+                                {
                                     typeInCall = NULL;
+#ifdef DEB
+                                    printf("typeInCall NULL 8\n");
+#endif
+                                }
                                 else
                                 {
                                     typeInProt = typeInProt->baseType();
@@ -1094,14 +1152,24 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                                         if (string(typeInProt->length()->unparse()) == string(typeInCall->length()->unparse()))
                                             typeInCall = typeInProt;
                                         else
+                                        {
                                             typeInCall = NULL; // TODO
+#ifdef DEB
+                                            printf("typeInCall NULL 9\n");
+#endif
+                                        }
                                     }
                                     else if (typeInProt->selector() && typeInCall->selector())
                                     {
                                         if (string(typeInProt->selector()->unparse()) == string(typeInCall->selector()->unparse()))
                                             typeInCall = typeInProt;
                                         else
+                                        {
                                             typeInCall = NULL; // TODO
+#ifdef DEB
+                                            printf("typeInCall NULL 10\n");
+#endif
+                                        }
                                     }
                                     else
                                         ; //TODO
@@ -1130,8 +1198,9 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                 {
                     if (countOfSubscrInCall == 0)
                     {
-                        SgArrayRefExp *arr = (SgArrayRefExp*)(argInCall->lhs());
+                        SgExpression *arr = argInCall->lhs();
                         SgType *type = arr->symbol()->type();
+
                         if (type->hasBaseType())
                             argInCall->setLhs(*new SgCastExp(*C_PointerType(C_Type(type->baseType())), *arr));
                         else

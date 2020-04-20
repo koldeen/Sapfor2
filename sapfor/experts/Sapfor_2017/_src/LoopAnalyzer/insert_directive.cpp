@@ -1294,9 +1294,9 @@ void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
 	}	
 }
 
-static vector<SgStatement*> filterAllocateStats(const vector<SgStatement*> &current, const string &array)
+static set<SgStatement*> filterAllocateStats(const vector<SgStatement*> &current, const string &array)
 {
-    vector<SgStatement*> filtered;
+    set<SgStatement*> filtered;
 
     for (auto &stat : current)
     {
@@ -1311,11 +1311,12 @@ static vector<SgStatement*> filterAllocateStats(const vector<SgStatement*> &curr
 
         for (auto &syns : arraySyns)
             if (recSymbolFind(stat->expr(0), syns, ARRAY_REF))
-                filtered.push_back(stat);        
+                filtered.insert(stat);        
     }
 
-    if (filtered.size() != 1)
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    //TODO: removed this checking 17.04.2020
+    /*if (filtered.size() != 1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);*/
     return filtered;
 }
 
@@ -1611,7 +1612,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                             map<string, set<SgSymbol*>> byUseInFunc;
 
                             const vector<SgStatement*> &allocatableStmtsCopy = getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ALLOCATE_STMT });
-                            vector<SgStatement*> allocatableStmts;
+                            set<SgStatement*> allocatableStmts;
                             if (allocatableStmtsCopy.size())
                             {
                                 allocatableStmts = filterAllocateStats(allocatableStmtsCopy, currSymb->identifier());

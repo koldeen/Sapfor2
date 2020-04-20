@@ -1286,11 +1286,11 @@ static bool checkCheckpointVarsDecl(SgStatement *st,
 
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"Variable '%s' in %s clause must be declared at the same module in file '%s'.",
-                                        to_wstring(var->identifier()),
-                                        to_wstring(op),
+                                        to_wstring(var->identifier()).c_str(),
+                                        to_wstring(op).c_str(),
                                         to_wstring(st->fileName()).c_str());
 
-                __spf_printToLongBuf(messageR, R168, to_wstring(var->identifier()), to_wstring(op), to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageR, R168, to_wstring(var->identifier()).c_str(), to_wstring(op).c_str(), to_wstring(st->fileName()).c_str());
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5004));
                 retVal = false;
@@ -1432,7 +1432,7 @@ static bool checkCheckpoint(SgStatement *st,
                                 varS->GetOriginal()->identifier(), st->fileName(), attributeStatement->lineNumber());
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"Variable '%s' can't be used in FILES and EXCEPT clauses at the same time in file '%s'.",
-                                        to_wstring(varS->GetOriginal()->identifier()), to_wstring(st->fileName()).c_str());
+                                         to_wstring(varS->GetOriginal()->identifier()).c_str(), to_wstring(st->fileName()).c_str());
 
                     __spf_printToLongBuf(messageR, R172, to_wstring(st->fileName()).c_str());
 
