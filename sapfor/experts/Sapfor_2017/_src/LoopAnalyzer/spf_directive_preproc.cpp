@@ -1382,12 +1382,10 @@ static bool checkCheckpointVarsDecl(SgStatement *st,
                             var->identifier(), op.c_str(), st->fileName(), attributeStatement->lineNumber());
 
                 wstring messageE, messageR;
-                __spf_printToLongBuf(messageE, L"Variable '%s' in %s clause must be declared at the same module in file '%s'.",
-                                        to_wstring(var->identifier()).c_str(),
-                                        to_wstring(op).c_str(),
-                                        to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageE, L"Variable '%s' in %s clause must be declared at the same module.",
+                                               to_wstring(var->identifier()).c_str(), to_wstring(op).c_str());
 
-                __spf_printToLongBuf(messageR, R168, to_wstring(var->identifier()).c_str(), to_wstring(op).c_str(), to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageR, R168, to_wstring(var->identifier()).c_str(), to_wstring(op).c_str());
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5004));
                 retVal = false;
@@ -1428,8 +1426,8 @@ static bool checkCheckpoint(SgStatement *st,
                 wstring messageE, messageR;
                 __spf_print(1, "INTERVAL clause can be used only once in file '%s' on line %d.\n", st->fileName(), attributeStatement->lineNumber());
                 
-                __spf_printToLongBuf(messageE, L"INTERVAL clause can be used only once in file '%s'.", to_wstring(st->fileName()).c_str());
-                __spf_printToLongBuf(messageR, R170, L"INTERVAL", to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageE, L"INTERVAL clause can be used only once.");
+                __spf_printToLongBuf(messageR, R170, L"INTERVAL");
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5006));
                 retVal = false;
@@ -1443,9 +1441,8 @@ static bool checkCheckpoint(SgStatement *st,
                 __spf_print(1, "The first argument must be TIME or ITER and the second must be integer in INTERVAL clause in file '%s' on line %d.\n",
                             st->fileName(), attributeStatement->lineNumber());
                 
-                __spf_printToLongBuf(messageE, L"The first argument must be TIME or ITER and the second must be integer in INTERVAL clause in file '%s'.",
-                                     to_wstring(st->fileName()).c_str());
-                __spf_printToLongBuf(messageR, R165, to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageE, L"The first argument must be TIME or ITER and the second must be integer in INTERVAL clause.");
+                __spf_printToLongBuf(messageR, R165);
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5001));
                 retVal = false;
@@ -1458,9 +1455,8 @@ static bool checkCheckpoint(SgStatement *st,
                 __spf_print(1, "CHECKPOINT directive with INTERVAL clause can be only at executable code section in file '%s' on line %d.\n",
                             st->fileName(), attributeStatement->lineNumber());
                 
-                __spf_printToLongBuf(messageE, L"CHECKPOINT directive with INTERVAL clause can be only at executable code section in file '%s'.",
-                                     to_wstring(st->fileName()).c_str());
-                __spf_printToLongBuf(messageR, R166, L"INTERVAL", to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageE, L"CHECKPOINT directive with INTERVAL clause can be only at executable code section.");
+                __spf_printToLongBuf(messageR, R166, L"INTERVAL");
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5002));
                 retVal = false;
@@ -1476,9 +1472,8 @@ static bool checkCheckpoint(SgStatement *st,
                 __spf_print(1, "CHECKPOINT directive with FILES clause can be only at executable code section in file '%s' on line %d.\n",
                             st->fileName(), attributeStatement->lineNumber());
                 
-                __spf_printToLongBuf(messageE, L"CHECKPOINT directive with FILES clause can be only at executable code section in file '%s'.",
-                                     to_wstring(st->fileName()).c_str());
-                __spf_printToLongBuf(messageR, R166, L"FILES", to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageE, L"CHECKPOINT directive with FILES clause can be only at executable code section.");
+                __spf_printToLongBuf(messageR, R166, L"FILES");
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5002));
                 retVal = false;
@@ -1499,8 +1494,8 @@ static bool checkCheckpoint(SgStatement *st,
                 __spf_print(1, "FILES clause can be used only once in file '%s' on line %d.\n",
                             st->fileName(), attributeStatement->lineNumber());
                 
-                __spf_printToLongBuf(messageE, L"FILES clause can be used only once in file '%s'.", to_wstring(st->fileName()).c_str());
-                __spf_printToLongBuf(messageR, R170, L"FILES", to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageE, L"FILES clause can be used only once.");
+                __spf_printToLongBuf(messageR, R170, L"FILES");
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5006));
                 retVal = false;
@@ -1512,9 +1507,8 @@ static bool checkCheckpoint(SgStatement *st,
                 __spf_print(1, "CHECKPOINT directive with FILES clause must contain integer value in file '%s' on line %d.\n",
                             st->fileName(), attributeStatement->lineNumber());
                 
-                __spf_printToLongBuf(messageE, L"CHECKPOINT directive with FILES clause must contain integer value in file '%s'.",
-                                               to_wstring(st->fileName()).c_str());
-                __spf_printToLongBuf(messageR, R167, to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageE, L"CHECKPOINT directive with FILES clause must contain integer value.");
+                __spf_printToLongBuf(messageR, R167);
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5003));
                 retVal = false;
@@ -1533,9 +1527,9 @@ static bool checkCheckpoint(SgStatement *st,
                     __spf_print(1, "Variable '%s' can't be used in FILES and EXCEPT clauses at the same time in file '%s' on line %d.\n",
                                 varS->GetOriginal()->identifier(), st->fileName(), attributeStatement->lineNumber());
                     
-                    __spf_printToLongBuf(messageE, L"Variable '%s' can't be used in FILES and EXCEPT clauses at the same time in file '%s'.",
-                                         to_wstring(varS->GetOriginal()->identifier()).c_str(), to_wstring(st->fileName()).c_str());
-                    __spf_printToLongBuf(messageR, R172, to_wstring(st->fileName()).c_str());
+                    __spf_printToLongBuf(messageE, L"Variable '%s' can't be used in FILES and EXCEPT clauses at the same time.",
+                                                     to_wstring(varS->GetOriginal()->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R172, to_wstring(varS->GetOriginal()->identifier()).c_str());
 
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5007));
                     retVal = false;
@@ -1560,8 +1554,8 @@ static bool checkCheckpoint(SgStatement *st,
 
                     __spf_print(1, "Illegal option in TYPE clause in file '%s' on line %d.\n", st->fileName(), attributeStatement->lineNumber());
                     
-                    __spf_printToLongBuf(messageE, L"Illegal option in TYPE clause in file '%s'.", to_wstring(st->fileName()).c_str());
-                    __spf_printToLongBuf(messageR, R169, to_wstring(st->fileName()).c_str());
+                    __spf_printToLongBuf(messageE, L"Illegal option in TYPE clause.");
+                    __spf_printToLongBuf(messageR, R169);
 
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5005));
                     retVal = false;

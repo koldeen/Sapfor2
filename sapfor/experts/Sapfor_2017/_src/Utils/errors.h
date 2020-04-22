@@ -529,15 +529,15 @@ static const wchar_t* R171 = L"R171:%s";
 static const wchar_t *R143 = L"R143:";
 
 //5001
-static const wchar_t *R165 = L"R165:%s";
+static const wchar_t *R165 = L"R165:";
 //5002
 static const wchar_t *R166 = L"R166:%s";
 //5003
-static const wchar_t *R167 = L"R167:%s";
+static const wchar_t *R167 = L"R167:";
 //5004
-static const wchar_t *R168 = L"R168:%s";
+static const wchar_t *R168 = L"R168:%s#%s";
 //5005
-static const wchar_t *R169 = L"R169:%s";
+static const wchar_t *R169 = L"R169:";
 //5006
 static const wchar_t *R170 = L"R170:%s";
 //5007
