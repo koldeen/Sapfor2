@@ -1707,7 +1707,10 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                     retVal = false;
                 }
                 else
-                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile, true);
+                {
+                    bool result = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile, true);
+                    retVal = retVal && result;
+                }
             }
 
             // PRIVATES_EXPANSION
@@ -1720,7 +1723,10 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                     retVal = false;
                 }
                 else
-                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile);
+                {
+                    bool result = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile);
+                    retVal = retVal && result;
+                }
             }
 
             // SHRINK
@@ -1733,7 +1739,10 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                     retVal = false;
                 }
                 else
-                    retVal = checkShrink(st, attributeStatement, currFile, messagesForFile);
+                {
+                    bool result = checkShrink(st, attributeStatement, currFile, messagesForFile);
+                    retVal = retVal && result;
+                }
             }
         }
         else if (type == SPF_CHECKPOINT_DIR)
@@ -1742,7 +1751,10 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             set<Symbol*> vars, expt;
             fillCheckpointFromComment(new Statement(attributeStatement), clauses, vars, expt);
             if (clauses.size())
-                retVal = checkCheckpoint(st, attributeStatement, clauses, vars, expt, messagesForFile);
+            {
+                bool result = checkCheckpoint(st, attributeStatement, clauses, vars, expt, messagesForFile);
+                retVal = retVal && result;
+            }
         }
     }
 

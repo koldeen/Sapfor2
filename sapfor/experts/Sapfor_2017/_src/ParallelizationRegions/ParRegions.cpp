@@ -229,9 +229,10 @@ static void fillDvmDirs(SgStatement *st, vector<Statement*> &userDvmDistrDirs, v
         userDvmRealignDirsDef.push_back(new Statement(st));
         break;
     case DVM_REDISTRIBUTE_DIR:
-        if (regionStarted)
+        //skip 22.04.2020
+        /*if (regionStarted)
             userDvmRedistrDirs.push_back(new Statement(st));
-        userDvmRedistrDirsDef.push_back(new Statement(st));
+        userDvmRedistrDirsDef.push_back(new Statement(st));*/
         break;
     case DVM_PARALLEL_ON_DIR:
         if (st->lexNext()->variant() == FOR_NODE)
