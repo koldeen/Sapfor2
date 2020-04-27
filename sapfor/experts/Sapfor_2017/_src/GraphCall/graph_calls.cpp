@@ -1912,6 +1912,8 @@ static void fillUseStmt(SgStatement *stat, map<string, set<SgSymbol*>> &byUse)
 
 map<string, set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn)
 {
+    checkNull(stIn, convertFileName(__FILE__).c_str(), __LINE__);
+
     map<string, set<SgSymbol*>> byUse;
     int var = stIn->variant();
     while (var != PROG_HEDR && var != PROC_HEDR && var != FUNC_HEDR)

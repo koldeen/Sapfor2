@@ -4,21 +4,24 @@ end
 
 module testA
   real modA
+  real fixA
 end
 
 module testB
   use testA, modB=>modA
+  !real fixA
 end
 
-module testC
+module testC 
   use testB, modC=>modB
+  !fixA
 end
 
 module constants
 implicit none
-   real, parameter,private :: pi = 3.1415926536
-   real, parameter, private :: e = 2.7182818285
-contains
+   real, parameter:: pi = 3.1415926536
+   real, parameter:: e = 2.7182818285
+contains 
    subroutine show_consts()
       print*, "Pi = ", pi
       print*, "e = ", e
@@ -26,26 +29,29 @@ contains
 end module constants
 
 module test
-implicit none
+
   use constants, only: pi
 end
 
 subroutine check
-  !use constants, only: P=>pi,P1=>pi
-  use test
-  use testC
+use test
+  use testC !, only: modC
+implicit none
+ 
+  
+  integer n,m,k,l,pn,nl,i,j,ii,jj,nnl
   parameter( N = 6,M=8,K=8,L=6, PN = 2,NL=1000)
-
-!$SPF CHECKPOINT(INTERVAL(TIME,10),VARLIST(A,B),EXCEPT(AA,D),VARLIST(C))
-!$SPF CHECKPOINT(VARLIST(A,B,C),EXCEPT(AA,D))
   integer  A(N,M,K,L), B(N,M,K,L), C(N,M,K,L), D(N,M,K,L)
   integer  AA(N,M,K)
   integer nloopi,nloopj,nloopii,nloopjj,ttt,ttt1 
   character*9 tname
+  !  use constants
   
+  
+  write(*,*) modC
 !$SPF CHECKPOINT(INTERVAL(TIME,10),FILES_COUNT(4),VARLIST(A,B,C),TYPE(ASYNC),EXCEPT(AA,D))
 !$SPF CHECKPOINT(INTERVAL(TIME,10),FILES_COUNT(a),VARLIST(A,B,C),TYPE(ASYNC,FLEXIBLE),EXCEPT(AA,D,TEMP))
-!$SPF CHECKPOINT(INTERVAL(TIME,10),VARLIST(A,B),EXCEPT(AA,D,pi),VARLIST(C,e,modB))
+!$SPF CHECKPOINT(INTERVAL(TIME,10),VARLIST(A,B),EXCEPT(AA,D,pi),VARLIST(C,e,modB,modA))
   tname='check'
   NNL=NL    
   call serial4(C,N,M,K,L,NNL)
@@ -53,11 +59,7 @@ subroutine check
   nloopj=NL
   nloopii=NL
   nloopjj=NL
-! $SPF CHECKPOINT(INTERVAL(TIME,ITER),FILES_COUNT(4,5),VARLIST(A,B,C),TYPE(ASYNC),EXCEPT(AA,D))
-! $SPF CHECKPOINT(INTERVAL(ITER,TIME),FILES_COUNT(),VARLIST(A,B,C),TYPE(ASYNC),EXCEPT(AA,D))
-! $SPF CHECKPOINT(INTERVAL(ITER,TIME),FILES_COUNT,VARLIST(A,B,C),TYPE(ASYNC),EXCEPT(AA,D))
-!$SPF CHECKPOINT(INTERVAL(ITER,-1),FILES_COUNT(555),VARLIST(i,j,ii),TYPE(ASYNC),EXCEPT(AA,jj))
-!$SPF CHECKPOINT(INTERVAL(TIME,0),FILES_COUNT(4),VARLIST(A),TYPE(ASYNC))
+
   do i=1,N
     do j=1,M
       do ii=1,K
@@ -67,10 +69,7 @@ subroutine check
       enddo
     enddo
   enddo
-! $SPF CHECKPOINT(INTERVAL(ITER),FILES_COUNT(555),VARLIST(A,B,C),TYPE(ASYNC),EXCEPT(AA,D))
-! $SPF CHECKPOINT(INTERVAL(-1),FILES_COUNT(555),VARLIST(A,B,C),TYPE(ASYNC),EXCEPT(AA,D))
-! $SPF CHECKPOINT(INTERVAL(),FILES_COUNT(555),VARLIST(A,B,C),TYPE(ASYNC),EXCEPT(AA,D))
-! $SPF CHECKPOINT(INTERVAL,FILES_COUNT(555),VARLIST(A,B,C),TYPE(ASYNC),EXCEPT(AA,D))
+
   do  i=1,N
     do  j=1,M
       do ii=1,K

@@ -3120,3 +3120,144 @@ int getNextFreeLabel()
             return z;
     return -1;
 }
+
+//TODO: what about contains ??? need to improve this function
+void fillUsedModulesInFunction(SgStatement *st, vector<SgStatement*> &useStats)
+{
+    checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
+
+    int var = st->variant();
+    while (var != PROG_HEDR && var != PROC_HEDR && var != FUNC_HEDR)
+    {
+        st = st->controlParent();
+        checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
+        var = st->variant();
+    }
+
+    for (SgStatement *stat = st->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
+        if (stat->variant() == USE_STMT)
+            useStats.push_back(stat);
+}
+
+static void recFillUsedVars(SgStatement *st, SgExpression *exp, map<string, SgSymbol*> &vars)
+{
+    if (exp)
+    {
+        if (exp->symbol() && (exp->symbol()->variant() == VAR_REF ||
+                              exp->symbol()->variant() == ARRAY_REF))
+        {
+
+        }
+        recFillUsedVars(st, exp->lhs(), vars);
+        recFillUsedVars(st, exp->rhs(), vars);
+    }
+}
+
+static void fillUsedVars(SgStatement *st, map<string, SgSymbol*> &vars)
+{
+    if (st)
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            SgExpression *exp = st->expr(i);
+            recFillUsedVars(st, exp, vars);
+        }
+    }
+}
+
+static void joinMaps(map<string, SgSymbol*> &map1, const map<string, SgSymbol*> &map2)
+{
+    for (auto &pair : map2)
+        if (map1.find(pair.first) == map1.end())
+            map1.insert(make_pair(pair.first, pair.second));
+}
+
+void fillVisibleInUseVariables(SgStatement *st, map<string, SgSymbol*> &vars)
+{
+    if (st)
+    {
+        //SgStatement *useSt = st->GetOriginal();
+        SgStatement *useSt = st;
+        if (useSt->variant() == USE_STMT)
+        {
+            bool only = false;
+
+            map<string, SgSymbol*> localVars;  // local module variables
+            map<string, SgSymbol*> useVars;    // variables from other modules
+            map<string, SgSymbol*> renamedVas; // renamed variables
+            map<string, SgSymbol*> originVars; // origin variables names in USE_STAT
+
+            // check USE_STAT
+            // fill from ONLY_NODE and RENAME_NODE
+            SgExpression *ex = useSt->expr(0);
+
+            if (ex && ex->variant() == ONLY_NODE)
+            {
+                only = true;
+                ex = ex->lhs();
+            }
+
+            for (auto exI = ex; exI; exI = exI->rhs())
+            {
+                if (exI->lhs()->variant() == RENAME_NODE)
+                {
+                    SgExpression *ren = exI->lhs();
+                    if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
+                    {
+                        auto it = renamedVas.find();
+                        renamedVas.insert(ren->lhs()->symbol()->identifier());
+                        originVars.insert(ren->rhs()->symbol()->identifier());
+                    }
+                    else if (only && ren->lhs()->symbol())
+                        useVars.insert(ren->lhs()->symbol());
+                }
+            }
+
+            if (!only)
+            {
+                // check module
+                const string modName(useSt->symbol()->identifier());
+                vector<SgStatement*> modules;
+                findModulesInFile(st->getFile(), modules);
+
+                bool found = false;
+                for (auto i = 0; i < modules.size(); ++i)
+                {
+                    if (modName == modules[i]->symbol()->identifier())
+                    {
+                        vector<SgStatement*> useStats;
+                        for (SgStatement *st = modules[i]->lexNext(); st != modules[i]->lastNodeOfStmt(); st = st->lexNext())
+                        {
+                            if (st->variant() == USE_STMT)
+                                useStats.push_back(st);
+                            else
+                                fillUsedVars(st, localVars);
+                        }
+
+                        for (auto &useSt : useStats)
+                        {
+                            set<fillType> visibleVars;
+                            fillVisibleInUseVariables(useSt, visibleVars);
+
+                            for (auto &var : visibleVars)
+                            {
+                                auto it = useVars.find(var);
+                                if (it == useVars.end())
+                                    useVars.insert(var);
+                            }
+                        }
+
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+
+            // TODO: fill vars
+
+        }
+    }
+}
