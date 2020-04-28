@@ -3146,7 +3146,8 @@ static void recFillUsedVars(SgStatement *st, SgExpression *exp, map<string, SgSy
         if (exp->symbol() && (exp->symbol()->variant() == VAR_REF ||
                               exp->symbol()->variant() == ARRAY_REF))
         {
-
+            if (vars.find(exp->symbol()->identifier()) == vars.end())
+                vars.insert(make_pair<string, SgSymbol*>(exp->symbol()->identifier(), exp->symbol()));
         }
         recFillUsedVars(st, exp->lhs(), vars);
         recFillUsedVars(st, exp->rhs(), vars);
@@ -3165,10 +3166,10 @@ static void fillUsedVars(SgStatement *st, map<string, SgSymbol*> &vars)
     }
 }
 
-static void joinMaps(map<string, SgSymbol*> &map1, const map<string, SgSymbol*> &map2)
+static void joinMaps(map<string, SgSymbol*> &map1, const map<string, SgSymbol*> &map2, const map<string, SgSymbol*> &exept = map<string, SgSymbol*>())
 {
     for (auto &pair : map2)
-        if (map1.find(pair.first) == map1.end())
+        if (exept.find(pair.first) == exept.end() && map1.find(pair.first) == map1.end())
             map1.insert(make_pair(pair.first, pair.second));
 }
 
@@ -3208,8 +3209,8 @@ void fillVisibleInUseVariables(SgStatement *useSt, map<string, SgSymbol*> &vars)
                     }
                     else if (only && ren->lhs()->symbol())
                     {
-                        if (useVars.find(ren->lhs()->symbol()->identifier()) == useVars.end())
-                            useVars.insert(make_pair<string, SgSymbol*>(ren->lhs()->symbol()->identifier(), ren->lhs()->symbol()));
+                        if (renamedVas.find(ren->lhs()->symbol()->identifier()) == renamedVas.end())
+                            renamedVas.insert(make_pair<string, SgSymbol*>(ren->lhs()->symbol()->identifier(), ren->lhs()->symbol()));
                     }
                 }
             }
@@ -3239,13 +3240,7 @@ void fillVisibleInUseVariables(SgStatement *useSt, map<string, SgSymbol*> &vars)
                         {
                             map<string, SgSymbol*> visibleVars;
                             fillVisibleInUseVariables(useSt, visibleVars);
-
-                            for (auto &var : visibleVars)
-                            {
-                                auto it = useVars.find(var.first);
-                                if (it == useVars.end())
-                                    useVars.insert(var);
-                            }
+                            joinMaps(useVars, visibleVars);
                         }
 
                         found = true;
@@ -3259,19 +3254,9 @@ void fillVisibleInUseVariables(SgStatement *useSt, map<string, SgSymbol*> &vars)
 
             // fill vars
             // TODO: check renaming
-            joinMaps(vars, useVars);
+            joinMaps(vars, useVars, originVars);
             joinMaps(vars, renamedVas);
             joinMaps(vars, localVars);
-
-            for (auto &var : originVars)
-            {
-                if (useVars.find(var.first) == useVars.end())
-                {
-                    auto it = vars.find(var.first);
-                    if (it != vars.end())
-                        vars.erase(it);
-                }
-            }
         }
     }
 }
