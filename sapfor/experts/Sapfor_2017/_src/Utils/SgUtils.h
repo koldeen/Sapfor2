@@ -78,4 +78,4 @@ int pppaAnalyzer(const char* options);
 int getNextFreeLabel();
 
 void fillUsedModulesInFunction(SgStatement *st, std::vector<SgStatement*> &useStats);
-void fillVisibleInUseVariables(SgStatement *useSt, std::map<string, SgSymbol*> &vars);
+void fillVisibleInUseVariables(SgStatement *useSt, std::map<std::string, SgSymbol*> &vars);

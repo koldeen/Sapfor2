@@ -3172,12 +3172,10 @@ static void joinMaps(map<string, SgSymbol*> &map1, const map<string, SgSymbol*> 
             map1.insert(make_pair(pair.first, pair.second));
 }
 
-void fillVisibleInUseVariables(SgStatement *st, map<string, SgSymbol*> &vars)
+void fillVisibleInUseVariables(SgStatement *useSt, map<string, SgSymbol*> &vars)
 {
-    if (st)
+    if (useSt)
     {
-        //SgStatement *useSt = st->GetOriginal();
-        SgStatement *useSt = st;
         if (useSt->variant() == USE_STMT)
         {
             bool only = false;
@@ -3190,7 +3188,6 @@ void fillVisibleInUseVariables(SgStatement *st, map<string, SgSymbol*> &vars)
             // check USE_STAT
             // fill from ONLY_NODE and RENAME_NODE
             SgExpression *ex = useSt->expr(0);
-
             if (ex && ex->variant() == ONLY_NODE)
             {
                 only = true;
@@ -3204,12 +3201,16 @@ void fillVisibleInUseVariables(SgStatement *st, map<string, SgSymbol*> &vars)
                     SgExpression *ren = exI->lhs();
                     if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
                     {
-                        auto it = renamedVas.find();
-                        renamedVas.insert(ren->lhs()->symbol()->identifier());
-                        originVars.insert(ren->rhs()->symbol()->identifier());
+                        if (renamedVas.find(ren->lhs()->symbol()->identifier()) == renamedVas.end())
+                            renamedVas.insert(make_pair<string,SgSymbol*>(ren->lhs()->symbol()->identifier(), ren->lhs()->symbol()));
+                        if (originVars.find(ren->rhs()->symbol()->identifier()) == originVars.end())
+                            originVars.insert(make_pair<string, SgSymbol*>(ren->rhs()->symbol()->identifier(), ren->rhs()->symbol()));
                     }
                     else if (only && ren->lhs()->symbol())
-                        useVars.insert(ren->lhs()->symbol());
+                    {
+                        if (useVars.find(ren->lhs()->symbol()->identifier()) == useVars.end())
+                            useVars.insert(make_pair<string, SgSymbol*>(ren->lhs()->symbol()->identifier(), ren->lhs()->symbol()));
+                    }
                 }
             }
 
@@ -3218,7 +3219,7 @@ void fillVisibleInUseVariables(SgStatement *st, map<string, SgSymbol*> &vars)
                 // check module
                 const string modName(useSt->symbol()->identifier());
                 vector<SgStatement*> modules;
-                findModulesInFile(st->getFile(), modules);
+                findModulesInFile(useSt->getFile(), modules);
 
                 bool found = false;
                 for (auto i = 0; i < modules.size(); ++i)
@@ -3236,12 +3237,12 @@ void fillVisibleInUseVariables(SgStatement *st, map<string, SgSymbol*> &vars)
 
                         for (auto &useSt : useStats)
                         {
-                            set<fillType> visibleVars;
+                            map<string, SgSymbol*> visibleVars;
                             fillVisibleInUseVariables(useSt, visibleVars);
 
                             for (auto &var : visibleVars)
                             {
-                                auto it = useVars.find(var);
+                                auto it = useVars.find(var.first);
                                 if (it == useVars.end())
                                     useVars.insert(var);
                             }
@@ -3256,8 +3257,21 @@ void fillVisibleInUseVariables(SgStatement *st, map<string, SgSymbol*> &vars)
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
 
-            // TODO: fill vars
+            // fill vars
+            // TODO: check renaming
+            joinMaps(vars, useVars);
+            joinMaps(vars, renamedVas);
+            joinMaps(vars, localVars);
 
+            for (auto &var : originVars)
+            {
+                if (useVars.find(var.first) == useVars.end())
+                {
+                    auto it = vars.find(var.first);
+                    if (it != vars.end())
+                        vars.erase(it);
+                }
+            }
         }
     }
 }

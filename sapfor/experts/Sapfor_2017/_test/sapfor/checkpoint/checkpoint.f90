@@ -30,11 +30,11 @@ end module constants
 
 module test
 
-  use constants, only: pi
+  use constants, only: pi, p=>pi
 end
 
 subroutine check
-use test
+  use test
   use testC !, only: modC
 implicit none
  
@@ -49,6 +49,8 @@ implicit none
   
   
   write(*,*) modC
+  write(*,*) p
+  write(*,*) pi
 !$SPF CHECKPOINT(INTERVAL(TIME,10),FILES_COUNT(4),VARLIST(A,B,C),TYPE(ASYNC),EXCEPT(AA,D))
 !$SPF CHECKPOINT(INTERVAL(TIME,10),FILES_COUNT(a),VARLIST(A,B,C),TYPE(ASYNC,FLEXIBLE),EXCEPT(AA,D,TEMP))
 !$SPF CHECKPOINT(INTERVAL(TIME,10),VARLIST(A,B),EXCEPT(AA,D,pi),VARLIST(C,e,modB,modA))

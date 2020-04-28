@@ -1277,7 +1277,7 @@ static bool isModuleVar(SgStatement *st,
     fillUsedModulesInFunction(st, useStats);
     for (auto &useSt : useStats)
     {
-        set<string> visibleVars;
+        map<string, SgSymbol*> visibleVars;
         fillVisibleInUseVariables(useSt, visibleVars);
         if (visibleVars.find(varName) != visibleVars.end())
             return true;
