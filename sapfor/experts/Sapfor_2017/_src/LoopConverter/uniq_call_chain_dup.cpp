@@ -517,7 +517,66 @@ static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<Func
     }
 }
 
-void duplicateFunctions(const map<string, vector<FuncInfo*>> &allFuncs, const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCall)
+static bool checkForData(FuncInfo* info, map<string, vector<Messages>>& messages)
+{
+    bool retVal = true;
+    if (info->isMain || info->isInterface)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgStatement* funcP = info->funcPointer->GetOriginal();
+    if (!funcP->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    for (auto st = funcP; st != funcP->lastNodeOfStmt(); st = st->lexNext())
+    {
+        if (st->variant() == CONTAINS_STMT)
+            break;
+        if (isSgExecutableStatement(st))
+            break;
+        if (st->variant() == VAR_DECL || st->variant() == VAR_DECL_90)
+        {
+            SgExpression* list = st->expr(0);
+            while (list)
+            {
+                auto value = list->lhs();
+                if (value->variant() == ASSGN_OP)
+                {
+                    wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"SAVE or DATA operators prevent function duplication: variable '%s'",
+                                         to_wstring(value->lhs()->symbol()->identifier()).c_str());
+                    __spf_printToLongBuf(bufR, R174, to_wstring(value->lhs()->symbol()->identifier()).c_str());
+
+                    messages[st->fileName()].push_back(Messages(ERROR, st->lineNumber(), bufR, bufE, 2013));
+                    retVal = false;
+                }
+                else if (value->symbol() && (value->symbol()->attributes() & DATA_BIT))
+                {
+                    wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"SAVE or DATA operators prevent function duplication: variable '%s'", to_wstring(value->symbol()->identifier()).c_str());
+                    __spf_printToLongBuf(bufR, R174, to_wstring(value->symbol()->identifier()).c_str());
+
+                    messages[st->fileName()].push_back(Messages(ERROR, st->lineNumber(), bufR, bufE, 2013));
+                    retVal = false;
+                }
+                list = list->rhs();
+            }
+        }
+        else if (st->variant() == SAVE_DECL || st->variant() == DATA_DECL)
+        {
+            wstring bufE, bufR;
+            __spf_printToLongBuf(bufE, L"SAVE or DATA operators prevent function duplication");
+            __spf_printToLongBuf(bufR, R173);
+
+            messages[st->fileName()].push_back(Messages(ERROR, st->lineNumber(), bufR, bufE, 2012));
+            retVal = false;
+        }
+    }
+
+    return retVal;
+}
+
+bool duplicateFunctions(const map<string, vector<FuncInfo*>> &allFuncs, const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCall,
+                        map<string, vector<Messages>>& messages)
 {
     map<string, FuncInfo*> mapOfFunc;
     createMapOfFunc(allFuncs, mapOfFunc);
@@ -534,7 +593,17 @@ void duplicateFunctions(const map<string, vector<FuncInfo*>> &allFuncs, const ma
         for (auto &inG : elem.second)
             toCopyVec.push_back(inG);
 
-    copyGroup(mapOfFunc, toCopyVec, funcInfoOfCall);
+    bool checkOk = true;
+    //check for save vars
+    for (auto& func : toCopyVec)
+    {
+        bool res = checkForData(func, messages);
+        checkOk = checkOk && res;
+    }
+    if (checkOk)
+        copyGroup(mapOfFunc, toCopyVec, funcInfoOfCall);
+
+    return checkOk;
 }
 
 static map<FuncInfo*, set<FuncInfo*>> getUniqCopies(const vector<FuncInfo*> &toCmp)
@@ -781,7 +850,7 @@ void restoreCopies(SgFile* file)
     copied[file->filename()].clear();
 
     for (auto& elem : replaced)
-        elem.first->changeName(elem.second.second.c_str());
+        elem.first->changeName(elem.second.first.c_str());
     replaced.clear();
-    newNamesOfUniqCopies.clear();
+    newNamesOfUniqCopies.clear(); 
 }

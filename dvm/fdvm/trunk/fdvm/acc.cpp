@@ -28,7 +28,7 @@ static SgConstantSymb *device_const[Ndev], *const_LONG, *intent_const[Nintent], 
 static SgSymbol *red_offset_symb, *sync_proc_symb, *mem_use_loc_array[8];
 static SgSymbol *adapter_symb, *hostproc_symb, *s_offset_type, *s_of_cudaindex_type;
 static symb_list *acc_func_list, *acc_registered_list, *non_dvm_list, *parallel_on_list;
-static symb_list *assigned_var_list, *range_index_list;
+static symb_list *assigned_var_list, *range_index_list, *acc_array_list_whole;
 static SgSymbol *Imem_k, *Rmem_k, *Dmem_k, *Cmem_k, *DCmem_k, *Lmem_k, *Chmem_k;
 static SgSymbol *fdim3;
 static SgSymbol *s_ibof, *s_CudaIndexType_k, *s_warpsize, *s_blockDims;
@@ -2441,10 +2441,10 @@ void CorrectUsesList()
 {
     SgExpression *el, *e;
     symb_list *sl,*slp;
-    for(el = uses_list,e=NULL; el; el = el->rhs())
-    {       
+    for(el = uses_list, e=NULL; el; el = el->rhs())
+    {      
         if(IS_BY_USE(el->lhs()->symbol()))
-        { //deleting from list
+        { //deleting from list 
           if(e) 
           {
              e->setRhs(el->rhs());  
@@ -2453,8 +2453,10 @@ void CorrectUsesList()
           else
              uses_list=el->rhs();
         }
+        else 
           e = el;
     }
+        acc_array_list_whole = CopySymbList(acc_array_list); //to create full base list
         for (sl = acc_array_list,slp = NULL; sl; sl = sl->next)
           if(IS_BY_USE(sl->symb))
              if(slp)
@@ -2490,11 +2492,10 @@ void ACC_CreateParallelLoop(int ipl, SgStatement *first_do, int nloop, SgStateme
     red_struct_list = NULL;
     CreateStructuresForReductions(clause[REDUCTION_] ? clause[REDUCTION_]->lhs() : NULL);
 
-                       //!printf("loop on gpu 01\n");
     // creating private_list
     private_list = clause[PRIVATE_] ? clause[PRIVATE_]->lhs() : NULL;
     dost = InnerMostLoop(first_do, nloop);
-                      //!printf("loop on gpu 02\n");
+        
     // error checking
     CompareReductionAndPrivateList();
     TestPrivateList();
@@ -2503,7 +2504,9 @@ void ACC_CreateParallelLoop(int ipl, SgStatement *first_do, int nloop, SgStateme
     // creating uses_list 
     assigned_var_list = NULL;
     for_shadow_compute = clause[SHADOW_COMPUTE_] ? 1 : 0;  // for optimization of shadow_compute 
-    uses_list = UsesList(dost->lexNext(), lastStmtOfDo(dost));
+    uses_list = UsesList(dost->lexNext(), lastStmtOfDo(dost)); 
+    RefInExpr(IsRedBlack(nloop), _READ_);   // add to uses_list variables used in  start-expression  of redblack loop
+    UsesInPrivateArrayDeclarations(private_list);  // add to uses_list variables used in private array declarations
     if(USE_STATEMENTS_ARE_REQUIRED) // || !IN_COMPUTE_REGION)
         CorrectUsesList();
     for_shadow_compute = 0;
@@ -2513,15 +2516,12 @@ void ACC_CreateParallelLoop(int ipl, SgStatement *first_do, int nloop, SgStateme
     // creating replicated arrays for non-dvm-arrays outside regions
     if (!cur_region)
         DoHeadersForNonDvmArrays();
-                         //!printf("loop on gpu 03\n");
-    RefInExpr(IsRedBlack(nloop), _READ_);   // add to uses_list variables used in  start-expression  of redblack loop
 
     if (!mod_gpu_symb)
         CreateGPUModule();
-                          //!printf("loop on gpu 04\n");  
+                           
     if (!block_C)
-        Create_C_extern_block();
-                         //!printf("block_C: %d\n", block_C->controlParent()->variant());
+        Create_C_extern_block();                        
 
     if (!info_block)
         Create_info_block();
@@ -3411,9 +3411,10 @@ SgExpression *BaseArgumentList()
             }
         }
     }
-    if (!base_list && acc_array_list)
-        base_list = ElementOfBaseList(NULL, acc_array_list->symb);
-    for (sl = acc_array_list; sl; sl = sl->next)
+    array_list = USE_STATEMENTS_ARE_REQUIRED ? acc_array_list_whole : acc_array_list; 
+    if (!base_list && array_list)
+        base_list = ElementOfBaseList(NULL, array_list->symb);
+    for (sl = array_list; sl; sl = sl->next)
     {
         l = ElementOfBaseList(base_list, sl->symb);
         if (l)
@@ -3514,6 +3515,15 @@ SgStatement *InnerMostLoop(SgStatement *dost, int nloop)
     for (i = nloop - 1, stmt = dost; i; i--)
         stmt = stmt->lexNext();
     return(stmt);
+}
+
+void UsesInPrivateArrayDeclarations(SgExpression *privates)
+{
+    SgExpression *el;
+    SgArrayType *tp;
+    for (el=privates; el; el=el->rhs())
+        if(el->lhs()->symbol() && (tp=isSgArrayType(el->lhs()->symbol()->type())))
+            RefInExpr(tp->getDimList(),_READ_); 
 }
 
 SgExpression *UsesList(SgStatement *first, SgStatement *last) //AnalyzeLoopBody()  AnalyzeBlock()
@@ -4062,7 +4072,7 @@ void DoPrivateList(SgStatement *par)
         private_list = el->lhs()->lhs();
         break;
     }
-
+    UsesInPrivateArrayDeclarations(private_list);
 }
 
 void CreatePrivateAndUsesVarList()
@@ -5680,14 +5690,15 @@ SgStatement *Create_Host_Loop_Subroutine(SgSymbol *sHostProc, int dependency)
         else addopenmp = 0;                           /* OpenMP */
         for (rl = red_struct_list,nr = 1; rl; rl = rl->next, nr++)
         {   
-            if (rl->locvar)
+            if (rl->locvar)   
             {
-                stmt = rl->locvar->makeVarDeclStmt();
-                ConstantSubstitutionInTypeSpec(stmt->expr(1)); 
-                st_hedr->insertStmtAfter(*stmt, *st_hedr);
+                DeclareSymbolInHostHandler(rl->locvar, st_hedr, rl->locvar);  
+                //stmt = rl->locvar->makeVarDeclStmt();
+                //ConstantSubstitutionInTypeSpec(stmt->expr(1)); 
+                //st_hedr->insertStmtAfter(*stmt, *st_hedr);
             }
             SgSymbol *sred =  rl->redvar_size != 0 ? rl->red_host : rl->redvar;
-            DeclareSymbolInHostHandler(sred, st_hedr, 1);  
+            DeclareSymbolInHostHandler(rl->redvar, st_hedr, sred);  
 
             // generate loop_red_init and loop_red_post function calls 
             stmt = LoopRedInit_HH(s_loop_ref, nr, sred, rl->locvar);
@@ -5741,7 +5752,7 @@ SgStatement *Create_Host_Loop_Subroutine(SgSymbol *sHostProc, int dependency)
         SgSymbol *sp = el->lhs()->symbol(); 
         //if(HEADER(sp)) // dvm-array is declared as dummy argument
         //  continue; 
-        DeclareSymbolInHostHandler(sp, st_hedr, 0);
+        DeclareSymbolInHostHandler(sp, st_hedr, NULL);
     }
     //   <loop_index_variables>     
     SgExprListExp *indexes = NULL; /* OpenMP */
@@ -6440,12 +6451,18 @@ int fromUsesList(SgExpression *e)
    return fromUsesList(e->lhs()) && fromUsesList(e->rhs());
 }
 
-SgSymbol *DeclareSymbolInHostHandler(SgSymbol *var, SgStatement *st_hedr, int is_red_var)
+SgSymbol *DeclareSymbolInHostHandler(SgSymbol *var, SgStatement *st_hedr, SgSymbol *loc_var)
 {   
     SgSymbol *s = var;
     if(!var) return s;
-    if (!is_red_var && isSgArrayType(s->type()))
-       s = ArraySymbolInHostHandler(s, st_hedr); 
+    if(USE_STATEMENTS_ARE_REQUIRED && IS_BY_USE(var))
+       return s;
+   
+    if (!loc_var && isSgArrayType(s->type()))
+       s = ArraySymbolInHostHandler(s, st_hedr);
+    else if(loc_var)
+       s = loc_var ;
+
     SgStatement *stmt = s->makeVarDeclStmt();
     if(IS_POINTER_F90(s))
        stmt->setExpression(2,*new SgExpression(POINTER_OP));
@@ -6453,6 +6470,21 @@ SgSymbol *DeclareSymbolInHostHandler(SgSymbol *var, SgStatement *st_hedr, int is
     ConstantSubstitutionInTypeSpec(stmt->expr(1));    
     st_hedr->insertStmtAfter(*stmt, *st_hedr);
     return s;
+}
+
+int ExplicitShape(SgExpression *eShape)
+{
+   SgExpression *el;
+   SgSubscriptExp *sbe;
+   for(el=eShape; el; el=el->rhs())
+   { 
+      SgExpression *uBound =  (sbe=isSgSubscriptExp(el->lhs())) ? sbe->ubound() : el->lhs();
+      if(uBound && uBound->variant()!=STAR_RANGE) 
+            continue;
+      else
+            return 0;
+    }              
+    return 1;
 }
 
 SgSymbol *ArraySymbolInHostHandler(SgSymbol *ar, SgStatement *scope)
@@ -6463,12 +6495,14 @@ SgSymbol *ArraySymbolInHostHandler(SgSymbol *ar, SgStatement *scope)
 
     rank = Rank(ar);
     soff = ArraySymbol(ar->identifier(), ar->type()->baseType(), NULL, scope);
+    if(!ExplicitShape(isSgArrayType(ar->type())->getDimList()))
+        Error("Illegal array bound of private array %s", ar->identifier(), 442, dvm_parallel_dir);
 
     for (i = 0; i < rank; i++)
     {
         edim = ((SgArrayType *)(ar->type()))->sizeInDim(i);
-        if( IS_BY_USE(ar) || !fromUsesList(edim) && !fromModule(edim) )
-           edim = CalculateArrayBound(edim, ar, 1); 
+             //if( IS_BY_USE(ar) || !fromUsesList(edim) && !fromModule(edim) )
+             //   edim = CalculateArrayBound(edim, ar, 1); 
         ((SgArrayType *)(soff->type()))->addRange(edim->copy());
     }
     return(soff);
@@ -6515,11 +6549,12 @@ SgExpression *CreateBaseMemoryList()
     SgExpression  *MD = new SgExpression(DDOT, &M0.copy(), new SgKeywordValExp("*"), NULL);
 
     // create memory base list looking through the acc_array_list
-    sl = acc_array_list;
+    
+    sl = USE_STATEMENTS_ARE_REQUIRED ? MergeSymbList(acc_array_list_whole, acc_array_list) : acc_array_list;
     if (!sl) return(NULL);
     base_list = new SgExprListExp(*new SgArrayRefExp(*baseMemory(sl->symb->type()->baseType())));
 
-    for (sl = acc_array_list->next; sl; sl = sl->next)
+    for (sl = sl->next; sl; sl = sl->next)
     {
         for (l = base_list; l; l = l->rhs())
         {       //printf("%d   %d\n",sl->symb->type()->baseType()->variant(),l->lhs()->symbol()->type()->baseType()->variant());  
@@ -9653,7 +9688,7 @@ void ReductionBlockInKernel_On_C_Cuda(SgStatement *stat, SgSymbol *i_var, SgExpr
             if (rsl->array_red_size > 0)
             {
                 SgSymbol *s = rsl->redvar;
-                SgArrayType *arrT = new SgArrayType(*s->type()->baseType());
+                SgArrayType *arrT = new SgArrayType(*C_Type(s->type()->baseType()));
                 arrT->addRange(*new SgValueExp(rsl->array_red_size));
                 SgSymbol *forDecl = new SgVariableSymb(rsl->redvar->identifier(), *arrT, *kernel_st);
                 newst = Declaration_Statement(forDecl);
@@ -9748,7 +9783,7 @@ void ReductionBlockInKernel_On_C_Cuda(SgStatement *stat, SgSymbol *i_var, SgExpr
             if (rsl->array_red_size > 0)
             {
                 SgSymbol *s = rsl->redvar;
-                SgArrayType *arrT = new SgArrayType(*s->type()->baseType());
+                SgArrayType *arrT = new SgArrayType(*C_Type(s->type()->baseType()));
                 arrT->addRange(*new SgValueExp(rsl->array_red_size));
                 SgSymbol *forDecl = new SgVariableSymb(rsl->redvar->identifier(), *arrT, *kernel_st);
                 newst = Declaration_Statement(forDecl);

@@ -504,7 +504,6 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
             for (auto &line : canNotMapToLoop)
             {
                 __spf_print(1, "WARN: can not map write to array '%s' to loop on line %d\n", arrayRefS.c_str(), line);
-
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"can not map write to array '%s' to this loop", to_wstring(arrayRefS).c_str());
 
@@ -1289,6 +1288,9 @@ void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*
         {
             itF = arraysDone.insert(itF, array);
             Symbol *symb = array->GetDeclSymbol();
+            if (array->IsTemplate())
+                continue;
+
             if (symb)
             {
                 auto &sizeInfo = array->GetSizes();
@@ -1717,7 +1719,6 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
         double currentWeight = 1.0;
         while (st != lastNode)
         {
-
             createNeededException();
 
             if (st == NULL)
@@ -1918,35 +1919,45 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
             {
                 SgStatement* before = NULL;
                 // convert IF conditions if access to dist array appears
-                if (currV == IF_NODE && regime == REMOTE_ACC)
+                if (regime == REMOTE_ACC && under_dvm_dir == NULL)
                 {
                     std::stack<SgExpression*> conditions;
                     std::stack<SgStatement*> ifBlocks;
+                    bool needToConv = false;
 
-                    bool needToConv = isNeedToConvertIfCondition(st->expr(0));
-                    conditions.push(st->expr(0));
-                    ifBlocks.push(st);
-
-                    SgIfStmt* ifS = (SgIfStmt*)st;
-                    auto body = ifS->falseBody();
-                    while (body)
+                    if (currV == IF_NODE)
                     {
-                        if (body->variant() == ELSEIF_NODE)
+                        needToConv = isNeedToConvertIfCondition(st->expr(0));
+                        conditions.push(st->expr(0));
+                        ifBlocks.push(st);
+
+                        SgIfStmt* ifS = (SgIfStmt*)st;
+                        auto body = ifS->falseBody();
+                        while (body)
                         {
-                            needToConv = needToConv || isNeedToConvertIfCondition(body->expr(0)->copyPtr());
-                            conditions.push(body->expr(0));
-                            ifBlocks.push(body);
-                        }
-                        else
-                            break;
-                        body = body->lastNodeOfStmt();
+                            if (body->variant() == ELSEIF_NODE)
+                            {
+                                needToConv = needToConv || isNeedToConvertIfCondition(body->expr(0)->copyPtr());
+                                conditions.push(body->expr(0));
+                                ifBlocks.push(body);
+                            }
+                            else
+                                break;
+                            body = body->lastNodeOfStmt();
+                        }                        
+                    }
+                    else if (currV == LOGIF_NODE)
+                    {
+                        needToConv = isNeedToConvertIfCondition(st->expr(0));
+                        conditions.push(st->expr(0));
+                        ifBlocks.push(st);
                     }
 
-                    if (needToConv && !conditions.empty() && under_dvm_dir == NULL)
+                    if (needToConv && !conditions.empty())
                     {
                         auto res = createIfConditions(conditions, ifBlocks, st);
                         before = st->lexPrev();
-                        for (auto &elem : res)
+                        for (auto& elem : res)
                             if (elem)
                                 st->insertStmtBefore(*elem, *st->controlParent());
                         st = before;

@@ -256,6 +256,7 @@ const int RTS2_CREATED      = 1046; /*RTS2*/
 const int HANDLER_HEADER    = 1047; /*ACC*/
 const int MODULE_USE        = 1048; /*ACC*/
 const int DEFERRED_SHAPE    = 1049; 
+const int END_OF_USE_LIST   = 1050; /*ACC*/
 
 const int MAX_LOOP_LEVEL = 10; // 7 - maximal number of loops in parallel loop nest 
 const int MAX_LOOP_NEST = 25;  // maximal number of nested loops
@@ -314,7 +315,9 @@ const int Logical_8 = 12;
 #define TASK_HPS_ARRAY(A) (*((SgSymbol **)(ORIGINAL_SYMBOL(A))->attributeValue(0,TSK_HPS_ARRAY)))
 #define TASK_AUTO(A) ((A)->attributeValue(0,TSK_AUTO))
 #define RTS2_OBJECT(A) ((A)->attributeValue(0,RTS2_CREATED))
-#define AR_COEFFICIENTS(A)  ( (A)->attributeValue(0,ARRAY_COEF) ?  (coeffs *) (A)->attributeValue(0,ARRAY_COEF) : (coeffs *) (ORIGINAL_SYMBOL(A))->attributeValue(0,ARRAY_COEF))
+#define IS_LIST_END(A) ((A)->attributeValue(0,END_OF_USE_LIST))
+/*#define AR_COEFFICIENTS(A)  ( (A)->attributeValue(0,ARRAY_COEF) ?  (coeffs *) (A)->attributeValue(0,ARRAY_COEF) : (coeffs *) (ORIGINAL_SYMBOL(A))->attributeValue(0,ARRAY_COEF))*/
+#define AR_COEFFICIENTS(A)  (DvmArrayCoefficients(A))
 #define MAX_DVM   maxdvm = (maxdvm < ndvm) ? ndvm-1 : maxdvm  
 #define FREE_DVM(A)  maxdvm = (maxdvm < ndvm) ? ndvm-1 : maxdvm;  ndvm-=A  
 #define SET_DVM(A)   maxdvm = (maxdvm < ndvm) ? ndvm-1 : maxdvm;  ndvm=A  
@@ -676,7 +679,9 @@ int   TestShapeSpec(SgExpression *e);
 void  AddToGroupNameList (SgSymbol *s);
 symb_list *AddToSymbList( symb_list *ls, SgSymbol *s);
 symb_list *AddNewToSymbList ( symb_list *ls, SgSymbol *s);
-symb_list  *AddNewToSymbListEnd ( symb_list *ls, SgSymbol *s);
+symb_list *AddNewToSymbListEnd ( symb_list *ls, SgSymbol *s);
+symb_list *MergeSymbList(symb_list *ls1, symb_list *ls2);
+symb_list *CopySymbList(symb_list *ls);
 void  DistArrayRef(SgExpression *e, int modified, SgStatement *st);
 void  GoRoundEntry(SgStatement *stmt);
 void  BeginBlockForEntry(SgStatement *stmt);
@@ -752,6 +757,7 @@ void Triplet(SgExpression *e,SgSymbol *ar,int i, SgExpression *einit[],SgExpress
 void AsynchronousCopy(SgStatement *stmt);
 void CreateCoeffs(coeffs* scoef,SgSymbol *ar);
 SgExpression * coef_ref (SgSymbol *ar, int n);
+coeffs *DvmArrayCoefficients(SgSymbol *ar);
 void DeleteShadowGroups(SgStatement *stmt);
 void InitShadowGroups();
 int doSectionIndex(SgExpression *esec, SgSymbol *ar, SgStatement *st, int idv[], int ileft, SgExpression *lrec[], SgExpression *rrec[]);
@@ -1121,6 +1127,7 @@ SgExpression *CoefficientList();
 SgExpression *ArrayRefList();
 SgExpression *UsedValueRef(SgSymbol *susg,SgSymbol *s);
 SgType *C_Type(SgType *type);
+void UsesInPrivateArrayDeclarations(SgExpression *privates);
 SgExpression *UsesList(SgStatement *first,SgStatement *last);
 void RefInExpr(SgExpression *e, int mode);
 SgStatement *InnerMostLoop(SgStatement *dost,int nloop);
@@ -1480,8 +1487,9 @@ SgStatement *endif_dir();
 SgStatement *else_dir();
 SgExpression *CalculateArrayBound(SgExpression *edim,SgSymbol *ar, int flag_private);
 void ReplaceArrayBoundsInDeclaration(SgExpression *e);
+int ExplicitShape(SgExpression *eShape);
 SgSymbol *ArraySymbolInHostHandler(SgSymbol *ar,SgStatement *scope);
-SgSymbol *DeclareSymbolInHostHandler(SgSymbol *ar, SgStatement *st_hedr, int is_red_var);
+SgSymbol *DeclareSymbolInHostHandler(SgSymbol *var, SgStatement *st_hedr, SgSymbol *loc_var);
 char *RegisterConstName();
 int TightlyNestedLoops_Test(SgStatement *prev_do, SgStatement *dost);
 SgStatement *NextExecStat(SgStatement *st);

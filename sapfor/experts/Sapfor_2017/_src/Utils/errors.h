@@ -83,6 +83,8 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   09 "Can not split this loop because of dependecy: %s"
 //   10 "This loop has indirect child loops  and can not be splitted\n"
 //   11 
+//   12 "for function duplication"
+//   13 "for function duplication"
 
 // 30xx PARALLEL GROUP
 //   01 "add across dependencies by array '%s' to loop"
@@ -248,7 +250,7 @@ static void printStackTrace() { };
     } \
 } while (0)
 
-// Сводобный - R173
+// Сводобный - R175
 // Гайд по русификации сообщений: При добавлении нового сообщения, меняется последний сводобный идентификатор.
 // В этом файле остаются только спецификаторы, для которых будет заполнен текст. Полный текст пишется в файле
 // russian_errors_text.txt. Специикаторы там тоже сохраняются, по ним в визуализаторе будет восстановлен 
@@ -458,6 +460,11 @@ static const wchar_t *R105 = L"R105:";
 static const wchar_t *R106 = L"R106:%s";
 static const wchar_t *R107 = L"R107:%s";
 //2011
+
+//2012
+static const wchar_t* R173 = L"R173:";
+//2013
+static const wchar_t* R174 = L"R174:%s";
 
 //3001
 static const wchar_t *R108 = L"R108:%s";

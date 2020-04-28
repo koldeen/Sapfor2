@@ -1813,7 +1813,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);*/
     }
     else if (curr_regime == DUPLICATE_FUNCTIONS)
-        duplicateFunctions(allFuncInfo, arrayLinksByFuncCalls);
+    {
+        if (!duplicateFunctions(allFuncInfo, arrayLinksByFuncCalls, SPF_messages))
+            internalExit = 1;
+    }
     else if (curr_regime == REMOVE_COPIES)
         removeCopies(allFuncInfo);
     else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
