@@ -7,6 +7,7 @@
 #include "../Utils/utils.h"
 #include "../LoopAnalyzer/shadow.h"
 #include "../GraphLoop/graph_loops.h"
+#include "../Utils/CommonBlock.h"
 
 static const char* paramNames[] = 
 { "NONE_T", "ARRAY_T", "STRING_T", "SCALAR_CHAR_T", "SCALAR_BOOL_T", "SCALAR_SHORT_T", "SCALAR_INT_T", "SCALAR_LONG_INT_T",
@@ -225,4 +226,3 @@ struct CallV
 void propagateArrayFlags(const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays, std::map<std::string, std::vector<Messages>> &SPF_messages);
 void removeDistrStateFromDeadFunctions(const std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo, const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>>& declaredArrays);
 bool detectMpiCalls(const std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo, std::map<std::string, std::vector<Messages>>& SPF_messages);
-void functionCleaning(const std::vector<FuncInfo*>& allFuncInfo);
