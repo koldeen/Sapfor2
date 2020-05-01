@@ -5,48 +5,46 @@ end
 module testA
   real modA
   real fixA
+  integer, private::locA
 end
 
 module testB
   use testA, modB=>modA
-  !real fixA
+  real, private::locB
+  integer arrB
 end
 
-module testC 
-  use testB, modC=>modB
-  !fixA
+module testC
+  use testB, modC=>modB, arrC=>arrB
+  real fixC
 end
 
 module constants
 implicit none
-   real, parameter:: pi = 3.1415926536
-   real, parameter:: e = 2.7182818285
-contains 
-   subroutine show_consts()
-      print*, "Pi = ", pi
-      print*, "e = ", e
-   end subroutine show_consts
+   real, parameter::pi = 3.1415926536
+   real, parameter::e = 2.7182818285
+contains 
+  subroutine show_consts()
+    print*, "Pi = ", pi
+    print*, "e = ", e
+  end subroutine show_consts
 end module constants
 
 module test
-
   use constants, only: pi, p=>pi
 end
 
 subroutine check
   use test
-  use testC !, only: modC
+  use testC!, only: modC
+  !use constants
 implicit none
- 
-  
   integer n,m,k,l,pn,nl,i,j,ii,jj,nnl
   parameter( N = 6,M=8,K=8,L=6, PN = 2,NL=1000)
   integer  A(N,M,K,L), B(N,M,K,L), C(N,M,K,L), D(N,M,K,L)
   integer  AA(N,M,K)
   integer nloopi,nloopj,nloopii,nloopjj,ttt,ttt1 
   character*9 tname
-  !  use constants
-  
   
   write(*,*) modC
   write(*,*) p
@@ -109,7 +107,6 @@ implicit none
 
 end
 
-
 subroutine serial4(AR,N,M,K,L,NL)     
   integer AR(N,M,K,L)
   integer NL 
@@ -125,7 +122,6 @@ subroutine serial4(AR,N,M,K,L,NL)
   enddo
 
 end
-
 
 subroutine ansyes(name)
   character*9 name

@@ -3143,7 +3143,7 @@ static void recFillUsedVars(SgStatement *st, SgExpression *exp, map<string, SgSy
 {
     if (exp)
     {
-        if ((exp->variant() == VAR_REF || exp->variant() == ARRAY_REF) && exp->symbol())
+        if (exp->symbol() && (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF) && !(exp->symbol()->attributes() & PRIVATE_BIT))
         {
             if (vars.find(exp->symbol()->identifier()) == vars.end())
                 vars.insert(make_pair<string, SgSymbol*>(exp->symbol()->identifier(), exp->symbol()));
