@@ -645,7 +645,7 @@ static void printParInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
     cout << endl;
 }
 
-static void findContainsFunctions(SgStatement *st, vector<SgStatement*> &found)
+void findContainsFunctions(SgStatement *st, vector<SgStatement*> &found)
 {
     SgStatement *end = st->lastNodeOfStmt();
 

@@ -3121,7 +3121,7 @@ int getNextFreeLabel()
     return -1;
 }
 
-//TODO: what about contains ??? need to improve this function
+//TODO: about contains: need to check this function
 void fillUsedModulesInFunction(SgStatement *st, vector<SgStatement*> &useStats)
 {
     checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
@@ -3137,6 +3137,26 @@ void fillUsedModulesInFunction(SgStatement *st, vector<SgStatement*> &useStats)
     for (SgStatement *stat = st->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
         if (stat->variant() == USE_STMT)
             useStats.push_back(stat);
+
+    bool found = false;
+    for (int i = 0; i < current_file->numberOfFunctions(); ++i)
+    {
+        vector<SgStatement*> funcStats;
+        findContainsFunctions(current_file->functions(i), funcStats);
+        for (auto &funcSt : funcStats)
+        {
+            if (st = funcSt)
+            {
+                found = true;
+                for (SgStatement *stat = current_file->functions(i)->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
+                    if (stat->variant() == USE_STMT)
+                        useStats.push_back(stat);
+                    else if (stat->variant() == CONTAINS_STMT)
+                        break;
+                break;
+            }
+        }
+    }
 }
 
 static void recFillUsedVars(SgStatement *st, SgExpression *exp, map<string, SgSymbol*> &vars)
@@ -3226,11 +3246,15 @@ void fillVisibleInUseVariables(SgStatement *useSt, map<string, SgSymbol*> &vars)
                 {
                     if (modName == modules[i]->symbol()->identifier())
                     {
+                        found = true;
+
                         vector<SgStatement*> useStats;
                         for (SgStatement *st = modules[i]->lexNext(); st != modules[i]->lastNodeOfStmt(); st = st->lexNext())
                         {
                             if (st->variant() == USE_STMT)
                                 useStats.push_back(st);
+                            else if (st->variant() == CONTAINS_STMT)
+                                break;
                             else
                                 fillUsedVars(st, localVars);
                         }
@@ -3242,7 +3266,6 @@ void fillVisibleInUseVariables(SgStatement *useSt, map<string, SgSymbol*> &vars)
                             joinMaps(useVars, visibleVars);
                         }
 
-                        found = true;
                         break;
                     }
                 }

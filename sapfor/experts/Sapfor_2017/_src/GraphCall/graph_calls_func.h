@@ -44,5 +44,6 @@ void propagateWritesToArrays(std::map<std::string, std::vector<FuncInfo*>> &allF
 void detectCopies(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 void fillInterfaceBlock(std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo);
 parF detectExpressionType(SgExpression* exp);
+void findContainsFunctions(SgStatement *st, std::vector<SgStatement*> &found);
 #endif
 
