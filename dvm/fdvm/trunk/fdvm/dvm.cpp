@@ -564,7 +564,8 @@ void initialize()
     options.setOn(C_CUDA);      /*ACC*/
     options.setOn(NO_BL_INFO);  /*ACC*/
     parloop_by_handler = 0;     /*ACC*/
-    collapse_loop_count = 0;     /*ACC*/
+    collapse_loop_count = 0;    /*ACC*/
+    cuda_functions = 0;         /*ACC*/
 }
 
 SgSymbol *LastSymbolOfFile(SgFile *f)
@@ -2112,6 +2113,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
     
     switch(stmt->variant()) {
        case(ACC_ROUTINE_DIR):
+           ACC_ROUTINE_Directive(stmt); 
            continue;
        case(HPF_TEMPLATE_STAT):
            if(IN_MODULE && stmt->expr(1))
@@ -13350,12 +13352,23 @@ SgStatement *InterfaceBlock(SgStatement *hedr)
 }
 
 SgStatement *InterfaceBody(SgStatement *hedr)
-{ SgStatement *stmt, *last, *dvm_pred;
+{ 
+ SgStatement *stmt, *last, *dvm_pred;
  symb_list *distsym;
+ SgSymbol *s = hedr->symbol();
  distsym = NULL;
  dvm_pred = NULL;
+ 
+ if (hedr->expr(2))
+ {
+    if (hedr->expr(2)->variant() == PURE_OP)
+       SYMB_ATTR(s->thesymb) = SYMB_ATTR(s->thesymb) | PURE_BIT;
+   
+    else if (hedr->expr(2)->variant() == ELEMENTAL_OP)
+       SYMB_ATTR(s->thesymb) = SYMB_ATTR(s->thesymb) | ELEMENTAL_BIT;
+ }
  last = hedr->lastNodeOfStmt();
-
+ 
  for(stmt=hedr->lexNext(); stmt; stmt=stmt->lexNext()) {
     if(dvm_pred)
        Extract_Stmt(dvm_pred); // deleting preceding DVM-directive
@@ -13430,8 +13443,8 @@ SgStatement *InterfaceBody(SgStatement *hedr)
 
       case (DVM_VAR_DECL):
           { SgExpression *el;
-	  int eda;
-	  eda = 0;
+	    int eda;
+	    eda = 0;
             for(el = stmt->expr(2); el; el=el->rhs()) // looking through the attribute list
 	      switch(el->lhs()->variant()) {
 	          case (ALIGN_OP):
@@ -13455,9 +13468,13 @@ SgStatement *InterfaceBody(SgStatement *hedr)
               if(!IS_POINTER(sl->lhs()->symbol()))        
                 distsym = AddNewToSymbList(distsym,sl->lhs()->symbol());
          }
-         dvm_pred = stmt; 
-	 continue;
+           dvm_pred = stmt; 
+	   continue;
        case (ACC_ROUTINE_DIR):
+           ACC_ROUTINE_Directive(stmt);
+           dvm_pred = stmt;  
+           continue;
+
        case (HPF_TEMPLATE_STAT):
        case (HPF_PROCESSORS_STAT):
        case (DVM_DYNAMIC_DIR):
@@ -13471,9 +13488,9 @@ SgStatement *InterfaceBody(SgStatement *hedr)
        case (DVM_POINTER_DIR): 
        case (DVM_HEAP_DIR):
        case (DVM_ASYNCID_DIR):
-	  dvm_pred = stmt;  
+	   dvm_pred = stmt;  
        default:
-	 continue; 
+	   continue; 
     }
 
     break;
@@ -14418,3 +14435,4 @@ int TestMaxDims(SgExpression *list, SgSymbol *ar, SgStatement *stmt)
    else
       return 1;      
 }
+

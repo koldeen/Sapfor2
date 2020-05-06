@@ -257,6 +257,7 @@ const int HANDLER_HEADER    = 1047; /*ACC*/
 const int MODULE_USE        = 1048; /*ACC*/
 const int DEFERRED_SHAPE    = 1049; 
 const int END_OF_USE_LIST   = 1050; /*ACC*/
+const int ROUTINE_ATTR      = 1051; /*ACC*/
 
 const int MAX_LOOP_LEVEL = 10; // 7 - maximal number of loops in parallel loop nest 
 const int MAX_LOOP_NEST = 25;  // maximal number of nested loops
@@ -414,6 +415,7 @@ const int Logical_8 = 12;
 #define HEADER_FOR_HANDLER(A)  ( (SgSymbol **)(A)->attributeValue(0,HANDLER_HEADER) )
 #define USE_STATEMENTS_ARE_REQUIRED ( (int *) first_do_par->attributeValue(0,MODULE_USE) )
 #define DEFERRED_SHAPE_TEMPLATE(A) ( (ORIGINAL_SYMBOL(A))->attributeValue(0,DEFERRED_SHAPE) )
+#define HAS_ROUTINE_ATTR(A) ((A)->attributeValue(0,ROUTINE_ATTR))
 
 EXTERN
 SgFunctionSymb * fdvm [MAX_LIBFUN_NUM];
@@ -580,7 +582,7 @@ EXTERN SgConstantSymb *region_const[Nregim];                       /*ACC*/
 EXTERN SgExpression *cuda_block;                                   /*ACC*/
 EXTERN SgExpression *allocated_list;                               /*ACC*/
 EXTERN SgStatement *first_do_par;                                  /*ACC*/
-EXTERN int in_checksection,undefined_Tcuda;                        /*ACC*/
+EXTERN int in_checksection,undefined_Tcuda, cuda_functions;        /*ACC*/
 EXTERN symb_list *RGname_list;                                     /*ACC*/
 EXTERN int parloop_by_handler; //set to 1 by option -Opl and       /*ACC*/
                                //    to 2 by option -Opl2
@@ -945,6 +947,8 @@ void InOutSpecification(SgExpression *ea, SgExpression* e_spec[]);
 /*  acc.cpp */
 SgStatement *RegistrateDVMArray(SgSymbol *ar,int ireg,int inflag,int outflag);
 void RegisterVariablesInRegion(SgExpression *evl, int intent, int irgn);
+int TargetsList(SgExpression *tgs);
+void ACC_ROUTINE_Directive(SgStatement *stmt);
 SgStatement *ACC_REGION_Directive(SgStatement *stmt);
 SgStatement *ACC_END_REGION_Directive(SgStatement *stmt);
 SgStatement *ACC_DATA_REGION_Directive(SgStatement *stmt);
@@ -1383,7 +1387,10 @@ void CleanAllocatedList();
 SgStatement *CreateIndirectDistributionProcedure(SgSymbol *sProc,symb_list *paramList,symb_list *dummy_index_list,SgExpression *derived_elem_list,int flag);
 SgExpression *FirstArrayElementSubscriptsForHandler(SgSymbol *ar);
 SgSymbol *HeaderSymbolForHandler(SgSymbol *ar);
-
+void TestRoutineAttribute(SgSymbol *s, SgStatement *routine_interface);
+int LookForRoutineDir(SgStatement *interfaceFunc);
+SgStatement *Interface(SgSymbol *s);
+SgStatement *getInterface(SgSymbol *s);
 /*   acc_analyzer.cpp   */
 //void Private_Vars_Analyzer(SgStatement *firstSt, SgStatement *lastSt);
 //void Private_Vars_Function_Analyzer(SgStatement* start);
@@ -2077,17 +2084,20 @@ void Arg_FunctionCallSearch(SgExpression *e) ;
 void FunctionCallSearch_Left(SgExpression *e);
 void Call_Site (SgSymbol *s, int inlined);
 SgSymbol * GetProcedureHeaderSymbol(SgSymbol *s);
+void MarkAsRoutine(SgSymbol *s);
 void MarkAsCalled(SgSymbol *s);
 void MarkAsUserProcedure(SgSymbol *s);
 void MakeFunctionCopy(SgSymbol *s);
 SgStatement *HeaderStatement(SgSymbol *s);
 void InsertCalledProcedureCopies();
-SgStatement *InsertProcedureCopy(SgStatement *st_header, SgSymbol *sproc, SgStatement *after);
+SgStatement *InsertProcedureCopy(SgStatement *st_header, SgSymbol *sproc, int is_routine, SgStatement *after);
+int FromOtherFile(SgSymbol *s);
 int IsPureProcedure(SgSymbol *s);
 int IsElementalProcedure(SgSymbol *s);
 int IsRecursiveProcedure(SgSymbol *s);
 int IsNoBodyProcedure(SgSymbol *s);
 int isUserFunction(SgSymbol *s);
+int IsInternalProcedure(SgSymbol *s);
 SgExpression *FunctionDummyList(SgSymbol *s);
 char *FunctionResultIdentifier(SgSymbol *sfun);
 SgSymbol *isSameNameInProcedure(char *name, SgSymbol *sfun);
@@ -2098,10 +2108,12 @@ void ExtractDeclarationStatements(SgStatement *header);
 void MakeFunctionDeclarations(SgStatement *header, SgSymbol *s_last);
 SgSymbol *LastSymbolOfFunction(SgStatement *header);
 void ConvertArrayReferences(SgStatement *first, SgStatement *last);
-void doPrototype(SgStatement *func_hedr, SgStatement *block_header);
+void doPrototype(SgStatement *func_hedr, SgStatement *block_header, int static_flag);
 SgStatement *FunctionPrototype(SgSymbol *sf);
 bool CreateIntefacePrototype(SgStatement *header);
-
+SgStatement *hasInterface(SgSymbol *s);
+void SaveInterface(SgSymbol *s, SgStatement *interface);
+SgStatement  *TranslateProcedureHeader_To_C(SgStatement *new_header);
 //-----------------------------------------------------------------------
 extern "C" char* funparse_bfnd(...);
 extern "C" char* Tool_Unparse2_LLnode(...);

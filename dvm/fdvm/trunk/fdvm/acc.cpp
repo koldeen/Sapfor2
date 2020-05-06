@@ -289,7 +289,7 @@ void InitializeInFuncACC()
 
 int GeneratedForCuda()
 {
-    return (kernel_st ? 1 : 0);
+    return (kernel_st || cuda_functions ? 1 : 0);
 }
 
 
@@ -1210,6 +1210,34 @@ SgStatement *ACC_Directive(SgStatement *stmt)
 
 }
 
+void ACC_ROUTINE_Directive(SgStatement *stmt)
+{
+    if( options.isOn(NO_CUDA) )
+        return;
+    int control_variant =  stmt->controlParent()->controlParent()->variant();
+    if (control_variant == INTERFACE_STMT || control_variant == INTERFACE_OPERATOR || control_variant == INTERFACE_ASSIGNMENT)
+    {
+        stmt->controlParent()->symbol()->addAttribute(ROUTINE_ATTR, (void*)1, 0);
+        return;
+    }
+    else if (control_variant != GLOBAL)
+    {
+        err("Misplaced directive",103,stmt);
+        return;
+    }      
+    if (!mod_gpu_symb)
+        CreateGPUModule();
+    int targets = stmt->expr(0) ? TargetsList(stmt->expr(0)->lhs()) : dvmh_targets;
+    targets = targets & dvmh_targets;
+    SgSymbol *s = stmt->controlParent()->symbol();
+    if(!s)
+        return; 
+    if(targets & CUDA_DEVICE)
+        MarkAsCalled(s);
+    MarkAsRoutine(s);
+    return;
+}
+
 SgStatement *ACC_ACTUAL_Directive(SgStatement *stmt)
 {
     SgExpression *e, *el;
@@ -1426,6 +1454,8 @@ SgStatement *ACC_REGION_Directive(SgStatement *stmt)
         eop = el->lhs();
         if (eop->variant() == ACC_TARGETS_OP)
         {
+            user_targets =  TargetsList(eop->lhs());
+         /*
             for (tl = eop->lhs(); tl; tl = tl->rhs())
             if (tl->lhs()->variant() == ACC_CUDA_OP)
                 //targets[CUDA] = 1;
@@ -1434,7 +1464,7 @@ SgStatement *ACC_REGION_Directive(SgStatement *stmt)
                 //targets[HOST] = 1;
                 user_targets = user_targets | HOST_DEVICE;
             //targets_on = 1;
-
+          */
             continue;
         }
         if (eop->variant() == ACC_ASYNC_OP)
@@ -1498,6 +1528,17 @@ SgStatement *ACC_REGION_Directive(SgStatement *stmt)
     return(cur_st);
 }
 
+int TargetsList(SgExpression *tgs)
+{
+    SgExpression *tl;
+    int user_targets = 0;
+    for (tl = tgs; tl; tl = tl->rhs())
+        if (tl->lhs()->variant() == ACC_CUDA_OP)
+            user_targets = user_targets | CUDA_DEVICE;
+        else if (tl->lhs()->variant() == ACC_HOST_OP)
+            user_targets = user_targets | HOST_DEVICE;
+    return (user_targets); 
+}
 
 void RegisterVariablesInRegion(SgExpression *evl, int intent, int irgn)
 {
@@ -1750,7 +1791,7 @@ void doNotForCuda()
 
 int isForCudaRegion()
 {
-    if (cur_region->targets & CUDA_DEVICE)
+    if (cur_region && cur_region->targets & CUDA_DEVICE)
         return(1);
     else
         return(0);
@@ -4175,7 +4216,9 @@ void Call(SgSymbol *s, SgExpression *e)
             Error("Call of statement function  %s in region", s->identifier(), 581, cur_st);
         return;
     }
-
+    if (IsInternalProcedure(s) && analyzing)
+        Error(" Call of the procedure %s in a region, which is internal/module procedure", s->identifier(), 580, cur_st);
+   
     if (!isUserFunction(s) && isIntrinsicFunctionName(s->identifier())) //IsNoBodyProcedure(s)
     {
         RefInExpr(e, _READ_);
@@ -4185,10 +4228,10 @@ void Call(SgSymbol *s, SgExpression *e)
 //if (inparloop || IN_STATEMENT_GROUP(cur_st))
 //{
     if (analyzing)
-    {
+    {  
         if (!IsPureProcedure(s) || IS_BY_USE(s))
         {
-            Warning(" Call of the procedure %s in a region, which is not  pure or is module procedure", s->identifier(), 580, cur_st);
+            Warning(" Call of the procedure %s in a region, which is not pure or is module procedure", s->identifier(), 580, cur_st);
             doNotForCuda();
         }
     }
@@ -4208,7 +4251,6 @@ void Call(SgSymbol *s, SgExpression *e)
 
     return;
 }
-
 
 SgExpression * AddListToList(SgExpression *list, SgExpression *el)
 {
@@ -4847,7 +4889,8 @@ void UnparseTo_CufAndCu_Files(SgFile *f, FILE *fout_cuf, FILE *fout_C_cu, FILE *
         if (block_C_Cuda)
             block_C_Cuda->extractStmt();
         mod_gpu->extractStmt();
-        block_C->extractStmt();
+        if(block_C)
+            block_C->extractStmt();
         return;
     }
 
@@ -4861,16 +4904,22 @@ void UnparseTo_CufAndCu_Files(SgFile *f, FILE *fout_cuf, FILE *fout_C_cu, FILE *
         }
         // unparsing C-Cuda  block to fout_C_cu
         //block_C_Cuda->setVariant(EXTERN_C_STAT);  //10.12.13
-        fprintf(fout_C_cu, "%s", UnparseBif_Char(block_C_Cuda->thebif, C_LANG));
-        block_C_Cuda->extractStmt();
+        if ( block_C_Cuda)
+        {
+            fprintf(fout_C_cu, "%s", UnparseBif_Char(block_C_Cuda->thebif, C_LANG));
+            block_C_Cuda->extractStmt();
+        }
         // unparsing Module of C-Cuda-kernels to fout_C_cu
         //mod_gpu ->setVariant(EXTERN_C_STAT);  //10.12.13//26.12.14
         fprintf(fout_C_cu, "%s", UnparseBif_Char(mod_gpu->thebif, C_LANG));
         mod_gpu->extractStmt();
         // unparsing C Adapter Functions to fout_C_cu
-        block_C->setVariant(EXTERN_C_STAT);
-        fprintf(fout_C_cu, "%s", UnparseBif_Char(block_C->thebif, C_LANG));
-        block_C->extractStmt();
+        if (block_C)
+        {
+            block_C->setVariant(EXTERN_C_STAT);
+            fprintf(fout_C_cu, "%s", UnparseBif_Char(block_C->thebif, C_LANG));
+            block_C->extractStmt();
+        }
         return;
     }
 
@@ -4886,9 +4935,12 @@ void UnparseTo_CufAndCu_Files(SgFile *f, FILE *fout_cuf, FILE *fout_C_cu, FILE *
     }
     // unparsing C Adapter Functions to fout_C_cu   (!! C before Fortran because tabulation )
     //block_C->setSymbol(*mod_gpu_symb);
-    block_C->setVariant(EXTERN_C_STAT);
-    fprintf(fout_C_cu, "%s", UnparseBif_Char(block_C->thebif, C_LANG));
-    block_C->extractStmt();
+    if (block_C)
+    {
+        block_C->setVariant(EXTERN_C_STAT);
+        fprintf(fout_C_cu, "%s", UnparseBif_Char(block_C->thebif, C_LANG));
+        block_C->extractStmt();
+    }
     // unparsing Module of Fortran-Cuda-kernels to fout_cuf (!!Fortran after C because tabulation)
     fprintf(fout_cuf, "%s", UnparseBif_Char(mod_gpu->thebif, FORTRAN_LANG));
     mod_gpu->extractStmt();
@@ -5139,6 +5191,22 @@ SgExpression * TranslateReductionToOpenmp(SgExpression *reduction_clause)  /* Op
     }
     return OpenMPReductions;
 }
+
+SgStatement *Interface(SgSymbol *s)
+{
+    SgStatement *interface = hasInterface(s); 
+    if (!interface)
+    {
+        interface = getInterface(s);
+        if (isForCudaRegion())
+        { 
+            SaveInterface(s,interface); 
+            MarkAsUserProcedure(s);
+        } 
+    }
+    return interface;
+}
+
 SgStatement *getInterface(SgSymbol *s)
 {
     enum { SEARCH_INTERFACE, CHECK_INTERFACE, FIND_NAME };
@@ -5173,8 +5241,21 @@ SgStatement *getInterface(SgSymbol *s)
             }
             else
             {
-                mode = FIND_NAME;
-                searchStmt = searchStmt->lexNext();
+                if(searchStmt->symbol())
+                {
+                    // not implemented yet for Cuda!!!!
+                    if(isForCudaRegion() && analyzing)
+                    {  
+                        Warning("Generic interface is not supported for Cuda: %s",searchStmt->symbol()->identifier(),647,searchStmt);
+                        doNotForCuda();
+                    }
+                    return searchStmt;
+                }
+                else
+                {
+                    mode = FIND_NAME;
+                    searchStmt = searchStmt->lexNext();
+                }
             }
             break;
         case FIND_NAME:
@@ -5198,6 +5279,7 @@ SgStatement *getInterface(SgSymbol *s)
     return NULL;
 }
 
+/*
 SgStatement *checkInternal(SgSymbol *s)
 {
     enum { SEARCH_INTERNAL, SEARCH_CONTAINS };
@@ -5229,24 +5311,51 @@ SgStatement *checkInternal(SgSymbol *s)
     }
     return NULL;
 }
+*/
+
+void TestRoutineAttribute(SgSymbol *s, SgStatement *routine_interface)
+{
+    if (isForCudaRegion() && FromOtherFile(s) && !routine_interface)
+        Error("Interface with ROUTINE specification is required for %s", s->identifier(), 646, routine_interface ? routine_interface : cur_func);
+}
+
+/*
+int LookForRoutineDir( SgStatement *interfaceFunc )
+{
+    SgStatement *st;
+    for(st=interfaceFunc->lexNext(); st->variant() != CONTROL_END; st=st->lexNext())
+                if(st->variant() == ACC_ROUTINE_DIR)
+                    return 1; 
+    return 0;
+}
+*/
 
 void CreateCalledFunctionDeclarations(SgStatement *st_hedr)
 {
     symb_list *sl;
     SgStatement *contStmt = st_hedr->lastNodeOfStmt();
+    int has_routine_attr = 0;
 
     for (sl = acc_call_list; sl; sl = sl->next)
     {
-        if ((sl->symb->variant() == FUNCTION_NAME || sl->symb->variant() == PROCEDURE_NAME) && !IS_BY_USE(sl->symb))
+        if ((sl->symb->variant() == FUNCTION_NAME || sl->symb->variant() == PROCEDURE_NAME || sl->symb->variant() == INTERFACE_NAME) && !IS_BY_USE(sl->symb))
         {
             SgStatement *interfaceFunc = getInterface(sl->symb);
             if (interfaceFunc != NULL)
-            {
-                SgStatement *block = new SgStatement(INTERFACE_STMT);
-                block->insertStmtAfter(*new SgStatement(CONTROL_END), *block);
-                block->insertStmtAfter(interfaceFunc->copy(), *block);
-                st_hedr->insertStmtAfter(*block, *st_hedr);
+            {    
+                if(interfaceFunc->variant() == INTERFACE_STMT)  
+                    st_hedr->insertStmtAfter(interfaceFunc->copy(), *st_hedr);
+                else
+                { 
+                    SgStatement *block = new SgStatement(INTERFACE_STMT);
+                    block->insertStmtAfter(*new SgStatement(CONTROL_END), *block);
+                    block->insertStmtAfter(interfaceFunc->copy(), *block);
+                    st_hedr->insertStmtAfter(*block, *st_hedr);
+                    if (isForCudaRegion() && HAS_ROUTINE_ATTR(interfaceFunc->symbol())) 
+                        has_routine_attr = 1;
+                }
             }
+          /*
             else if (interfaceFunc = checkInternal(sl->symb))
             {
                 if (contStmt->variant() == CONTROL_END)
@@ -5256,8 +5365,10 @@ void CreateCalledFunctionDeclarations(SgStatement *st_hedr)
                 }
                 contStmt->insertStmtAfter(interfaceFunc->copy(), *st_hedr);
             }
+          */ 
             else if(sl->symb->variant() == FUNCTION_NAME)
                 st_hedr->insertStmtAfter(*sl->symb->makeVarDeclStmt(), *st_hedr);
+            TestRoutineAttribute(sl->symb, has_routine_attr ? interfaceFunc : NULL);
         }
     }
 }
@@ -9248,17 +9359,19 @@ void DeclareDummyArgumentsForReductions(SgSymbol *red_count_symb, SgType *idxTyp
 
     st = NULL;
     for (rsl = red_struct_list; rsl; rsl = rsl->next)
-    for (el = rsl->dimSize_arg; el; el = el->rhs())    // reduction variable is array of unknown size
     {
-        st = el->lhs()->symbol()->makeVarDeclStmt();
-        st->setExpression(2, *eatr);
-        kernel_st->insertStmtAfter(*st);
-    }
-    for (el = rsl->lowBound_arg; el; el = el->rhs())    // reduction variable is array of unknown size
-    {
-        st = el->lhs()->symbol()->makeVarDeclStmt();
-        st->setExpression(2, *eatr);
-        kernel_st->insertStmtAfter(*st);
+        for (el = rsl->dimSize_arg; el; el = el->rhs())    // reduction variable is array of unknown size
+        {
+            st = el->lhs()->symbol()->makeVarDeclStmt();
+            st->setExpression(2, *eatr);
+            kernel_st->insertStmtAfter(*st);
+        }
+        for (el = rsl->lowBound_arg; el; el = el->rhs())    // reduction variable is array of unknown size
+        {
+            st = el->lhs()->symbol()->makeVarDeclStmt();
+            st->setExpression(2, *eatr);
+            kernel_st->insertStmtAfter(*st);
+        }
     }
     if (st)
         st->addComment("! Bounds of reduction arrays \n");
