@@ -190,7 +190,7 @@ static bool isIntrinsicFunctionNameACC(char* name)
 
 int SwitchFile(int file_id)
 {
-    if (file_id == current_file_id)
+    if (file_id == current_file_id || file_id == -1)
         return file_id;
     int stored_file_id = current_file_id;
     current_file_id = file_id;
