@@ -659,6 +659,8 @@ void findContainsFunctions(SgStatement *st, vector<SgStatement*> &found)
                 found.push_back(st);
                 st = st->lastNodeOfStmt();
             }
+            else if (st->variant() == CONTAINS_STMT)
+                break;
         }
 
         if (st->variant() == CONTAINS_STMT)

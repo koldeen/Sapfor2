@@ -1263,8 +1263,7 @@ static bool isVarUsed(SgStatement *st, const string &varName, bool doNotGetFuncS
 
 static bool isModuleVar(SgStatement *st,
                         SgStatement *attributeStatement, 
-                        const string &varName,
-                        const vector<SgStatement*> &modules)
+                        const string &varName)
 {
     auto moduleSymbols = moduleRefsByUseInFunction(st);
     // check renamed vars
@@ -1292,13 +1291,10 @@ static bool checkCheckpointVarsDecl(SgStatement *st,
                                     vector<Messages> &messagesForFile)
 {
     bool retVal = true;
-    vector<SgStatement*> modules;
-    findModulesInFile(st->getFile(), modules);
     for (auto &varS : vars)
     {
         auto var = varS->GetOriginal();
-        // TODO: test checking of module variables
-        bool module = isModuleVar(st, attributeStatement, var->identifier(), modules);
+        bool module = isModuleVar(st, attributeStatement, var->identifier());
         if (!module)
         {
             bool local = isVarUsed(st, var->identifier());
