@@ -645,7 +645,7 @@ static void printParInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
     cout << endl;
 }
 
-void findContainsFunctions(SgStatement *st, vector<SgStatement*> &found)
+void findContainsFunctions(SgStatement *st, vector<SgStatement*> &found, const bool searchAll)
 {
     SgStatement *end = st->lastNodeOfStmt();
 
@@ -657,9 +657,9 @@ void findContainsFunctions(SgStatement *st, vector<SgStatement*> &found)
             if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
             {
                 found.push_back(st);
-                st = st->lastNodeOfStmt();
+                st = searchAll? st : st->lastNodeOfStmt();
             }
-            else if (st->variant() == CONTAINS_STMT)
+            else if (!searchAll && st->variant() == CONTAINS_STMT)
                 break;
         }
 

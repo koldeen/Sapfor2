@@ -3144,7 +3144,7 @@ void fillUsedModulesInFunction(SgStatement *st, vector<SgStatement*> &useStats)
         findContainsFunctions(current_file->functions(i), funcStats);
         for (auto &funcSt : funcStats)
         {
-            if (st = funcSt)
+            if (st == funcSt)
             {
                 for (SgStatement *stat = current_file->functions(i)->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
                     if (stat->variant() == USE_STMT)
@@ -3156,16 +3156,15 @@ void fillUsedModulesInFunction(SgStatement *st, vector<SgStatement*> &useStats)
         }
     }
 
-    // TODO: check USE statements in containing module
     vector<SgStatement*> modules;
     findModulesInFile(st->getFile(), modules);
     for (auto &module : modules)
     {
         vector<SgStatement*> funcStats;
-        findContainsFunctions(module, funcStats);
+        findContainsFunctions(module, funcStats, true);
         for (auto &funcSt : funcStats)
         {
-            if (st = funcSt)
+            if (st == funcSt)
             {
                 for (SgStatement *stat = module; stat != module->lastNodeOfStmt(); stat = stat->lexNext())
                     if (stat->variant() == USE_STMT)
