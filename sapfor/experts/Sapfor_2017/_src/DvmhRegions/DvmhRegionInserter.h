@@ -36,8 +36,10 @@ class DvmhRegionInserter
     // input data
     SgFile *file;
     const std::vector<LoopGraph*> &loopGraph;
+    const std::map<std::string, FuncInfo*>& allFunctions;
+
     ReadWriteAnalyzer& rw_analyzer;
-    std::map<std::string, std::string> parallel_functions;  // fun_name -> file_name
+    std::set<FuncInfo*> parallel_functions;
     std::set<DIST::Array*> writesToArraysInParallelLoop;
     std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls;
     // operating data
@@ -64,12 +66,13 @@ public:
         SgFile* curFile,
         const std::vector<LoopGraph*>& curLoopGraph,
         ReadWriteAnalyzer& rws,
-        std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls
-    ) : file(curFile), loopGraph(curLoopGraph), rw_analyzer(rws), arrayLinksByFuncCalls(arrayLinksByFuncCalls) { }
+        std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls,
+        const std::map<std::string, FuncInfo*>& allFunctions
+    ) : file(curFile), loopGraph(curLoopGraph), rw_analyzer(rws), arrayLinksByFuncCalls(arrayLinksByFuncCalls), allFunctions(allFunctions) { }
 
     void insertDirectives(const std::vector<ParallelRegion*>* regs = NULL);
-
-    void updateParallelFunctions(const std::map<std::string, std::vector<LoopGraph*>>& loopGraphs, const std::map<std::string, std::vector<FuncInfo*>> &callGraphs);
+    void updateParallelFunctions(const std::map<std::string, std::vector<LoopGraph*>>& loopGraphs);
+    void createInterfaceBlock();
 
     ~DvmhRegionInserter()
     {

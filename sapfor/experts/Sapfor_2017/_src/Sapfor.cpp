@@ -994,18 +994,21 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
         else if (curr_regime == INSERT_REGIONS)
         {
+            map<string, FuncInfo*> mapOfFuncs;
+            createMapOfFunc(allFuncInfo, mapOfFuncs);
+
             auto loopForFile = getObjectForFileFromMap(file_name, loopGraph);
-            DvmhRegionInserter regionInserter(file, loopForFile, rw_analyzer, arrayLinksByFuncCalls);
+            DvmhRegionInserter regionInserter(file, loopForFile, rw_analyzer, arrayLinksByFuncCalls, mapOfFuncs);
 
             //collect info about <parallel> functions
-            regionInserter.updateParallelFunctions(loopGraph, allFuncInfo);
+            regionInserter.updateParallelFunctions(loopGraph);
             
             if (parallelRegions.size() == 0 && parallelRegions[0]->GetName() == "DEFAULT")
                 regionInserter.insertDirectives(NULL);
             else
                 regionInserter.insertDirectives(&parallelRegions);
 
-            //remove private from loops out of DVMH region
+            //remove privates from loops out of DVMH region
             map<int, LoopGraph*> mapLoopGraph;
             createMapLoopGraph(loopForFile, mapLoopGraph);
             for (auto& loopPair : mapLoopGraph)
@@ -1029,6 +1032,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     }
                 }
             }
+
+            //create interface for 'parallel' functions
+            regionInserter.createInterfaceBlock();
         }
         else if (curr_regime == VERIFY_FUNC_DECL)
         {

@@ -11,10 +11,6 @@ using namespace std;
 #define DVMH_REG_RD 0
 #define DVMH_REG_WT 1
 
-typedef set<string> Calls;
-typedef map<string, Calls> FuncsWithCalls;
-typedef map<string, FuncsWithCalls> FuncsInfoByFile;
-
 void DvmhRegionInserter::findEdgesForRegions(const vector<LoopGraph*> &loops)
 {
     for (auto &loopNode : loops)
@@ -90,7 +86,16 @@ void DvmhRegionInserter::parFuncsInNode(LoopGraph *loop, bool isParallel)
     if (isParallel)
     {
         for (auto& call : loop->calls)  // mark call as parallel
-            parallel_functions[call.first] = loop->fileName;
+        {
+            auto it = allFunctions.find(call.first);
+            if (it == allFunctions.end())
+            {
+                if (!isIntrinsicFunctionName(call.first.c_str()))
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+            else
+                parallel_functions.insert(it->second);
+        }
         writesToArraysInParallelLoop.insert(loop->usedArraysWriteAll.begin(), loop->usedArraysWriteAll.end());
     }
     else    
@@ -98,12 +103,11 @@ void DvmhRegionInserter::parFuncsInNode(LoopGraph *loop, bool isParallel)
             parFuncsInNode(nestedLoop, isParallel);
 }
 
-void DvmhRegionInserter::updateParallelFunctions(const map<string, vector<LoopGraph*>> &loopGraphs, const map<string, vector<FuncInfo*>> &callGraphs)
+void DvmhRegionInserter::updateParallelFunctions(const map<string, vector<LoopGraph*>> &loopGraphs)
 {    
     for (auto& loopGraph : loopGraphs)
     {
         auto save = current_file->filename();
-
         if (SgFile::switchToFile(loopGraph.first) == -1)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         for (auto& loopNode : loopGraph.second)
@@ -121,41 +125,26 @@ void DvmhRegionInserter::updateParallelFunctions(const map<string, vector<LoopGr
         getRealArrayRefs(elem, elem, newSet, arrayLinksByFuncCalls);
     writesToArraysInParallelLoop = newSet;
 
-    //TODO: check this
-    FuncsInfoByFile funcsInfo;
-    for (auto &file : callGraphs)
-    {
-        funcsInfo[file.first] = FuncsWithCalls();
-
-        for (auto &func : file.second)
-        {
-            funcsInfo[file.first][func->funcName] = Calls();
-
-            for (auto &call : func->callsFrom)
-                funcsInfo[file.first][func->funcName].insert(call);
-        }
-
-    }
-
     bool changes_done = true;
     while (changes_done)
     {
         changes_done = false;
-
-        for (auto &funcs : parallel_functions)
+        set<FuncInfo*> newList;
+        for (auto& func : allFunctions)
         {
-            auto file_name = funcs.second;
-            auto calls = funcsInfo[file_name][funcs.first];
-
-            for (auto &call : calls)
+            for (auto& callsTo : func.second->callsTo)
             {
-                if (parallel_functions.find(call) == parallel_functions.end())
+                if (parallel_functions.find(callsTo) != parallel_functions.end() && 
+                    parallel_functions.find(func.second) == parallel_functions.end())
                 {
-                    parallel_functions[call] = file_name;
+                    newList.insert(callsTo);
                     changes_done = true;
                 }
             }
         }
+
+        for (auto& newElem : newList)
+            parallel_functions.insert(newElem);
     }
 }
 
@@ -392,8 +381,12 @@ void DvmhRegionInserter::insertActualDirectives(const vector<ParallelRegion*>* r
         SgStatement *lastNode = st->lastNodeOfStmt();
 
         // skip parallel funcs
-        string func_name = st->symbol()->identifier();
-        if (parallel_functions.find(func_name) != parallel_functions.end())
+        bool needToSkip = false;
+        for (auto& func : parallel_functions)
+            if (func->funcPointer->GetOriginal()->thebif == st->thebif)
+                needToSkip = true;
+
+        if (needToSkip)
             continue;
 
         st = st->lexNext();
@@ -619,4 +612,21 @@ ArraySet DvmhRegionInserter::get_used_arrs_for_block(SgStatement* st, int usage_
         st = st->lexNext();
     }
     return usages;
+}
+
+void DvmhRegionInserter::createInterfaceBlock()
+{
+    for (auto& parF : parallel_functions)
+    {        
+        for (auto& callTo : parF->callsTo)
+        {
+            if (callTo->fileName != parF->fileName)
+            {
+                if (callTo->interfaceBlocks.find(parF->funcName) == callTo->interfaceBlocks.end())
+                {
+                    //callTo->interfaceBlocks[parF->funcName] = 
+                }
+            }
+        }
+    }
 }

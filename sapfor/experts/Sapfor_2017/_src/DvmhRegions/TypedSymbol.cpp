@@ -3,8 +3,11 @@
 
 using namespace std;
 
-TypedSymbol::TypedSymbol(SgExpression* orig_exp) : orig(OriginalSymbol(orig_exp->symbol()))
+TypedSymbol::TypedSymbol(SgExpression* orig_exp)
 {
+    if (orig_exp->variant() == VAR_REF || orig_exp->variant() == ARRAY_REF)
+        orig = OriginalSymbol(orig_exp->symbol());
+
     type = VAR_TYPE::VAR_UNDEFINED;
 
     if (orig_exp->variant() == VAR_REF)

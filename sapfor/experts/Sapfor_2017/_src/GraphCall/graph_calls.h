@@ -131,6 +131,7 @@ struct FuncInfo
     std::vector<int> linesOfIO;
     std::vector<int> linesOfStop;
     
+    //name of key is 'iface_<funcName>'
     std::map<std::string, FuncInfo*> interfaceBlocks;
 
     bool isPure; // does this func or funcs called from this have common block[s] and have no side effects
@@ -153,12 +154,12 @@ struct FuncInfo
         deadFunction(false), inRegion(0), isPure(false), isMain(false), shadowTree(NULL),
         isInterface(false) { }
 
-    FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum) :
+    FuncInfo(const std::string &funcName, const std::pair<int, int> &lineNum) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(NULL),
         doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false), 
         isPure(false), shadowTree(NULL), isInterface(false) { }
 
-    FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum, Statement *pointer) :
+    FuncInfo(const std::string &funcName, const std::pair<int, int> &lineNum, Statement *pointer) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(pointer),
         doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false), 
         isPure(false), shadowTree(NULL), isInterface(false) { fileName = pointer->fileName(); }

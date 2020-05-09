@@ -329,9 +329,12 @@ SgStatement *InsertProcedureCopy(SgStatement *st_header, SgSymbol *sproc, int is
     if (options.isOn(C_CUDA))
     {
         int flagHasDerivedTypeVariables = HasDerivedTypeVariables(new_header); 
-        TranslateProcedureHeader_To_C(new_header);
+
         end_st = new_header->lastNodeOfStmt();
         ConvertArrayReferences(new_header->lexNext(), end_st);  //!!!! 
+
+        TranslateProcedureHeader_To_C(new_header);
+
         private_list = NULL;
 
         ExtractDeclarationStatements(new_header);

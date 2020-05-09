@@ -1044,7 +1044,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                     if (it == allFuncInfo.end())
                         it = allFuncInfo.insert(it, make_pair(fileName, vector<FuncInfo*>()));
 
-                    string currF = st->symbol()->identifier();
+                    const string currF = st->symbol()->identifier();
                     FuncInfo* funcInterface = new FuncInfo(currF, make_pair(st->lineNumber(), st->lastNodeOfStmt()->lineNumber()), new Statement(st));
                     funcInterface->isInterface = true;
                     st = st->lastNodeOfStmt();
