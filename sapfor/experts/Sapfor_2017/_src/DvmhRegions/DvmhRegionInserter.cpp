@@ -658,7 +658,10 @@ static string getInterfaceBlock(SgStatement* func, const FuncParam& pars)
     st = copy->lexNext();
     while (st != last)
     {
-        if (st->variant() == VAR_DECL || st->variant() == VAR_DECL_90)
+        if (st->variant() == VAR_DECL 
+            || st->variant() == VAR_DECL_90
+            || st->variant() == DIM_STAT
+            || st->variant() == INTENT_STMT)
         {
             SgExpression* list = st->expr(0);
             vector<SgExpression*> newList;
@@ -679,6 +682,9 @@ static string getInterfaceBlock(SgStatement* func, const FuncParam& pars)
             else
                 st->setExpression(0, makeExprList(newList));
         }
+        else
+            toExtract.push_back(st);
+
         if (st->variant() == CONTAINS_STMT)
             break;
         st = st->lexNext();
@@ -752,17 +758,33 @@ static void insertRoutine(SgStatement* func)
 
 }
 
+static bool isPure(SgStatement* func)
+{
+    string oldFile = current_file->filename();
+    if (!func->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    bool retVal = ((func->symbol()->attributes() & PURE_BIT) != 0);
+
+    if (SgFile::switchToFile(oldFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    return retVal;
+}
+
 void DvmhRegionInserter::createInterfaceBlock()
 {
     for (auto& parF : parallel_functions)
     {        
         for (auto& callTo : parF->callsTo)
         {
-            insertRoutine(parF->funcPointer->GetOriginal());
             if (callTo->fileName != parF->fileName)
             {
-                if (callTo->interfaceBlocks.find(parF->funcName) == callTo->interfaceBlocks.end() && parF->funcParams.countOfPars > 0)
+                if (callTo->interfaceBlocks.find(parF->funcName) == callTo->interfaceBlocks.end() 
+                    && parF->funcParams.countOfPars > 0 
+                    && isPure(parF->funcPointer->GetOriginal()))
                 {
+                    insertRoutine(parF->funcPointer->GetOriginal());
                     callTo->interfaceBlocks[parF->funcName] = parF;
                     insertInterface(callTo->funcPointer, getInterfaceBlock(parF->funcPointer->GetOriginal(), parF->funcParams));
                 }
