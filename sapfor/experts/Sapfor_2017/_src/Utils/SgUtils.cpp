@@ -3121,7 +3121,26 @@ int getNextFreeLabel()
     return -1;
 }
 
-//TODO: about contains: need to check this function
+static void addUseStatements(SgStatement* currF, SgStatement* obj, vector<SgStatement*>& useStats,
+                             const vector<SgStatement*>& funcContains)
+{
+    for (auto& funcSt : funcContains)
+    {
+        if (currF == funcSt)
+        {
+            SgStatement* last = obj->lastNodeOfStmt();
+            for (SgStatement* st = obj->lexNext(); st != last; st = st->lexNext())
+            {
+                if (st->variant() == USE_STMT)
+                    useStats.push_back(st);
+                else if (st->variant() == CONTAINS_STMT)
+                    break;
+            }
+            break;
+        }
+    }
+}
+
 void fillUsedModulesInFunction(SgStatement *st, vector<SgStatement*> &useStats)
 {
     checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
@@ -3140,54 +3159,34 @@ void fillUsedModulesInFunction(SgStatement *st, vector<SgStatement*> &useStats)
 
     for (int i = 0; i < current_file->numberOfFunctions(); ++i)
     {
-        vector<SgStatement*> funcStats;
-        findContainsFunctions(current_file->functions(i), funcStats);
-        for (auto &funcSt : funcStats)
-        {
-            if (st == funcSt)
-            {
-                for (SgStatement *stat = current_file->functions(i)->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
-                    if (stat->variant() == USE_STMT)
-                        useStats.push_back(stat);
-                    else if (stat->variant() == CONTAINS_STMT)
-                        break;
-                break;
-            }
-        }
+        vector<SgStatement*> funcContains;
+        findContainsFunctions(current_file->functions(i), funcContains);
+        addUseStatements(st, current_file->functions(i), useStats, funcContains);        
     }
 
     vector<SgStatement*> modules;
     findModulesInFile(st->getFile(), modules);
     for (auto &module : modules)
     {
-        vector<SgStatement*> funcStats;
-        findContainsFunctions(module, funcStats, true);
-        for (auto &funcSt : funcStats)
-        {
-            if (st == funcSt)
-            {
-                for (SgStatement *stat = module; stat != module->lastNodeOfStmt(); stat = stat->lexNext())
-                    if (stat->variant() == USE_STMT)
-                        useStats.push_back(stat);
-                    else if (stat->variant() == CONTAINS_STMT)
-                        break;
-                break;
-            }
-        }
+        vector<SgStatement*> funcContains;
+        findContainsFunctions(module, funcContains, true);
+        addUseStatements(st, module, useStats, funcContains);
     }
 }
 
-static void recFillUsedVars(SgStatement *st, SgExpression *exp, map<string, SgSymbol*> &vars)
+static void recFillUsedVars(SgExpression *exp, map<string, SgSymbol*> &vars)
 {
     if (exp)
     {
-        if (exp->symbol() && (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF) && !(exp->symbol()->attributes() & PRIVATE_BIT))
+        if (exp->symbol() && (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF) 
+            && !(exp->symbol()->attributes() & PRIVATE_BIT))
         {
-            if (vars.find(exp->symbol()->identifier()) == vars.end())
-                vars.insert(make_pair<string, SgSymbol*>(exp->symbol()->identifier(), exp->symbol()));
+            const auto key = exp->symbol()->identifier();
+            if (vars.find(key) == vars.end())
+                vars.insert(make_pair(key, exp->symbol()));
         }
-        recFillUsedVars(st, exp->lhs(), vars);
-        recFillUsedVars(st, exp->rhs(), vars);
+        recFillUsedVars(exp->lhs(), vars);
+        recFillUsedVars(exp->rhs(), vars);
     }
 }
 
@@ -3198,7 +3197,7 @@ static void fillUsedVars(SgStatement *st, map<string, SgSymbol*> &vars)
         for (int i = 0; i < 3; ++i)
         {
             SgExpression *exp = st->expr(i);
-            recFillUsedVars(st, exp, vars);
+            recFillUsedVars(exp, vars);
         }
     }
 }
@@ -3207,7 +3206,7 @@ static void joinMaps(map<string, SgSymbol*> &map1, const map<string, SgSymbol*> 
 {
     for (auto &pair : map2)
         if (exept.find(pair.first) == exept.end() && map1.find(pair.first) == map1.end())
-            map1.insert(make_pair(pair.first, pair.second));
+            map1.insert(pair);
 }
 
 void fillVisibleInUseVariables(SgStatement *useSt, map<string, SgSymbol*> &vars)
@@ -3240,14 +3239,14 @@ void fillVisibleInUseVariables(SgStatement *useSt, map<string, SgSymbol*> &vars)
                     if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
                     {
                         if (renamedVas.find(ren->lhs()->symbol()->identifier()) == renamedVas.end())
-                            renamedVas.insert(make_pair<string,SgSymbol*>(ren->lhs()->symbol()->identifier(), ren->lhs()->symbol()));
+                            renamedVas.insert(make_pair(ren->lhs()->symbol()->identifier(), ren->lhs()->symbol()));
                         if (originVars.find(ren->rhs()->symbol()->identifier()) == originVars.end())
-                            originVars.insert(make_pair<string, SgSymbol*>(ren->rhs()->symbol()->identifier(), ren->rhs()->symbol()));
+                            originVars.insert(make_pair(ren->rhs()->symbol()->identifier(), ren->rhs()->symbol()));
                     }
                     else if (only && ren->lhs()->symbol())
                     {
                         if (renamedVas.find(ren->lhs()->symbol()->identifier()) == renamedVas.end())
-                            renamedVas.insert(make_pair<string, SgSymbol*>(ren->lhs()->symbol()->identifier(), ren->lhs()->symbol()));
+                            renamedVas.insert(make_pair(ren->lhs()->symbol()->identifier(), ren->lhs()->symbol()));
                     }
                 }
             }
