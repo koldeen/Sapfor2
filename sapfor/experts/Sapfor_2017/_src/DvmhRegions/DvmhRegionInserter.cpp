@@ -11,10 +11,6 @@ using namespace std;
 #define DVMH_REG_RD 0
 #define DVMH_REG_WT 1
 
-typedef set<string> Calls;
-typedef map<string, Calls> FuncsWithCalls;
-typedef map<string, FuncsWithCalls> FuncsInfoByFile;
-
 void DvmhRegionInserter::findEdgesForRegions(const vector<LoopGraph*> &loops)
 {
     for (auto &loopNode : loops)
@@ -90,7 +86,16 @@ void DvmhRegionInserter::parFuncsInNode(LoopGraph *loop, bool isParallel)
     if (isParallel)
     {
         for (auto& call : loop->calls)  // mark call as parallel
-            parallel_functions[call.first] = loop->fileName;
+        {
+            auto it = allFunctions.find(call.first);
+            if (it == allFunctions.end())
+            {
+                if (!isIntrinsicFunctionName(call.first.c_str()))
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+            else
+                parallel_functions.insert(it->second);
+        }
         writesToArraysInParallelLoop.insert(loop->usedArraysWriteAll.begin(), loop->usedArraysWriteAll.end());
     }
     else    
@@ -98,12 +103,11 @@ void DvmhRegionInserter::parFuncsInNode(LoopGraph *loop, bool isParallel)
             parFuncsInNode(nestedLoop, isParallel);
 }
 
-void DvmhRegionInserter::updateParallelFunctions(const map<string, vector<LoopGraph*>> &loopGraphs, const map<string, vector<FuncInfo*>> &callGraphs)
+void DvmhRegionInserter::updateParallelFunctions(const map<string, vector<LoopGraph*>> &loopGraphs)
 {    
     for (auto& loopGraph : loopGraphs)
     {
         auto save = current_file->filename();
-
         if (SgFile::switchToFile(loopGraph.first) == -1)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         for (auto& loopNode : loopGraph.second)
@@ -121,41 +125,26 @@ void DvmhRegionInserter::updateParallelFunctions(const map<string, vector<LoopGr
         getRealArrayRefs(elem, elem, newSet, arrayLinksByFuncCalls);
     writesToArraysInParallelLoop = newSet;
 
-    //TODO: check this
-    FuncsInfoByFile funcsInfo;
-    for (auto &file : callGraphs)
-    {
-        funcsInfo[file.first] = FuncsWithCalls();
-
-        for (auto &func : file.second)
-        {
-            funcsInfo[file.first][func->funcName] = Calls();
-
-            for (auto &call : func->callsFrom)
-                funcsInfo[file.first][func->funcName].insert(call);
-        }
-
-    }
-
     bool changes_done = true;
     while (changes_done)
     {
         changes_done = false;
-
-        for (auto &funcs : parallel_functions)
+        set<FuncInfo*> newList;
+        for (auto& func : allFunctions)
         {
-            auto file_name = funcs.second;
-            auto calls = funcsInfo[file_name][funcs.first];
-
-            for (auto &call : calls)
+            for (auto& callsTo : func.second->callsTo)
             {
-                if (parallel_functions.find(call) == parallel_functions.end())
+                if (parallel_functions.find(callsTo) != parallel_functions.end() && 
+                    parallel_functions.find(func.second) == parallel_functions.end())
                 {
-                    parallel_functions[call] = file_name;
+                    newList.insert(callsTo);
                     changes_done = true;
                 }
             }
         }
+
+        for (auto& newElem : newList)
+            parallel_functions.insert(newElem);
     }
 }
 
@@ -325,6 +314,7 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
         auto readBlocks = get_used_arrs_for_block(st, DVMH_REG_RD);
         auto writeBlocks = get_used_arrs_for_block(st, DVMH_REG_WT);
 
+        insertActualDirective(block_dir, writeBlocks, ACC_GET_ACTUAL_DIR, true);
         insertActualDirective(block_dir, readBlocks, ACC_GET_ACTUAL_DIR, true);
         insertActualDirective(st->lastNodeOfStmt()->lexNext(), writeBlocks, ACC_ACTUAL_DIR, false);
 
@@ -391,8 +381,12 @@ void DvmhRegionInserter::insertActualDirectives(const vector<ParallelRegion*>* r
         SgStatement *lastNode = st->lastNodeOfStmt();
 
         // skip parallel funcs
-        string func_name = st->symbol()->identifier();
-        if (parallel_functions.find(func_name) != parallel_functions.end())
+        bool needToSkip = false;
+        for (auto& func : parallel_functions)
+            if (func->funcPointer->GetOriginal()->thebif == st->thebif)
+                needToSkip = true;
+
+        if (needToSkip)
             continue;
 
         st = st->lexNext();
@@ -618,4 +612,161 @@ ArraySet DvmhRegionInserter::get_used_arrs_for_block(SgStatement* st, int usage_
         st = st->lexNext();
     }
     return usages;
+}
+
+static string getInterfaceBlock(SgStatement* func, const FuncParam& pars)
+{
+    string oldFile = current_file->filename();
+    if (!func->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    func->symbol()->copySubprogram(*current_file->firstStatement());
+
+    auto copy = current_file->firstStatement()->lexNext()->extractStmt();
+
+    const set<string> ident(pars.identificators.begin(), pars.identificators.end());
+
+    //remove all exec
+    SgStatement* st = copy->lexNext();
+    SgStatement* last = copy->lastNodeOfStmt();
+    vector<SgStatement*> toExtract;
+    while (st != last)
+    {
+        if (isDVM_stat(st) || isSPF_stat(st))
+        {
+            if (st->variant() != ACC_ROUTINE_DIR)
+            {
+                SgStatement* next = st->lexNext();
+                st->extractStmt();
+                st = next;
+            }
+            else
+                st = st->lexNext();
+        }
+        else if (isSgExecutableStatement(st))
+        {
+            SgStatement* next = st->lastNodeOfStmt();
+            if (next != last)
+                next = next->lexNext();
+            toExtract.push_back(st);
+            st = next;
+        }
+        else
+            st = st->lexNext();
+    }  
+
+    //remove unused declarations
+    st = copy->lexNext();
+    while (st != last)
+    {
+        if (st->variant() == VAR_DECL || st->variant() == VAR_DECL_90)
+        {
+            SgExpression* list = st->expr(0);
+            vector<SgExpression*> newList;
+            while (list)
+            {
+                if (ident.find(list->lhs()->symbol()->identifier()) != ident.end())
+                    newList.push_back(list->lhs());
+                list = list->rhs();
+            }
+
+            if (newList.size() == 0)
+            {
+                SgStatement* next = st->lexNext();
+                toExtract.push_back(st);
+                st = next;
+                continue;
+            }
+            else
+                st->setExpression(0, makeExprList(newList));
+        }
+        if (st->variant() == CONTAINS_STMT)
+            break;
+        st = st->lexNext();
+    }
+
+    for (auto& elem : toExtract)
+        elem->extractStmt();
+
+    string retVal = copy->unparse();
+
+    if (SgFile::switchToFile(oldFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    return retVal;
+}
+
+static void insertInterface(SgStatement* func, const string& iface)
+{
+    string oldFile = current_file->filename();
+    if (!func->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgStatement* st = func->lexNext();
+    SgStatement* last = func->lastNodeOfStmt();
+    while (st != last)
+    {
+        if (isSgExecutableStatement(st))
+            break;
+        st = st->lexNext();
+    }
+    SgStatement* ifaceBlock = new SgStatement(INTERFACE_STMT);
+    addControlEndToStmt(ifaceBlock->thebif);
+
+    ifaceBlock->setlineNumber(st->lineNumber());
+    ifaceBlock->setFileName(st->fileName());
+    st->insertStmtBefore(*ifaceBlock, *st->controlParent());    
+    ifaceBlock->lastNodeOfStmt()->addComment(iface.c_str());
+
+    if (SgFile::switchToFile(oldFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+}
+
+static void insertRoutine(SgStatement* func)
+{
+    string oldFile = current_file->filename();
+    if (!func->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    
+    SgStatement* st = func->lexNext();
+    SgStatement* last = func->lastNodeOfStmt();
+    bool has = false;
+    while (st != last)
+    {
+        if (st->variant() == ACC_ROUTINE_DIR)
+        {
+            has = true;
+            break;                
+        }
+        st = st->lexNext();
+    }
+
+    if (has == false)
+    {
+        st = func->lexNext();
+        st->insertStmtBefore(*new SgStatement(ACC_ROUTINE_DIR), *st->controlParent());
+    }
+
+    if (SgFile::switchToFile(oldFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+}
+
+void DvmhRegionInserter::createInterfaceBlock()
+{
+    for (auto& parF : parallel_functions)
+    {        
+        for (auto& callTo : parF->callsTo)
+        {
+            insertRoutine(parF->funcPointer->GetOriginal());
+            if (callTo->fileName != parF->fileName)
+            {
+                if (callTo->interfaceBlocks.find(parF->funcName) == callTo->interfaceBlocks.end() && parF->funcParams.countOfPars > 0)
+                {
+                    callTo->interfaceBlocks[parF->funcName] = parF;
+                    insertInterface(callTo->funcPointer, getInterfaceBlock(parF->funcPointer->GetOriginal(), parF->funcParams));
+                }
+            }
+        }
+    }
 }

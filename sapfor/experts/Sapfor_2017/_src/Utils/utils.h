@@ -80,3 +80,5 @@ std::map<DIST::Array*, DIST::ArrayAccessInfo*> createMapOfArrayAccess(const std:
 
 std::string readFileToStr(const std::string& name);
 void writeFileFromStr(const std::string& name, const std::string& data);
+
+std::pair<std::vector<std::string>, std::vector<std::string>> splitCommandLineForParse(char** argv, int argc);

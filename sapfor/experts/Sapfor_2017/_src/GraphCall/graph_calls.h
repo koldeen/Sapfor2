@@ -7,6 +7,7 @@
 #include "../Utils/utils.h"
 #include "../LoopAnalyzer/shadow.h"
 #include "../GraphLoop/graph_loops.h"
+#include "../Utils/CommonBlock.h"
 
 static const char* paramNames[] = 
 { "NONE_T", "ARRAY_T", "STRING_T", "SCALAR_CHAR_T", "SCALAR_BOOL_T", "SCALAR_SHORT_T", "SCALAR_INT_T", "SCALAR_LONG_INT_T",
@@ -130,6 +131,7 @@ struct FuncInfo
     std::vector<int> linesOfIO;
     std::vector<int> linesOfStop;
     
+    //name of key is 'iface_<funcName>'
     std::map<std::string, FuncInfo*> interfaceBlocks;
 
     bool isPure; // does this func or funcs called from this have common block[s] and have no side effects
@@ -152,12 +154,12 @@ struct FuncInfo
         deadFunction(false), inRegion(0), isPure(false), isMain(false), shadowTree(NULL),
         isInterface(false) { }
 
-    FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum) :
+    FuncInfo(const std::string &funcName, const std::pair<int, int> &lineNum) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(NULL),
         doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false), 
         isPure(false), shadowTree(NULL), isInterface(false) { }
 
-    FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum, Statement *pointer) :
+    FuncInfo(const std::string &funcName, const std::pair<int, int> &lineNum, Statement *pointer) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(pointer),
         doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false), 
         isPure(false), shadowTree(NULL), isInterface(false) { fileName = pointer->fileName(); }
@@ -225,4 +227,3 @@ struct CallV
 void propagateArrayFlags(const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays, std::map<std::string, std::vector<Messages>> &SPF_messages);
 void removeDistrStateFromDeadFunctions(const std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo, const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>>& declaredArrays);
 bool detectMpiCalls(const std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo, std::map<std::string, std::vector<Messages>>& SPF_messages);
-void functionCleaning(const std::vector<FuncInfo*>& allFuncInfo);

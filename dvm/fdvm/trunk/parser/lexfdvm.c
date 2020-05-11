@@ -220,17 +220,11 @@ static char crunchbuf[LONG_LINE_LENGTH * (MAX_CONTIN_CARDS + 1)];
     is avialable to the parser                                             */
 #define COMMENT_BUF_STORE 162    /*17.10.16 podd 161=>162 */
 
-typedef struct comment_buf 
-{
+typedef struct comment_buf {
 	struct comment_buf *next;
 	char *last;
-#ifdef __SPF_BUILT_IN_PARSER
-    char* buf;
-#else
 	char buf[COMMENT_BUF_STORE];
-#endif
-} comment_buf;
-
+	} comment_buf;
 static struct comment_buf *cbfirst, *cblast, *pcbfirst, *pcblast;
 
 /* Comment buffering data
@@ -590,6 +584,7 @@ struct Keylist keys[] = {
         {"targets", ACC_TARGETS},  /*ACC*/
         {"target", TARGET},
         {"template", HPF_TEMPLATE},
+        {"tie", ACC_TIE},    /*ACC*/
         {"time", SPF_TIME}, /*SPF*/
 	{"then", THEN},
 	{"to", TO},
@@ -813,17 +808,10 @@ popinclude()
 
 	if (infile != stdin)
 		clf(&infile);
-#ifdef __SPF
-    removeFromCollection(infname);
-#endif
 	free(infname);
 
 	--nincl;
 	t = inclp->inclnext;
-#ifdef __SPF
-    removeFromCollection(inclp->inclname);
-    removeFromCollection(inclp);
-#endif
 	free((char *)inclp->inclname);
 	free((char *) inclp);
 	inclp = t;
@@ -854,18 +842,12 @@ popinclude()
 		p = inclp->incllinp;
 		while (--k >= 0)
 			*endcd++ = *p++;
-#ifdef __SPF
-        removeFromCollection(inclp->incllinp);
-#endif
 		free((char *) (inclp->incllinp));
                 k = 6;
                 p = inclp->prefix;
                 pp = prefix;
                 while (--k >= 0)
 			*pp++ = *p++;
-#ifdef __SPF
-                removeFromCollection(inclp->prefix);
-#endif
 		free((char *) (inclp->prefix));
 	} else
 		nextcd = (char *)NULL;
@@ -915,9 +897,6 @@ first:	yylineno = lines_returned;
 		list_line(nextcd, yylineno);
 
 	if (newname) {
-#ifdef __SPF
-        removeFromCollection(infname);
-#endif
 		free(infname);
 		infname = newname;
 		newname = (char *)NULL;
@@ -934,9 +913,6 @@ top:
 
 		stno = nxtstno;
 		if (newname) {
-#ifdef __SPF
-            removeFromCollection(infname);
-#endif
 			free(infname);
 			infname = newname;
 			newname = (char *)NULL;
@@ -953,9 +929,6 @@ top:
 	}
 	if (code == STCONTINUE) {
 		if (newname) {
-#ifdef __SPF
-            removeFromCollection(infname);
-#endif
 			free(infname);
 			infname = newname;
 			newname = (char *)NULL;
@@ -994,9 +967,6 @@ top:
        
              if(statement_kind != is_directive_hpf || is_openmp_stmt != is_directive_omp || is_acc_statement != is_directive_acc || is_spf_statement != is_directive_spf) 
              {  if (newname) {
-#ifdef __SPF
-                 removeFromCollection(infname);
-#endif
                     free(infname);
                     infname = newname;
                     newname = (char *) NULL;
@@ -1436,9 +1406,6 @@ initline:			/* there is a label */
 				nxtstno = 10 * nxtstno + (*p - '0');
 			else {
 				if (newname) {
-#ifdef __SPF
-                    removeFromCollection(infname);
-#endif
 					free(infname);
 					infname = newname;
 					newname = (char *)NULL;
@@ -3189,19 +3156,13 @@ static void store_comment()
 
     ncb = (comment_buf *)chkalloc(sizeof(comment_buf));
          /* 14.10.2016 Kolganov, 17.10.16 podd. Don't loss '\n' symbol during truncating */
-         // 15.11.2019 Kolganov dynamic allocation for SAPFOR
-#ifndef __SPF_BUILT_IN_PARSER
     if ((int)strlen(tempbuf) > COMMENT_BUF_STORE-1)   
     {
-        warn("comment too long, truncated to 160 characters", 15);
-        tempbuf[COMMENT_BUF_STORE-2] = '\n';
+        warn("comment too long, truncated to 160 characters", 15);               
+	tempbuf[COMMENT_BUF_STORE-2] = '\n';
         tempbuf[COMMENT_BUF_STORE-1] = '\0';
     }
-#endif
 
-#ifdef __SPF_BUILT_IN_PARSER
-    ncb->buf = (char*)chkalloc(strlen(tempbuf) + 1);
-#endif
     ncb->buf[0] = '\0';
     strcpy(ncb->buf, tempbuf);
     /* (void)fprintf(stderr,"store_comment_end_permbuff:tempbuf = %s \n",tempbuf);*/
@@ -3224,11 +3185,8 @@ store_comment_end_permbuff()
      comment_buf *ncb;
      
      ncb = (comment_buf *) chkalloc(sizeof(comment_buf));
-#ifdef __SPF_BUILT_IN_PARSER
-     ncb->buf = (char*)chkalloc(strlen(tempbuf) + 1);
-#endif
-     ncb->buf[0] = '\0';
-     strcpy(ncb->buf, tempbuf);
+     ncb->buf[0]='\0';
+     strcpy(ncb->buf,tempbuf);
      /* (void)fprintf(stderr,"store_comment_end_permbuff:tempbuf = %s \n",tempbuf);*/
      ncb->next = NULL;
      if (!pcbfirst) {

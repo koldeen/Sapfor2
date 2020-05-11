@@ -456,7 +456,8 @@ SgStatement* getInterfaceForCall(SgSymbol* s)
     SgStatement* searchStmt = cur_func->lexNext();
     SgStatement* tmp;
     string funcName = string(s->identifier());
-    enum {SEARCH_INTERFACE,CHECK_INTERFACE, FIND_NAME, SEARCH_INTERNAL,SEARCH_CONTAINS,UNSUCCESS};    int mode = SEARCH_CONTAINS;
+    enum {SEARCH_INTERFACE,CHECK_INTERFACE, FIND_NAME, SEARCH_INTERNAL,SEARCH_CONTAINS,UNSUCCESS};
+    int mode = SEARCH_CONTAINS;
     
     //search internal function
     while(searchStmt&& mode!=UNSUCCESS)
@@ -946,6 +947,11 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                     CreateIntefacePrototype(ndl->st_header);
                     argsBits = fillBitsOfArgs(isSgProgHedrStmt(ndl->st_header));
                 }
+            }
+            else  if(ndl->st_interface)
+            {
+                  CreateIntefacePrototype(ndl->st_interface);
+                  argsBits = fillBitsOfArgs(isSgProgHedrStmt(ndl->st_interface));
             }
         }
 

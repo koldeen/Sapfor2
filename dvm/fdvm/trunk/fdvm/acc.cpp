@@ -28,7 +28,7 @@ static SgConstantSymb *device_const[Ndev], *const_LONG, *intent_const[Nintent], 
 static SgSymbol *red_offset_symb, *sync_proc_symb, *mem_use_loc_array[8];
 static SgSymbol *adapter_symb, *hostproc_symb, *s_offset_type, *s_of_cudaindex_type;
 static symb_list *acc_func_list, *acc_registered_list, *non_dvm_list, *parallel_on_list;
-static symb_list *assigned_var_list, *range_index_list;
+static symb_list *assigned_var_list, *range_index_list, *acc_array_list_whole;
 static SgSymbol *Imem_k, *Rmem_k, *Dmem_k, *Cmem_k, *DCmem_k, *Lmem_k, *Chmem_k;
 static SgSymbol *fdim3;
 static SgSymbol *s_ibof, *s_CudaIndexType_k, *s_warpsize, *s_blockDims;
@@ -289,7 +289,7 @@ void InitializeInFuncACC()
 
 int GeneratedForCuda()
 {
-    return (kernel_st ? 1 : 0);
+    return (kernel_st || cuda_functions ? 1 : 0);
 }
 
 
@@ -1210,6 +1210,34 @@ SgStatement *ACC_Directive(SgStatement *stmt)
 
 }
 
+void ACC_ROUTINE_Directive(SgStatement *stmt)
+{
+    if( options.isOn(NO_CUDA) )
+        return;
+    int control_variant =  stmt->controlParent()->controlParent()->variant();
+    if (control_variant == INTERFACE_STMT || control_variant == INTERFACE_OPERATOR || control_variant == INTERFACE_ASSIGNMENT)
+    {
+        stmt->controlParent()->symbol()->addAttribute(ROUTINE_ATTR, (void*)1, 0);
+        return;
+    }
+    else if (control_variant != GLOBAL)
+    {
+        err("Misplaced directive",103,stmt);
+        return;
+    }      
+    if (!mod_gpu_symb)
+        CreateGPUModule();
+    int targets = stmt->expr(0) ? TargetsList(stmt->expr(0)->lhs()) : dvmh_targets;
+    targets = targets & dvmh_targets;
+    SgSymbol *s = stmt->controlParent()->symbol();
+    if(!s)
+        return; 
+    if(targets & CUDA_DEVICE)
+        MarkAsCalled(s);
+    MarkAsRoutine(s);
+    return;
+}
+
 SgStatement *ACC_ACTUAL_Directive(SgStatement *stmt)
 {
     SgExpression *e, *el;
@@ -1426,6 +1454,8 @@ SgStatement *ACC_REGION_Directive(SgStatement *stmt)
         eop = el->lhs();
         if (eop->variant() == ACC_TARGETS_OP)
         {
+            user_targets =  TargetsList(eop->lhs());
+         /*
             for (tl = eop->lhs(); tl; tl = tl->rhs())
             if (tl->lhs()->variant() == ACC_CUDA_OP)
                 //targets[CUDA] = 1;
@@ -1434,7 +1464,7 @@ SgStatement *ACC_REGION_Directive(SgStatement *stmt)
                 //targets[HOST] = 1;
                 user_targets = user_targets | HOST_DEVICE;
             //targets_on = 1;
-
+          */
             continue;
         }
         if (eop->variant() == ACC_ASYNC_OP)
@@ -1498,6 +1528,17 @@ SgStatement *ACC_REGION_Directive(SgStatement *stmt)
     return(cur_st);
 }
 
+int TargetsList(SgExpression *tgs)
+{
+    SgExpression *tl;
+    int user_targets = 0;
+    for (tl = tgs; tl; tl = tl->rhs())
+        if (tl->lhs()->variant() == ACC_CUDA_OP)
+            user_targets = user_targets | CUDA_DEVICE;
+        else if (tl->lhs()->variant() == ACC_HOST_OP)
+            user_targets = user_targets | HOST_DEVICE;
+    return (user_targets); 
+}
 
 void RegisterVariablesInRegion(SgExpression *evl, int intent, int irgn)
 {
@@ -1750,7 +1791,7 @@ void doNotForCuda()
 
 int isForCudaRegion()
 {
-    if (cur_region->targets & CUDA_DEVICE)
+    if (cur_region && cur_region->targets & CUDA_DEVICE)
         return(1);
     else
         return(0);
@@ -1871,6 +1912,29 @@ void StoreLowerBoundsOfNonDvmArray(SgSymbol *ar)
     }
 }
 
+SgExpression *HeaderForArrayInParallelDir(SgSymbol *ar, SgStatement *st)
+{
+    SgExpression *head = NULL;
+    if(HEADER(ar)) 
+      return HeaderRef(ar);     
+    if(st->expr(0))
+    {
+       Error("'%s' isn't distributed array", ar->identifier(), 72, st);   
+       return NULL;
+    }
+    if(HEADER_OF_REPLICATED(ar) && HEADER_OF_REPLICATED(ar) != 0)
+       return DVM000(*HEADER_OF_REPLICATED(ar));
+    if(!HEADER_OF_REPLICATED(ar)) 
+    {
+       int *id = new int;
+       *id = 0;
+       ar->addAttribute(REPLICATED_ARRAY, (void *)id, sizeof(int));      
+    }   
+    *HEADER_OF_REPLICATED(ar) = ndvm;
+    HeaderForNonDvmArray(ar, st);
+    return DVM000(*HEADER_OF_REPLICATED(ar));
+}
+
 int HeaderForNonDvmArray(SgSymbol *s, SgStatement *stat)
 {
     int dvm_ind, static_sign, re_sign, rank, i;
@@ -1938,15 +2002,16 @@ void DoHeadersForNonDvmArrays()
             *dummy = NULL;
             sl->symb->addAttribute(DUMMY_ARRAY, (void*)dummy, sizeof(SgSymbol *));
         }
-
+        if(*HEADER_OF_REPLICATED(sl->symb) != 0)
+            continue;
         *HEADER_OF_REPLICATED(sl->symb) = dvm_ind;
         ndvm += 2 * rank + DELTA;   // extended header
         if(INTERFACE_RTS2)
         {
-             doCallAfter(CreateDvmArrayHeader_2(sl->symb, DVM000(dvm_ind), rank, doShapeList(sl->symb,dvm_parallel_dir)));
-             if (TestType_RTS2(sl->symb->type()->baseType()) == -1)
-                 Error("Array reference of illegal type in region: %s ", sl->symb->identifier(), 583, dvm_parallel_dir);
-             continue;
+            doCallAfter(CreateDvmArrayHeader_2(sl->symb, DVM000(dvm_ind), rank, doShapeList(sl->symb,dvm_parallel_dir)));
+            if (TestType_RTS2(sl->symb->type()->baseType()) == -1)
+                Error("Array reference of illegal type in region: %s ", sl->symb->identifier(), 583, dvm_parallel_dir);
+            continue;
         }  
 
         //store lower bounds of array in Header(rank+3:2*rank+2)
@@ -2441,10 +2506,10 @@ void CorrectUsesList()
 {
     SgExpression *el, *e;
     symb_list *sl,*slp;
-    for(el = uses_list,e=NULL; el; el = el->rhs())
-    {       
+    for(el = uses_list, e=NULL; el; el = el->rhs())
+    {      
         if(IS_BY_USE(el->lhs()->symbol()))
-        { //deleting from list
+        { //deleting from list 
           if(e) 
           {
              e->setRhs(el->rhs());  
@@ -2453,8 +2518,10 @@ void CorrectUsesList()
           else
              uses_list=el->rhs();
         }
+        else 
           e = el;
     }
+        acc_array_list_whole = CopySymbList(acc_array_list); //to create full base list
         for (sl = acc_array_list,slp = NULL; sl; sl = sl->next)
           if(IS_BY_USE(sl->symb))
              if(slp)
@@ -2490,11 +2557,10 @@ void ACC_CreateParallelLoop(int ipl, SgStatement *first_do, int nloop, SgStateme
     red_struct_list = NULL;
     CreateStructuresForReductions(clause[REDUCTION_] ? clause[REDUCTION_]->lhs() : NULL);
 
-                       //!printf("loop on gpu 01\n");
     // creating private_list
     private_list = clause[PRIVATE_] ? clause[PRIVATE_]->lhs() : NULL;
     dost = InnerMostLoop(first_do, nloop);
-                      //!printf("loop on gpu 02\n");
+        
     // error checking
     CompareReductionAndPrivateList();
     TestPrivateList();
@@ -2503,7 +2569,9 @@ void ACC_CreateParallelLoop(int ipl, SgStatement *first_do, int nloop, SgStateme
     // creating uses_list 
     assigned_var_list = NULL;
     for_shadow_compute = clause[SHADOW_COMPUTE_] ? 1 : 0;  // for optimization of shadow_compute 
-    uses_list = UsesList(dost->lexNext(), lastStmtOfDo(dost));
+    uses_list = UsesList(dost->lexNext(), lastStmtOfDo(dost)); 
+    RefInExpr(IsRedBlack(nloop), _READ_);   // add to uses_list variables used in  start-expression  of redblack loop
+    UsesInPrivateArrayDeclarations(private_list);  // add to uses_list variables used in private array declarations
     if(USE_STATEMENTS_ARE_REQUIRED) // || !IN_COMPUTE_REGION)
         CorrectUsesList();
     for_shadow_compute = 0;
@@ -2513,15 +2581,12 @@ void ACC_CreateParallelLoop(int ipl, SgStatement *first_do, int nloop, SgStateme
     // creating replicated arrays for non-dvm-arrays outside regions
     if (!cur_region)
         DoHeadersForNonDvmArrays();
-                         //!printf("loop on gpu 03\n");
-    RefInExpr(IsRedBlack(nloop), _READ_);   // add to uses_list variables used in  start-expression  of redblack loop
 
     if (!mod_gpu_symb)
         CreateGPUModule();
-                          //!printf("loop on gpu 04\n");  
+                           
     if (!block_C)
-        Create_C_extern_block();
-                         //!printf("block_C: %d\n", block_C->controlParent()->variant());
+        Create_C_extern_block();                        
 
     if (!info_block)
         Create_info_block();
@@ -3411,9 +3476,10 @@ SgExpression *BaseArgumentList()
             }
         }
     }
-    if (!base_list && acc_array_list)
-        base_list = ElementOfBaseList(NULL, acc_array_list->symb);
-    for (sl = acc_array_list; sl; sl = sl->next)
+    array_list = USE_STATEMENTS_ARE_REQUIRED ? acc_array_list_whole : acc_array_list; 
+    if (!base_list && array_list)
+        base_list = ElementOfBaseList(NULL, array_list->symb);
+    for (sl = array_list; sl; sl = sl->next)
     {
         l = ElementOfBaseList(base_list, sl->symb);
         if (l)
@@ -3514,6 +3580,15 @@ SgStatement *InnerMostLoop(SgStatement *dost, int nloop)
     for (i = nloop - 1, stmt = dost; i; i--)
         stmt = stmt->lexNext();
     return(stmt);
+}
+
+void UsesInPrivateArrayDeclarations(SgExpression *privates)
+{
+    SgExpression *el;
+    SgArrayType *tp;
+    for (el=privates; el; el=el->rhs())
+        if(el->lhs()->symbol() && (tp=isSgArrayType(el->lhs()->symbol()->type())))
+            RefInExpr(tp->getDimList(),_READ_); 
 }
 
 SgExpression *UsesList(SgStatement *first, SgStatement *last) //AnalyzeLoopBody()  AnalyzeBlock()
@@ -4062,7 +4137,7 @@ void DoPrivateList(SgStatement *par)
         private_list = el->lhs()->lhs();
         break;
     }
-
+    UsesInPrivateArrayDeclarations(private_list);
 }
 
 void CreatePrivateAndUsesVarList()
@@ -4165,7 +4240,9 @@ void Call(SgSymbol *s, SgExpression *e)
             Error("Call of statement function  %s in region", s->identifier(), 581, cur_st);
         return;
     }
-
+    if (IsInternalProcedure(s) && analyzing)
+        Error(" Call of the procedure %s in a region, which is internal/module procedure", s->identifier(), 580, cur_st);
+   
     if (!isUserFunction(s) && isIntrinsicFunctionName(s->identifier())) //IsNoBodyProcedure(s)
     {
         RefInExpr(e, _READ_);
@@ -4175,10 +4252,10 @@ void Call(SgSymbol *s, SgExpression *e)
 //if (inparloop || IN_STATEMENT_GROUP(cur_st))
 //{
     if (analyzing)
-    {
+    {  
         if (!IsPureProcedure(s) || IS_BY_USE(s))
         {
-            Warning(" Call of the procedure %s in a region, which is not  pure or is module procedure", s->identifier(), 580, cur_st);
+            Warning(" Call of the procedure %s in a region, which is not pure or is module procedure", s->identifier(), 580, cur_st);
             doNotForCuda();
         }
     }
@@ -4198,7 +4275,6 @@ void Call(SgSymbol *s, SgExpression *e)
 
     return;
 }
-
 
 SgExpression * AddListToList(SgExpression *list, SgExpression *el)
 {
@@ -4837,7 +4913,8 @@ void UnparseTo_CufAndCu_Files(SgFile *f, FILE *fout_cuf, FILE *fout_C_cu, FILE *
         if (block_C_Cuda)
             block_C_Cuda->extractStmt();
         mod_gpu->extractStmt();
-        block_C->extractStmt();
+        if(block_C)
+            block_C->extractStmt();
         return;
     }
 
@@ -4851,16 +4928,22 @@ void UnparseTo_CufAndCu_Files(SgFile *f, FILE *fout_cuf, FILE *fout_C_cu, FILE *
         }
         // unparsing C-Cuda  block to fout_C_cu
         //block_C_Cuda->setVariant(EXTERN_C_STAT);  //10.12.13
-        fprintf(fout_C_cu, "%s", UnparseBif_Char(block_C_Cuda->thebif, C_LANG));
-        block_C_Cuda->extractStmt();
+        if ( block_C_Cuda)
+        {
+            fprintf(fout_C_cu, "%s", UnparseBif_Char(block_C_Cuda->thebif, C_LANG));
+            block_C_Cuda->extractStmt();
+        }
         // unparsing Module of C-Cuda-kernels to fout_C_cu
         //mod_gpu ->setVariant(EXTERN_C_STAT);  //10.12.13//26.12.14
         fprintf(fout_C_cu, "%s", UnparseBif_Char(mod_gpu->thebif, C_LANG));
         mod_gpu->extractStmt();
         // unparsing C Adapter Functions to fout_C_cu
-        block_C->setVariant(EXTERN_C_STAT);
-        fprintf(fout_C_cu, "%s", UnparseBif_Char(block_C->thebif, C_LANG));
-        block_C->extractStmt();
+        if (block_C)
+        {
+            block_C->setVariant(EXTERN_C_STAT);
+            fprintf(fout_C_cu, "%s", UnparseBif_Char(block_C->thebif, C_LANG));
+            block_C->extractStmt();
+        }
         return;
     }
 
@@ -4876,9 +4959,12 @@ void UnparseTo_CufAndCu_Files(SgFile *f, FILE *fout_cuf, FILE *fout_C_cu, FILE *
     }
     // unparsing C Adapter Functions to fout_C_cu   (!! C before Fortran because tabulation )
     //block_C->setSymbol(*mod_gpu_symb);
-    block_C->setVariant(EXTERN_C_STAT);
-    fprintf(fout_C_cu, "%s", UnparseBif_Char(block_C->thebif, C_LANG));
-    block_C->extractStmt();
+    if (block_C)
+    {
+        block_C->setVariant(EXTERN_C_STAT);
+        fprintf(fout_C_cu, "%s", UnparseBif_Char(block_C->thebif, C_LANG));
+        block_C->extractStmt();
+    }
     // unparsing Module of Fortran-Cuda-kernels to fout_cuf (!!Fortran after C because tabulation)
     fprintf(fout_cuf, "%s", UnparseBif_Char(mod_gpu->thebif, FORTRAN_LANG));
     mod_gpu->extractStmt();
@@ -5129,6 +5215,22 @@ SgExpression * TranslateReductionToOpenmp(SgExpression *reduction_clause)  /* Op
     }
     return OpenMPReductions;
 }
+
+SgStatement *Interface(SgSymbol *s)
+{
+    SgStatement *interface = hasInterface(s); 
+    if (!interface)
+    {
+        interface = getInterface(s);
+        if (isForCudaRegion())
+        { 
+            SaveInterface(s,interface); 
+            MarkAsUserProcedure(s);
+        } 
+    }
+    return interface;
+}
+
 SgStatement *getInterface(SgSymbol *s)
 {
     enum { SEARCH_INTERFACE, CHECK_INTERFACE, FIND_NAME };
@@ -5163,8 +5265,21 @@ SgStatement *getInterface(SgSymbol *s)
             }
             else
             {
-                mode = FIND_NAME;
-                searchStmt = searchStmt->lexNext();
+                if(searchStmt->symbol())
+                {
+                    // not implemented yet for Cuda!!!!
+                    if(isForCudaRegion() && analyzing)
+                    {  
+                        Warning("Generic interface is not supported for Cuda: %s",searchStmt->symbol()->identifier(),647,searchStmt);
+                        doNotForCuda();
+                    }
+                    return searchStmt;
+                }
+                else
+                {
+                    mode = FIND_NAME;
+                    searchStmt = searchStmt->lexNext();
+                }
             }
             break;
         case FIND_NAME:
@@ -5188,6 +5303,7 @@ SgStatement *getInterface(SgSymbol *s)
     return NULL;
 }
 
+/*
 SgStatement *checkInternal(SgSymbol *s)
 {
     enum { SEARCH_INTERNAL, SEARCH_CONTAINS };
@@ -5219,24 +5335,51 @@ SgStatement *checkInternal(SgSymbol *s)
     }
     return NULL;
 }
+*/
+
+void TestRoutineAttribute(SgSymbol *s, SgStatement *routine_interface)
+{
+    if (isForCudaRegion() && FromOtherFile(s) && !routine_interface)
+        Error("Interface with ROUTINE specification is required for %s", s->identifier(), 646, routine_interface ? routine_interface : cur_func);
+}
+
+/*
+int LookForRoutineDir( SgStatement *interfaceFunc )
+{
+    SgStatement *st;
+    for(st=interfaceFunc->lexNext(); st->variant() != CONTROL_END; st=st->lexNext())
+                if(st->variant() == ACC_ROUTINE_DIR)
+                    return 1; 
+    return 0;
+}
+*/
 
 void CreateCalledFunctionDeclarations(SgStatement *st_hedr)
 {
     symb_list *sl;
     SgStatement *contStmt = st_hedr->lastNodeOfStmt();
+    int has_routine_attr = 0;
 
     for (sl = acc_call_list; sl; sl = sl->next)
     {
-        if ((sl->symb->variant() == FUNCTION_NAME || sl->symb->variant() == PROCEDURE_NAME) && !IS_BY_USE(sl->symb))
+        if ((sl->symb->variant() == FUNCTION_NAME || sl->symb->variant() == PROCEDURE_NAME || sl->symb->variant() == INTERFACE_NAME) && !IS_BY_USE(sl->symb))
         {
             SgStatement *interfaceFunc = getInterface(sl->symb);
             if (interfaceFunc != NULL)
-            {
-                SgStatement *block = new SgStatement(INTERFACE_STMT);
-                block->insertStmtAfter(*new SgStatement(CONTROL_END), *block);
-                block->insertStmtAfter(interfaceFunc->copy(), *block);
-                st_hedr->insertStmtAfter(*block, *st_hedr);
+            {    
+                if(interfaceFunc->variant() == INTERFACE_STMT)  
+                    st_hedr->insertStmtAfter(interfaceFunc->copy(), *st_hedr);
+                else
+                { 
+                    SgStatement *block = new SgStatement(INTERFACE_STMT);
+                    block->insertStmtAfter(*new SgStatement(CONTROL_END), *block);
+                    block->insertStmtAfter(interfaceFunc->copy(), *block);
+                    st_hedr->insertStmtAfter(*block, *st_hedr);
+                    if (isForCudaRegion() && HAS_ROUTINE_ATTR(interfaceFunc->symbol())) 
+                        has_routine_attr = 1;
+                }
             }
+          /*
             else if (interfaceFunc = checkInternal(sl->symb))
             {
                 if (contStmt->variant() == CONTROL_END)
@@ -5246,8 +5389,10 @@ void CreateCalledFunctionDeclarations(SgStatement *st_hedr)
                 }
                 contStmt->insertStmtAfter(interfaceFunc->copy(), *st_hedr);
             }
+          */ 
             else if(sl->symb->variant() == FUNCTION_NAME)
                 st_hedr->insertStmtAfter(*sl->symb->makeVarDeclStmt(), *st_hedr);
+            TestRoutineAttribute(sl->symb, has_routine_attr ? interfaceFunc : NULL);
         }
     }
 }
@@ -5680,14 +5825,15 @@ SgStatement *Create_Host_Loop_Subroutine(SgSymbol *sHostProc, int dependency)
         else addopenmp = 0;                           /* OpenMP */
         for (rl = red_struct_list,nr = 1; rl; rl = rl->next, nr++)
         {   
-            if (rl->locvar)
+            if (rl->locvar)   
             {
-                stmt = rl->locvar->makeVarDeclStmt();
-                ConstantSubstitutionInTypeSpec(stmt->expr(1)); 
-                st_hedr->insertStmtAfter(*stmt, *st_hedr);
+                DeclareSymbolInHostHandler(rl->locvar, st_hedr, rl->locvar);  
+                //stmt = rl->locvar->makeVarDeclStmt();
+                //ConstantSubstitutionInTypeSpec(stmt->expr(1)); 
+                //st_hedr->insertStmtAfter(*stmt, *st_hedr);
             }
             SgSymbol *sred =  rl->redvar_size != 0 ? rl->red_host : rl->redvar;
-            DeclareSymbolInHostHandler(sred, st_hedr, 1);  
+            DeclareSymbolInHostHandler(rl->redvar, st_hedr, sred);  
 
             // generate loop_red_init and loop_red_post function calls 
             stmt = LoopRedInit_HH(s_loop_ref, nr, sred, rl->locvar);
@@ -5741,7 +5887,7 @@ SgStatement *Create_Host_Loop_Subroutine(SgSymbol *sHostProc, int dependency)
         SgSymbol *sp = el->lhs()->symbol(); 
         //if(HEADER(sp)) // dvm-array is declared as dummy argument
         //  continue; 
-        DeclareSymbolInHostHandler(sp, st_hedr, 0);
+        DeclareSymbolInHostHandler(sp, st_hedr, NULL);
     }
     //   <loop_index_variables>     
     SgExprListExp *indexes = NULL; /* OpenMP */
@@ -6440,12 +6586,18 @@ int fromUsesList(SgExpression *e)
    return fromUsesList(e->lhs()) && fromUsesList(e->rhs());
 }
 
-SgSymbol *DeclareSymbolInHostHandler(SgSymbol *var, SgStatement *st_hedr, int is_red_var)
+SgSymbol *DeclareSymbolInHostHandler(SgSymbol *var, SgStatement *st_hedr, SgSymbol *loc_var)
 {   
     SgSymbol *s = var;
     if(!var) return s;
-    if (!is_red_var && isSgArrayType(s->type()))
-       s = ArraySymbolInHostHandler(s, st_hedr); 
+    if(USE_STATEMENTS_ARE_REQUIRED && IS_BY_USE(var))
+       return s;
+   
+    if (!loc_var && isSgArrayType(s->type()))
+       s = ArraySymbolInHostHandler(s, st_hedr);
+    else if(loc_var)
+       s = loc_var ;
+
     SgStatement *stmt = s->makeVarDeclStmt();
     if(IS_POINTER_F90(s))
        stmt->setExpression(2,*new SgExpression(POINTER_OP));
@@ -6453,6 +6605,21 @@ SgSymbol *DeclareSymbolInHostHandler(SgSymbol *var, SgStatement *st_hedr, int is
     ConstantSubstitutionInTypeSpec(stmt->expr(1));    
     st_hedr->insertStmtAfter(*stmt, *st_hedr);
     return s;
+}
+
+int ExplicitShape(SgExpression *eShape)
+{
+   SgExpression *el;
+   SgSubscriptExp *sbe;
+   for(el=eShape; el; el=el->rhs())
+   { 
+      SgExpression *uBound =  (sbe=isSgSubscriptExp(el->lhs())) ? sbe->ubound() : el->lhs();
+      if(uBound && uBound->variant()!=STAR_RANGE) 
+            continue;
+      else
+            return 0;
+    }              
+    return 1;
 }
 
 SgSymbol *ArraySymbolInHostHandler(SgSymbol *ar, SgStatement *scope)
@@ -6463,12 +6630,14 @@ SgSymbol *ArraySymbolInHostHandler(SgSymbol *ar, SgStatement *scope)
 
     rank = Rank(ar);
     soff = ArraySymbol(ar->identifier(), ar->type()->baseType(), NULL, scope);
+    if(!ExplicitShape(isSgArrayType(ar->type())->getDimList()))
+        Error("Illegal array bound of private array %s", ar->identifier(), 442, dvm_parallel_dir);
 
     for (i = 0; i < rank; i++)
     {
         edim = ((SgArrayType *)(ar->type()))->sizeInDim(i);
-        if( IS_BY_USE(ar) || !fromUsesList(edim) && !fromModule(edim) )
-           edim = CalculateArrayBound(edim, ar, 1); 
+             //if( IS_BY_USE(ar) || !fromUsesList(edim) && !fromModule(edim) )
+             //   edim = CalculateArrayBound(edim, ar, 1); 
         ((SgArrayType *)(soff->type()))->addRange(edim->copy());
     }
     return(soff);
@@ -6515,11 +6684,12 @@ SgExpression *CreateBaseMemoryList()
     SgExpression  *MD = new SgExpression(DDOT, &M0.copy(), new SgKeywordValExp("*"), NULL);
 
     // create memory base list looking through the acc_array_list
-    sl = acc_array_list;
+    
+    sl = USE_STATEMENTS_ARE_REQUIRED ? MergeSymbList(acc_array_list_whole, acc_array_list) : acc_array_list;
     if (!sl) return(NULL);
     base_list = new SgExprListExp(*new SgArrayRefExp(*baseMemory(sl->symb->type()->baseType())));
 
-    for (sl = acc_array_list->next; sl; sl = sl->next)
+    for (sl = sl->next; sl; sl = sl->next)
     {
         for (l = base_list; l; l = l->rhs())
         {       //printf("%d   %d\n",sl->symb->type()->baseType()->variant(),l->lhs()->symbol()->type()->baseType()->variant());  
@@ -9213,17 +9383,19 @@ void DeclareDummyArgumentsForReductions(SgSymbol *red_count_symb, SgType *idxTyp
 
     st = NULL;
     for (rsl = red_struct_list; rsl; rsl = rsl->next)
-    for (el = rsl->dimSize_arg; el; el = el->rhs())    // reduction variable is array of unknown size
     {
-        st = el->lhs()->symbol()->makeVarDeclStmt();
-        st->setExpression(2, *eatr);
-        kernel_st->insertStmtAfter(*st);
-    }
-    for (el = rsl->lowBound_arg; el; el = el->rhs())    // reduction variable is array of unknown size
-    {
-        st = el->lhs()->symbol()->makeVarDeclStmt();
-        st->setExpression(2, *eatr);
-        kernel_st->insertStmtAfter(*st);
+        for (el = rsl->dimSize_arg; el; el = el->rhs())    // reduction variable is array of unknown size
+        {
+            st = el->lhs()->symbol()->makeVarDeclStmt();
+            st->setExpression(2, *eatr);
+            kernel_st->insertStmtAfter(*st);
+        }
+        for (el = rsl->lowBound_arg; el; el = el->rhs())    // reduction variable is array of unknown size
+        {
+            st = el->lhs()->symbol()->makeVarDeclStmt();
+            st->setExpression(2, *eatr);
+            kernel_st->insertStmtAfter(*st);
+        }
     }
     if (st)
         st->addComment("! Bounds of reduction arrays \n");
@@ -9653,7 +9825,7 @@ void ReductionBlockInKernel_On_C_Cuda(SgStatement *stat, SgSymbol *i_var, SgExpr
             if (rsl->array_red_size > 0)
             {
                 SgSymbol *s = rsl->redvar;
-                SgArrayType *arrT = new SgArrayType(*s->type()->baseType());
+                SgArrayType *arrT = new SgArrayType(*C_Type(s->type()->baseType()));
                 arrT->addRange(*new SgValueExp(rsl->array_red_size));
                 SgSymbol *forDecl = new SgVariableSymb(rsl->redvar->identifier(), *arrT, *kernel_st);
                 newst = Declaration_Statement(forDecl);
@@ -9748,7 +9920,7 @@ void ReductionBlockInKernel_On_C_Cuda(SgStatement *stat, SgSymbol *i_var, SgExpr
             if (rsl->array_red_size > 0)
             {
                 SgSymbol *s = rsl->redvar;
-                SgArrayType *arrT = new SgArrayType(*s->type()->baseType());
+                SgArrayType *arrT = new SgArrayType(*C_Type(s->type()->baseType()));
                 arrT->addRange(*new SgValueExp(rsl->array_red_size));
                 SgSymbol *forDecl = new SgVariableSymb(rsl->redvar->identifier(), *arrT, *kernel_st);
                 newst = Declaration_Statement(forDecl);

@@ -368,7 +368,7 @@ if (MSVC_IDE)
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 else()
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 endif()
 
 add_definitions("-D __SPF")

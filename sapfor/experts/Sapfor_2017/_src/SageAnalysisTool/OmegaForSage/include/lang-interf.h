@@ -360,7 +360,7 @@ typedef struct omegaVar *var_id;
 */
 
 #include "portable.h"
-typedef struct {
+typedef struct DD_info {
     uint         nest;
     dddirection  direction;
     dddirection  restraint;
@@ -371,6 +371,19 @@ typedef struct {
 	    that must be duplicated when we need to make a copy
 	    of an existing entry in the dependence graph using
 	    the function clone_dd_graph_node_for_refinement */
+
+    DD_info()
+    {
+        nest = 0;
+        direction = 0;
+        restraint = 0;
+        for (int z = 0; z < maxCommonNest; ++z)
+        {
+            distanceKnown[z] = false;
+            distance[z] = 0;
+        }
+        dd_graph_node_to_be_cloned = NULL;
+    }
 } dir_and_dist_info;
 
 /* Duplicate the dd graph node, setting "isRefined" in the copy.
@@ -390,8 +403,13 @@ void clone_dd_graph_node_for_refinement(void *dd_graph_node_to_be_cloned);
 	int i; \
 	for (i=1; i<=(D_INFO)->nest; i++) { \
 	    if (ddextract1((D_INFO)->direction,i) == ddeq) { \
-		assert((D_INFO)->distanceKnown[i] && \
-		       (D_INFO)->distance[i] == 0); \
+         if (!((D_INFO)->distanceKnown[i] && (D_INFO)->distance[i] == 0))\
+         {\
+            printf("%lld %lld %lld\n", (D_INFO)->nest, (D_INFO)->direction, (D_INFO)->restraint);\
+            for (int z = 0; z < maxCommonNest; ++z)\
+                printf("[%d]: %d %d\n", z, (D_INFO)->distanceKnown[z], (D_INFO)->distance[z]);\
+         }\
+		assert((D_INFO)->distanceKnown[i] && (D_INFO)->distance[i] == 0); \
 	    } \
 	} \
     }

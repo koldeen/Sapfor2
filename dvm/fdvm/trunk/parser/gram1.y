@@ -317,34 +317,35 @@
 %token ACC_INLOCAL 317
 %token ACC_CUDA_BLOCK 318
 %token ACC_ROUTINE 319
-%token BY 320
-%token IO_MODE 321
-%token CP_CREATE 322
-%token CP_LOAD 323
-%token CP_SAVE 324
-%token CP_WAIT 325
-%token FILES 326
-%token VARLIST 327
-%token STATUS 328
-%token EXITINTERVAL 329
-%token TEMPLATE_CREATE 330
-%token TEMPLATE_DELETE 331
-%token SPF_ANALYSIS 332
-%token SPF_PARALLEL 333
-%token SPF_TRANSFORM 334
-%token SPF_NOINLINE 335
-%token SPF_PARALLEL_REG 336
-%token SPF_END_PARALLEL_REG 337
-%token SPF_PRIVATES_EXPANSION 338
-%token SPF_FISSION 339
-%token SPF_SHRINK 340
-%token SPF_CHECKPOINT 341
-%token SPF_EXCEPT 342
-%token SPF_FILES_COUNT 343
-%token SPF_INTERVAL 344
-%token SPF_TIME 345
-%token SPF_ITER 346
-%token SPF_FLEXIBLE 347
+%token ACC_TIE 320
+%token BY 321
+%token IO_MODE 322
+%token CP_CREATE 323
+%token CP_LOAD 324
+%token CP_SAVE 325
+%token CP_WAIT 326
+%token FILES 327
+%token VARLIST 328
+%token STATUS 329
+%token EXITINTERVAL 330
+%token TEMPLATE_CREATE 331
+%token TEMPLATE_DELETE 332
+%token SPF_ANALYSIS 333
+%token SPF_PARALLEL 334
+%token SPF_TRANSFORM 335
+%token SPF_NOINLINE 336
+%token SPF_PARALLEL_REG 337
+%token SPF_END_PARALLEL_REG 338
+%token SPF_PRIVATES_EXPANSION 339
+%token SPF_FISSION 340
+%token SPF_SHRINK 341
+%token SPF_CHECKPOINT 342
+%token SPF_EXCEPT 343
+%token SPF_FILES_COUNT 344
+%token SPF_INTERVAL 345
+%token SPF_TIME 346
+%token SPF_ITER 347
+%token SPF_FLEXIBLE 348
 
 %{
 #include <string.h>
@@ -577,7 +578,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <ll_node> derived_subscript derived_subscript_list opt_plus_shadow plus_shadow shadow_id
 %type <ll_node> template_ref template_obj shadow_axis shadow_axis_list opt_include_to 
 %type <ll_node> localize_target target_subscript target_subscript_list aster_expr dummy_ident 
-%type <ll_node> template_list
+%type <ll_node> template_list tie_spec tied_array_list
 %type <symbol> processors_name align_base_name 
 %type <symbol> shadow_group_name reduction_group_name reduction_group  indirect_group_name task_name
 %type <symbol> remote_group_name group_name array_name async_ident consistent_group_name consistent_group
@@ -6199,12 +6200,12 @@ opt_on:   opt_key_word ON distribute_cycles
 distribute_cycles: ident LEFTPAR par_subscript_list RIGHTPAR
         {
           if($1->type->variant != T_ARRAY) 
-           errstr("'%s' isn't array", $1->entry.Template.symbol->ident, 66);
-                 $1->entry.Template.ll_ptr1 = $3;
-                 $$ = $1;
-                 $$->type = $1->type->entry.ar_decl.base_type;
-         }
-         ;
+             errstr("'%s' isn't array", $1->entry.Template.symbol->ident, 66);
+          $1->entry.Template.ll_ptr1 = $3;
+          $$ = $1;
+          $$->type = $1->type->entry.ar_decl.base_type;
+        }
+        ;
 
 par_subscript_list: par_subscript
 	    { $$ = set_ll_list($1,LLNULL,EXPR_LIST); }
@@ -6245,6 +6246,7 @@ par_spec: new_spec
         | consistent_spec
         | private_spec     /*ACC*/
         | cuda_block_spec  /*ACC*/
+        | tie_spec         /*ACC*/
         ;
 
 remote_access_spec:  COMMA needkeyword REMOTE_ACCESS_SPEC LEFTPAR group_name COLON remote_data_list RIGHTPAR
@@ -6301,10 +6303,20 @@ sizelist:  expr
         ;
 
 variable_list: lhs
-            { $$ = set_ll_list($1,LLNULL,EXPR_LIST);}
+               { $$ = set_ll_list($1,LLNULL,EXPR_LIST);}
              | variable_list COMMA lhs
-            { $$ = set_ll_list($1,$3,EXPR_LIST);}
+               { $$ = set_ll_list($1,$3,EXPR_LIST);}
              ;
+
+tie_spec: COMMA needkeyword ACC_TIE LEFTPAR tied_array_list RIGHTPAR
+         { $$ = make_llnd(fi,ACC_TIE_OP,$5,LLNULL,SMNULL);} /*ACC*/
+        ;
+
+tied_array_list: distribute_cycles
+                 { $$ = set_ll_list($1,LLNULL,EXPR_LIST);}
+               | tied_array_list COMMA distribute_cycles
+                 { $$ = set_ll_list($1,$3,EXPR_LIST);}
+               ;
 
 indirect_access_spec: COMMA needkeyword INDIRECT_ACCESS LEFTPAR group_name COLON indirect_list RIGHTPAR 
                     { if(!($5->attr & INDIRECT_BIT))

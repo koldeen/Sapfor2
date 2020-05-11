@@ -180,6 +180,7 @@ name_dvm[LOOP_RED]         = "dvmh_loop_reduction";
 name_dvm[SHADOW_COMPUTE]   = "loop_shadow_compute";
 name_dvm[SHADOW_COMPUTE_AR]= "dvmh_loop_shadow_compute_array";
 name_dvm[SHADOW_COMPUTE_2] = "dvmh_loop_shadow_compute";
+name_dvm[CORRESPONDENCE]   = "dvmh_loop_array_correspondence";
 name_dvm[GET_ACTUAL_ALL]   = "dvmh_get_actual_all";
 name_dvm[GET_ACTUAL_ALL_2] = "dvmh_get_actual_all2";
 name_dvm[GET_ACTUAL_ARRAY] = "dvmh_get_actual_array"; 

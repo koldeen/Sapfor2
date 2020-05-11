@@ -994,18 +994,21 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
         else if (curr_regime == INSERT_REGIONS)
         {
+            map<string, FuncInfo*> mapOfFuncs;
+            createMapOfFunc(allFuncInfo, mapOfFuncs);
+
             auto loopForFile = getObjectForFileFromMap(file_name, loopGraph);
-            DvmhRegionInserter regionInserter(file, loopForFile, rw_analyzer, arrayLinksByFuncCalls);
+            DvmhRegionInserter regionInserter(file, loopForFile, rw_analyzer, arrayLinksByFuncCalls, mapOfFuncs);
 
             //collect info about <parallel> functions
-            regionInserter.updateParallelFunctions(loopGraph, allFuncInfo);
+            regionInserter.updateParallelFunctions(loopGraph);
             
             if (parallelRegions.size() == 0 && parallelRegions[0]->GetName() == "DEFAULT")
                 regionInserter.insertDirectives(NULL);
             else
                 regionInserter.insertDirectives(&parallelRegions);
 
-            //remove private from loops out of DVMH region
+            //remove privates from loops out of DVMH region
             map<int, LoopGraph*> mapLoopGraph;
             createMapLoopGraph(loopForFile, mapLoopGraph);
             for (auto& loopPair : mapLoopGraph)
@@ -1029,6 +1032,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     }
                 }
             }
+
+            //create interface for 'parallel' functions
+            regionInserter.createInterfaceBlock();
         }
         else if (curr_regime == VERIFY_FUNC_DECL)
         {
@@ -1046,9 +1052,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CONVERT_SAVE_TO_MODULE)
             convertSaveToModule(file);
         else if (curr_regime == PROCESS_IO)
-            preprocessOpenOperators(file, filesInfo);
-        else if (curr_regime == FUNCTION_CLEARING)
-            functionCleaning(getObjectForFileFromMap(file_name, allFuncInfo));
+            preprocessOpenOperators(file, filesInfo);        
 
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, allIncludeFiles);
     } // end of FOR by files
@@ -1813,7 +1817,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);*/
     }
     else if (curr_regime == DUPLICATE_FUNCTIONS)
-        duplicateFunctions(allFuncInfo, arrayLinksByFuncCalls);
+    {
+        if (!duplicateFunctions(allFuncInfo, arrayLinksByFuncCalls, SPF_messages))
+            internalExit = 1;
+    }
     else if (curr_regime == REMOVE_COPIES)
         removeCopies(allFuncInfo);
     else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
@@ -2188,7 +2195,6 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         }
     }
         break;
-    case FUNCTION_CLEARING:
     case CREATE_NESTED_LOOPS:
     case CONVERT_TO_ENDDO:
     case CORRECT_CODE_STYLE:
@@ -2437,11 +2443,42 @@ int main(int argc, char **argv)
                     parallizeFreeLoops = 1;
                 else if (string(curr_arg) == "-parse")
                 {
-                    int code = parse_file(argc - i, argv + i, "dvm.proj");
+                    auto result = splitCommandLineForParse(argv + i + 1, argc - i - 1);
+                    if (result.second.size() == 0)
+                    {
+                        printf("Nothing to parse\n");
+                        exit(0);
+                    }
+
+                    int code = -1;
+                    char** nextArgv = new char* [32];
+                    nextArgv[0] = "parse from spf";
+                    int z = 0;
+                    for (auto& file : result.second)
+                    {
+                        int countOfArgs = 1;
+                        for (auto& opt : result.first)
+                            nextArgv[countOfArgs++] = (char*)opt.c_str();
+                        
+                        if (z != 0)
+                        {
+                            nextArgv[countOfArgs++] = "-a";
+                            nextArgv[countOfArgs++] = "dvm.proj";
+                        }
+                        nextArgv[countOfArgs++] = (char*)file.c_str();
+                        //code = parse_file(argc - i, argv + i, "dvm.proj");
+                        code = parse_file(countOfArgs, nextArgv, "dvm.proj");
+                        if (code != 0)
+                        {
+                            printf("Parsing was completed with error code %d\n", code);
+                            break;
+                        }
+                        ++z;
+                    }
+
+                    delete[] nextArgv;
                     if (code == 0)
                         printf("Parsing was completed successfully\n");
-                    else
-                        printf("Parsing was completed with error code %d\n", code);
                     exit(0);
                 }
                 else if (string(curr_arg) == "-pppa")

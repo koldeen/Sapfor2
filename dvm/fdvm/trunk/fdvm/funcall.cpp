@@ -3651,6 +3651,17 @@ SgStatement *SetCudaBlock_H2(int il, SgExpression *X, SgExpression *Y, SgExpress
   return(call);
 }
 
+SgStatement *Correspondence_H (int il, SgExpression *hedr, SgExpression *axis_list)
+{// generating subroutine call: dvmh_loop_array_correspondence(const DvmType *pCurLoop, const DvmType dvmDesc[], const DvmType *pRank, /* const DvmType *pLoopAxis */...) 
+ // DvmhLoopRef - result of dvmh_loop_create()
+  SgCallStmt *call = new SgCallStmt(*fdvm[CORRESPONDENCE]);
+  fmask[CORRESPONDENCE] = 2;
+  call->addArg(*DVM000(il));
+  call->addArg(*hedr);
+  AddListToList(call->expr(0), axis_list);
+  return(call);
+}
+
 SgStatement *ShadowRenew_H(SgExpression *gref)
 {// generating subroutine call: dvmh_shadow_renew(ShadowGroupRef) 
   

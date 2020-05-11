@@ -564,7 +564,8 @@ void initialize()
     options.setOn(C_CUDA);      /*ACC*/
     options.setOn(NO_BL_INFO);  /*ACC*/
     parloop_by_handler = 0;     /*ACC*/
-    collapse_loop_count = 0;     /*ACC*/
+    collapse_loop_count = 0;    /*ACC*/
+    cuda_functions = 0;         /*ACC*/
 }
 
 SgSymbol *LastSymbolOfFile(SgFile *f)
@@ -990,7 +991,6 @@ SgSymbol * CreateRegistrationArraySymbol()
  return(sn);
 }
 
-
 void CreateCoeffs(coeffs* scoef,SgSymbol *ar)
 {int i,r,i0;
  char *name;
@@ -1004,7 +1004,7 @@ void CreateCoeffs(coeffs* scoef,SgSymbol *ar)
    //printf("%s",(scoef->sc[i])->identifier());
  }
   scoef->use = 0;
- if(IN_MODULE)
+ if(IN_MODULE && !IS_TEMPLATE(ar))
      scoef->use = 1;
 }
 
@@ -1590,7 +1590,7 @@ void DeclareVarDVM(SgStatement *lstat, SgStatement *lstat2)
    el = NULL;
    for(sl=dsym; sl; sl=sl->next) {
      c = ((coeffs *) sl->symb-> attributeValue(0,ARRAY_COEF));
-     if(!c->use) 
+     if(IS_TEMPLATE(sl->symb) || !c->use) 
        continue;
      int flag_public = IN_MODULE && privateall && sl->symb->attributes() & PUBLIC_BIT ? 1 : 0;
      rank=Rank(sl->symb);
@@ -2009,7 +2009,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
 // follow the statements of the function in lexical order
 // until first executable statement
   for (stmt = first; stmt && (stmt != last); stmt = stmt->lexNext()) {
-    
+               //printf("statement %d %s\n",stmt->lineNumber(),stmt->fileName());
     if (!isSgExecutableStatement(stmt)) //is Fortran specification statement
 // isSgExecutableStatement: 
 //               FALSE  -  for specification statement of Fortan 90
@@ -2113,6 +2113,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
     
     switch(stmt->variant()) {
        case(ACC_ROUTINE_DIR):
+           ACC_ROUTINE_Directive(stmt); 
            continue;
        case(HPF_TEMPLATE_STAT):
            if(IN_MODULE && stmt->expr(1))
@@ -6051,11 +6052,10 @@ void ArrayHeader (SgSymbol *ar,int ind)
   coeffs *scoef  = new coeffs;
   SgSymbol **base = new (SgSymbol *);
   SgType *btype;
-
+  
   if(IS_BY_USE(ar)) 
      return;
   
-
   if(HEADER(ar)) {
      Err_g("Illegal aligning of '%s'", ar->identifier(),126);
      return;
@@ -7996,6 +7996,17 @@ SgExpression * header_ref_in_structure (SgSymbol *ar, int n, SgExpression *struc
        //return( new SgArrayRefExp(*ar, *new SgValueExp(n)));
 }
 
+coeffs *DvmArrayCoefficients(SgSymbol *ar)
+{
+     if(!ar->attributeValue(0,ARRAY_COEF))  //BY USE
+     {
+        coeffs *c_new = new coeffs;
+        CreateCoeffs(c_new,ar);
+        ar->addAttribute(ARRAY_COEF, (void*) c_new, sizeof(coeffs));
+     }
+     return (coeffs *) ar->attributeValue(0,ARRAY_COEF); 
+}
+
 SgExpression * coef_ref (SgSymbol *ar, int n) {
 // creates cofficient for dvm-array addressing
 //array header reference Header(n)  or its copy reference
@@ -8742,7 +8753,8 @@ int Alignment(SgStatement *stat, SgExpression *aref, SgExpression *axis[], SgExp
        else {
          axis[nt] = new SgValueExp(num); 
          CoeffConst(e, ei, &coef[nt], &cons[nt]); 
-         TestReverse(coef[nt],stat);     
+         if(interface != 2)
+           TestReverse(coef[nt],stat);     
          if(!coef[nt]){
            err("Wrong iteration-align-subscript in PARALLEL", 160,stat);
            coef[nt] = & c0.copy();
@@ -10076,6 +10088,35 @@ symb_list  *AddNewToSymbListEnd ( symb_list *ls, SgSymbol *s)
      lprev->next = l;
   }
   return(ls);
+}
+
+symb_list  *MergeSymbList(symb_list *ls1, symb_list *ls2)
+{
+  symb_list *l =ls1;
+  if(!ls1)
+     return (ls2);
+  while(l->next)
+     l = l->next;
+  l->next = ls2;
+  return ls1;
+}
+
+symb_list *CopySymbList(symb_list *ls)
+{
+  symb_list *l=NULL, *el, *cp=NULL;
+  while(ls)
+  {
+    el = new symb_list;
+    el->symb = ls->symb;
+    el->next = NULL;
+    if(l)
+      l->next  = el;
+    else
+      cp = el;
+    l = el;
+    ls = ls->next;
+  }
+  return cp;
 }
 
 void DeleteSymbList(symb_list *ls)
@@ -13312,12 +13353,23 @@ SgStatement *InterfaceBlock(SgStatement *hedr)
 }
 
 SgStatement *InterfaceBody(SgStatement *hedr)
-{ SgStatement *stmt, *last, *dvm_pred;
+{ 
+ SgStatement *stmt, *last, *dvm_pred;
  symb_list *distsym;
+ SgSymbol *s = hedr->symbol();
  distsym = NULL;
  dvm_pred = NULL;
+ 
+ if (hedr->expr(2))
+ {
+    if (hedr->expr(2)->variant() == PURE_OP)
+       SYMB_ATTR(s->thesymb) = SYMB_ATTR(s->thesymb) | PURE_BIT;
+   
+    else if (hedr->expr(2)->variant() == ELEMENTAL_OP)
+       SYMB_ATTR(s->thesymb) = SYMB_ATTR(s->thesymb) | ELEMENTAL_BIT;
+ }
  last = hedr->lastNodeOfStmt();
-
+ 
  for(stmt=hedr->lexNext(); stmt; stmt=stmt->lexNext()) {
     if(dvm_pred)
        Extract_Stmt(dvm_pred); // deleting preceding DVM-directive
@@ -13392,8 +13444,8 @@ SgStatement *InterfaceBody(SgStatement *hedr)
 
       case (DVM_VAR_DECL):
           { SgExpression *el;
-	  int eda;
-	  eda = 0;
+	    int eda;
+	    eda = 0;
             for(el = stmt->expr(2); el; el=el->rhs()) // looking through the attribute list
 	      switch(el->lhs()->variant()) {
 	          case (ALIGN_OP):
@@ -13417,9 +13469,13 @@ SgStatement *InterfaceBody(SgStatement *hedr)
               if(!IS_POINTER(sl->lhs()->symbol()))        
                 distsym = AddNewToSymbList(distsym,sl->lhs()->symbol());
          }
-         dvm_pred = stmt; 
-	 continue;
+           dvm_pred = stmt; 
+	   continue;
        case (ACC_ROUTINE_DIR):
+           ACC_ROUTINE_Directive(stmt);
+           dvm_pred = stmt;  
+           continue;
+
        case (HPF_TEMPLATE_STAT):
        case (HPF_PROCESSORS_STAT):
        case (DVM_DYNAMIC_DIR):
@@ -13433,9 +13489,9 @@ SgStatement *InterfaceBody(SgStatement *hedr)
        case (DVM_POINTER_DIR): 
        case (DVM_HEAP_DIR):
        case (DVM_ASYNCID_DIR):
-	  dvm_pred = stmt;  
+	   dvm_pred = stmt;  
        default:
-	 continue; 
+	   continue; 
     }
 
     break;
@@ -13637,6 +13693,14 @@ SgSymbol *Rename(SgSymbol *ar, SgStatement *stmt)
  return(ar);
 }
 
+void AddAttributeToLastElement(SgExpression *use_list)
+{
+  SgExpression *el = use_list;
+  while(el && el->rhs())
+    el = el->rhs();
+  el->addAttribute(END_OF_USE_LIST, (void*) 1, 0); 
+}
+
 void UpdateUseListWithDvmArrays(SgStatement *use_stmt)
 {
   SgExpression *el, *coeff_list=NULL;
@@ -13645,10 +13709,11 @@ void UpdateUseListWithDvmArrays(SgStatement *use_stmt)
   int i,r,i0;
   i0 = opt_base ? 1 : 2;
   if(opt_loop_range) i0=0;
-
+  
   if(use_list && use_list->variant()==ONLY_NODE)
     use_list = use_list->lhs();
-
+  if(use_list)
+    AddAttributeToLastElement(use_list);
   for(el=use_list; el; el=el->rhs())
   { 
     // el->lhs()->variant() is RENAME_NODE
@@ -14309,7 +14374,7 @@ SgStatement *ProcessVarDecl(SgStatement *vd)
   
   if(!(ia & POINTER_BIT))
          //Error("Inconsistent declaration of identifier '%s'",s->identifier(),16,vd); 
-     Error("DISTRIBUTE or ALIGN attribute dictates POINTER attribute  '%s'",s->identifier(),336,vd); 
+     Warning("DISTRIBUTE or ALIGN attribute dictates POINTER attribute  '%s'",s->identifier(),336,vd); 
   //create new statement for s and insert before statement vd
          // new SgVarDeclStmt(SgExpression &varRefValList, SgExpression &attributeList, SgType &type);
    e = el->lhs()->symbol() ? el->lhs() : el->lhs()->lhs();
@@ -14371,3 +14436,4 @@ int TestMaxDims(SgExpression *list, SgSymbol *ar, SgStatement *stmt)
    else
       return 1;      
 }
+

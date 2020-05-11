@@ -436,6 +436,7 @@ DEFNODECODE(ACC_INLOCAL_OP, "nodetext",'e',1,LLNODE,		'_','_','_','_','_')
 DEFNODECODE(ACC_TARGETS_OP, "nodetext",'e',1,LLNODE,		'_','_','_','_','_')
 DEFNODECODE(ACC_ASYNC_OP, "nodetext",'e',0,LLNODE,		'_','_','_','_','_')
 DEFNODECODE(SHADOW_NAMES_OP, "nodetext",'e',1,LLNODE,		'_','_','_','_','_')
+DEFNODECODE(ACC_TIE_OP, "nodetext",'e',1,LLNODE,		'_','_','_','_','_')
 
 DEFNODECODE(ACC_CALL_STMT,"nodetext",'s',2,BIFNODE,		'_','_','_','_','_')
 DEFNODECODE(DVM_NEW_VALUE_DIR,"nodetext",'s',1,BIFNODE,		'_','_','_','_','_')

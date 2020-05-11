@@ -21,6 +21,9 @@ namespace Distribution
 }
 namespace DIST = Distribution;
 
+void getRealArrayRefs(DIST::Array* addTo, DIST::Array* curr, std::set<DIST::Array*>& realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls);
+void getAllArrayRefs(DIST::Array* addTo, DIST::Array* curr, std::set<DIST::Array*>& realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls);
+
 struct LoopGraph
 {
 private:
@@ -277,11 +280,16 @@ public:
 
     void clearUserDirectives();    
 
-    bool isArrayTemplatesTheSame(const int regId)
+    bool isArrayTemplatesTheSame(const int regId, const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls)
     {
-        std::set<DIST::Array*> usedTemplates;
+        std::set<DIST::Array*> usedTemplates;        
         for (auto& array : usedArrays)
-            usedTemplates.insert(array->GetTemplateArray(regId));
+        {
+            std::set<DIST::Array*> realArrayRefs;
+            getRealArrayRefs(array, array, realArrayRefs, arrayLinksByFuncCalls);
+            for (auto& realArr : realArrayRefs)
+                usedTemplates.insert(realArr->GetTemplateArray(regId));
+        }
 
         if (usedArrays.size())
         {
@@ -375,17 +383,15 @@ public:
     int inDvmhRegion; // 0 -unknown, -1 - no, 1 - yes
 };
 
-void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);
-void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
-bool addToDistributionGraph(const LoopGraph* loopInfo, const std::string &inFunction);
+void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>>& loopInfo);
+void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>>& loopInfo, const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls);
+bool addToDistributionGraph(const LoopGraph* loopInfo, const std::string& inFunction);
 
-void convertToString(const LoopGraph *currLoop, std::string &result);
-int printLoopGraph(const char *fileName, const std::map<std::string, std::vector<LoopGraph*>> &loopGraph, bool withRegs = false);
-void checkCountOfIter(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &SPF_messages);
+void convertToString(const LoopGraph* currLoop, std::string& result);
+int printLoopGraph(const char* fileName, const std::map<std::string, std::vector<LoopGraph*>>& loopGraph, bool withRegs = false);
+void checkCountOfIter(std::map<std::string, std::vector<LoopGraph*>>& loopGraph, const std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo, std::map<std::string, std::vector<Messages>>& SPF_messages);
 
-void getRealArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
-void getAllArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
-void createMapLoopGraph(const std::vector<LoopGraph*> &loops, std::map<int, LoopGraph*> &mapGraph);
-void updateLoopIoAndStopsByFuncCalls(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
-void checkArraysMapping(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, std::map<std::string, std::vector<Messages>> &SPF_messages, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
-void filterArrayInCSRGraph(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, std::map<std::string, std::vector<FuncInfo*>> &allFuncs, ParallelRegion *reg, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, std::map<std::string, std::vector<Messages>> &messages);
+void createMapLoopGraph(const std::vector<LoopGraph*>& loops, std::map<int, LoopGraph*>& mapGraph);
+void updateLoopIoAndStopsByFuncCalls(std::map<std::string, std::vector<LoopGraph*>>& loopGraph, const std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo);
+void checkArraysMapping(std::map<std::string, std::vector<LoopGraph*>>& loopGraph, std::map<std::string, std::vector<Messages>>& SPF_messages, const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls);
+void filterArrayInCSRGraph(std::map<std::string, std::vector<LoopGraph*>>& loopGraph, std::map<std::string, std::vector<FuncInfo*>>& allFuncs, ParallelRegion* reg, const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls, std::map<std::string, std::vector<Messages>>& messages);

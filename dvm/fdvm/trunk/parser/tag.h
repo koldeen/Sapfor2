@@ -575,7 +575,8 @@ script using "tag".  Run make tag.h to regenerate this file */
   tag [ ACC_CHECKSECTION_DIR ] = "ACC_CHECKSECTION_DIR";
   tag [ ACC_END_CHECKSECTION_DIR ] = "ACC_END_CHECKSECTION_DIR";
   tag [ ACC_ROUTINE_DIR ] = "ACC_ROUTINE_DIR";
-          
+
+  tag [ ACC_TIE_OP ] = "ACC_TIE_OP";
   tag [ ACC_INLOCAL_OP ] = "ACC_INLOCAL_OP";
   tag [ ACC_INOUT_OP ] = "ACC_INOUT_OP";
   tag [ ACC_IN_OP ] = "ACC_IN_OP";

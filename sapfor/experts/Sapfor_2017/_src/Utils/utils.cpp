@@ -1275,3 +1275,29 @@ set<ParallelRegion*> getAllRegionsByLine(const vector<ParallelRegion*>& regions,
 
     return regFound;
 }
+
+pair<vector<string>, vector<string>> splitCommandLineForParse(char** argv, int argc)
+{
+    vector<string> options;
+    vector<string> files;
+
+    //fdv|f|ftn|for|f90|f95|f03
+    for (int z = 0; z < argc; ++z)
+    {
+        string isFile = argv[z];
+        if (isFile.find(".for") != string::npos ||
+            isFile.find(".f90") != string::npos ||
+            isFile.find(".fdv") != string::npos ||
+            isFile.find(".ftn") != string::npos ||
+            isFile.find(".f95") != string::npos ||
+            isFile.find(".f03") != string::npos ||
+            isFile.find(".f") != string::npos)
+        {
+            files.push_back(isFile);
+        }
+        else
+            options.push_back(isFile);
+    }
+
+    return make_pair(options, files);
+}

@@ -573,7 +573,8 @@
 #define ACC_CHECKSECTION_DIR             911     /* ACC Fortran */
 #define ACC_END_CHECKSECTION_DIR         912     /* ACC Fortran */
 #define ACC_ROUTINE_DIR                  913     /* ACC Fortran */
-          
+
+#define ACC_TIE_OP                       930     /* ACC Fortran */          
 #define ACC_INLOCAL_OP                   931     /* ACC Fortran */
 #define ACC_INOUT_OP                     932     /* ACC Fortran */
 #define ACC_IN_OP                        933     /* ACC Fortran */

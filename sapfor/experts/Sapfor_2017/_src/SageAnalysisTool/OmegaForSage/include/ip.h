@@ -175,11 +175,11 @@ static void eqnncpy(_eqn *dst, const _eqn *src, const int s)
     dst->color = src->color;
     dst->key = src->key;
     dst->touched = src->touched;
-    dst->coef.resize(s + 2);
-    for (int z = 0; z < src->coef.size(); ++z)
-        dst->coef[z] = src->coef[z];
-    for (int z = src->coef.size(); z < s + 2; ++z)
-        dst->coef[z] = 0;
+    dst->coef.resize((src->coef.size() > s + 2) ? src->coef.size() : s + 2);
+    std::fill(dst->coef.begin(), dst->coef.end(), 0);
+
+    for (int z = 0; z < ((src->coef.size() < s + 1) ? src->coef.size() : s + 1); ++z)
+        dst->coef[z] = src->coef[z];    
 }
 
 #define eqncpy(e1,e2) eqnncpy(e1, e2, nVars)

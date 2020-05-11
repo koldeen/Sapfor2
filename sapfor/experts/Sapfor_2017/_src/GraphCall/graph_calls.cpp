@@ -1046,7 +1046,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                     if (it == allFuncInfo.end())
                         it = allFuncInfo.insert(it, make_pair(fileName, vector<FuncInfo*>()));
 
-                    string currF = st->symbol()->identifier();
+                    const string currF = st->symbol()->identifier();
                     FuncInfo* funcInterface = new FuncInfo(currF, make_pair(st->lineNumber(), st->lastNodeOfStmt()->lineNumber()), new Statement(st));
                     funcInterface->isInterface = true;
                     st = st->lastNodeOfStmt();
@@ -2164,105 +2164,6 @@ void removeDistrStateFromDeadFunctions(const map<string, vector<FuncInfo*>>& all
                     array->SetNonDistributeFlag(DIST::NO_DISTR);
             }
         }
-    }
-}
-
-static void insertIntents(vector <string> identificators, SgStatement* header, int intentVariant) 
-{
-    SgStatement* lastDec = header->lastDeclaration();
-
-    for (SgStatement* stmt = header->lexNext(); 
-         stmt && stmt != lastDec->lexNext() && stmt != header->lastNodeOfStmt();
-         stmt = stmt->lexNext()) 
-    {
-        if (stmt->variant() == VAR_DECL_90) 
-        {
-            SgVarDeclStmt* s = (SgVarDeclStmt*)stmt;
-            for (int i = 0; i < s->numberOfAttributes(); i++) 
-            {
-                if (s->attribute(i)->variant() == intentVariant) 
-                {
-                    for (int i = 0; i < s->numberOfVars(); i++) 
-                    {
-                        for (auto it = identificators.begin(); it != identificators.end(); it++) 
-                        {
-                            if (*it == s->var(i)->symbol()->identifier()) 
-                            {
-                                identificators.erase(it);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        else if (stmt->variant() == INTENT_STMT) 
-        {
-            SgIntentStmt* s = (SgIntentStmt*)stmt;
-            if (s->attribute()->variant() == intentVariant) 
-            {
-                for (int i = 0; i < s->numberOfVars(); i++) 
-                {
-                    for (auto it = identificators.begin(); it != identificators.end(); it++) 
-                    {
-                        if (*it == s->var(i)->symbol()->identifier()) 
-                        {
-                            identificators.erase(it);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (identificators.size() > 0) 
-    {
-        SgExpression* attr = new SgExpression(intentVariant);
-        SgExpression* args = NULL;
-
-        for (auto& par : identificators) 
-        {
-            SgExprListExp* tempArgs = new SgExprListExp();
-            SgVarRefExp* tempPar = new SgVarRefExp(new SgVariableSymb(par.c_str()));
-            tempArgs->setLhs(tempPar);
-            if (args)
-                tempArgs->setRhs(args);
-            args = tempArgs;
-        }
-
-        if (args)
-        {
-            SgIntentStmt* intent = new SgIntentStmt(*args, *attr);
-            lastDec->insertStmtAfter(*intent, *lastDec->controlParent());
-        }
-    }
-}
-
-void functionCleaning(const std::vector<FuncInfo*>& allFuncInfo) 
-{
-    for (auto& elem : allFuncInfo) 
-    {
-        if (elem->isMain)
-            continue;
-        vector <string> InIdentificators;
-        vector <string> OutIdentificators;
-        vector <string> InOutIdentificators;
-
-        for (int i = 0; i < elem->funcParams.countOfPars; i++) 
-        {
-            if (elem->funcParams.isArgInOut(i))
-                InOutIdentificators.push_back(elem->funcParams.identificators[i]);
-            else if (elem->funcParams.isArgIn(i))
-                InIdentificators.push_back(elem->funcParams.identificators[i]);
-            else if (elem->funcParams.isArgOut(i))
-                OutIdentificators.push_back(elem->funcParams.identificators[i]);
-        }
-
-        SgStatement* header = elem->funcPointer->GetOriginal();
-        insertIntents(InOutIdentificators, header, INOUT_OP);
-        insertIntents(InIdentificators, header, IN_OP);
-        insertIntents(OutIdentificators, header, OUT_OP);
     }
 }
 #undef DEBUG
