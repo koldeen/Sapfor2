@@ -1261,88 +1261,9 @@ static bool isVarUsed(SgStatement *st, const string &varName, bool doNotGetFuncS
     return false;
 }
 
-static bool recFindVarUseInModule(SgStatement *useSt,
-                                  const string &varName,
-                                  const vector<SgStatement*> &modules)
-{
-    bool only = false;
-    // check renaming
-    set<string> renamedVas;
-    SgExpression *ex = useSt->expr(0);
-
-    if (ex && ex->variant() == ONLY_NODE)
-    {
-        only = true;
-        ex = ex->lhs();
-    }
-
-    for (auto exI = ex; exI; exI = exI->rhs())
-    {
-        if (exI->lhs()->variant() == RENAME_NODE)
-        {
-            SgExpression *ren = exI->lhs();
-            if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
-                renamedVas.insert(ren->lhs()->symbol()->identifier());
-        }
-    }
-
-    if (renamedVas.find(varName) != renamedVas.end())
-        return true;
-
-    // check whole module
-    if (!only)
-    {
-        const string modName(useSt->symbol()->identifier());
-        bool found = false;
-        for (auto i = 0; i < modules.size(); ++i)
-        {
-            if (modName == modules[i]->symbol()->identifier())
-            {
-                if (isVarUsed(modules[i], varName, true))
-                    return true;
-
-                vector<SgStatement*> useStats;
-                for (SgStatement *stat = modules[i]->lexNext(); stat != modules[i]->lastNodeOfStmt(); stat = stat->lexNext())
-                    if (stat->variant() == USE_STMT)
-                        useStats.push_back(stat);
-
-                for (auto& use : useStats)
-                    if (recFindVarUseInModule(use, varName, modules))
-                        return true;
-
-                found = true;
-                break;
-            }
-        }
-
-        if (!found)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    }
-    return false;
-}
-
-//TODO: what about contains ??? need to improve this function
-static void fillUsedModulesInFunction(SgStatement *st, vector<SgStatement*> &useStats)
-{
-    checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
-
-    int var = st->variant();
-    while (var != PROG_HEDR && var != PROC_HEDR && var != FUNC_HEDR)
-    {
-        st = st->controlParent();
-        checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
-        var = st->variant();
-    }
-
-    for (SgStatement *stat = st->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
-        if (stat->variant() == USE_STMT)
-            useStats.push_back(stat);
-}
-
 static bool isModuleVar(SgStatement *st,
                         SgStatement *attributeStatement, 
-                        const string &varName,
-                        const vector<SgStatement*> &modules)
+                        const string &varName)
 {
     auto moduleSymbols = moduleRefsByUseInFunction(st);
     // check renamed vars
@@ -1353,9 +1274,13 @@ static bool isModuleVar(SgStatement *st,
     // check all used modules in function
     vector<SgStatement*> useStats;
     fillUsedModulesInFunction(st, useStats);
-    for (auto &use : useStats)
-        if (recFindVarUseInModule(use, varName, modules))
+    for (auto &useSt : useStats)
+    {
+        map<string, SgSymbol*> visibleVars;
+        fillVisibleInUseVariables(useSt, visibleVars);
+        if (visibleVars.find(varName) != visibleVars.end())
             return true;
+    }
     return false;
 }
 
@@ -1366,13 +1291,10 @@ static bool checkCheckpointVarsDecl(SgStatement *st,
                                     vector<Messages> &messagesForFile)
 {
     bool retVal = true;
-    vector<SgStatement*> modules;
-    findModulesInFile(st->getFile(), modules);
     for (auto &varS : vars)
     {
         auto var = varS->GetOriginal();
-        // TODO: test checking of module variables
-        bool module = isModuleVar(st, attributeStatement, var->identifier(), modules);
+        bool module = isModuleVar(st, attributeStatement, var->identifier());
         if (!module)
         {
             bool local = isVarUsed(st, var->identifier());
@@ -1528,7 +1450,7 @@ static bool checkCheckpoint(SgStatement *st,
                                 varS->GetOriginal()->identifier(), st->fileName(), attributeStatement->lineNumber());
                     
                     __spf_printToLongBuf(messageE, L"Variable '%s' can't be used in FILES and EXCEPT clauses at the same time.",
-                                                     to_wstring(varS->GetOriginal()->identifier()).c_str());
+                                                   to_wstring(varS->GetOriginal()->identifier()).c_str());
                     __spf_printToLongBuf(messageR, R172, to_wstring(varS->GetOriginal()->identifier()).c_str());
 
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5007));
