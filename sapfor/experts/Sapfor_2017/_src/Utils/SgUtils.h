@@ -76,3 +76,6 @@ int parseFiles(const char* proj, std::vector<std::string>& filesCompilationOrder
 int pppaAnalyzer(const char* options);
 
 int getNextFreeLabel();
+
+void fillUsedModulesInFunction(SgStatement *st, std::vector<SgStatement*> &useStats);
+void fillVisibleInUseVariables(SgStatement *useSt, std::map<std::string, SgSymbol*> &vars);

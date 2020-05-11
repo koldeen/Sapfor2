@@ -645,7 +645,7 @@ static void printParInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
     cout << endl;
 }
 
-static void findContainsFunctions(SgStatement *st, vector<SgStatement*> &found)
+void findContainsFunctions(SgStatement *st, vector<SgStatement*> &found, const bool searchAll)
 {
     SgStatement *end = st->lastNodeOfStmt();
 
@@ -657,8 +657,10 @@ static void findContainsFunctions(SgStatement *st, vector<SgStatement*> &found)
             if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
             {
                 found.push_back(st);
-                st = st->lastNodeOfStmt();
+                st = searchAll? st : st->lastNodeOfStmt();
             }
+            else if (!searchAll && st->variant() == CONTAINS_STMT)
+                break;
         }
 
         if (st->variant() == CONTAINS_STMT)
@@ -1912,6 +1914,8 @@ static void fillUseStmt(SgStatement *stat, map<string, set<SgSymbol*>> &byUse)
 
 map<string, set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn)
 {
+    checkNull(stIn, convertFileName(__FILE__).c_str(), __LINE__);
+
     map<string, set<SgSymbol*>> byUse;
     int var = stIn->variant();
     while (var != PROG_HEDR && var != PROC_HEDR && var != FUNC_HEDR)

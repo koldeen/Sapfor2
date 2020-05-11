@@ -3121,6 +3121,186 @@ int getNextFreeLabel()
     return -1;
 }
 
+//TODO: about contains: need to check this function
+void fillUsedModulesInFunction(SgStatement *st, vector<SgStatement*> &useStats)
+{
+    checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
+
+    int var = st->variant();
+    while (var != PROG_HEDR && var != PROC_HEDR && var != FUNC_HEDR)
+    {
+        st = st->controlParent();
+        checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
+        var = st->variant();
+    }
+
+    for (SgStatement *stat = st->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
+        if (stat->variant() == USE_STMT)
+            useStats.push_back(stat);
+
+    for (int i = 0; i < current_file->numberOfFunctions(); ++i)
+    {
+        vector<SgStatement*> funcStats;
+        findContainsFunctions(current_file->functions(i), funcStats);
+        for (auto &funcSt : funcStats)
+        {
+            if (st == funcSt)
+            {
+                for (SgStatement *stat = current_file->functions(i)->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
+                    if (stat->variant() == USE_STMT)
+                        useStats.push_back(stat);
+                    else if (stat->variant() == CONTAINS_STMT)
+                        break;
+                break;
+            }
+        }
+    }
+
+    vector<SgStatement*> modules;
+    findModulesInFile(st->getFile(), modules);
+    for (auto &module : modules)
+    {
+        vector<SgStatement*> funcStats;
+        findContainsFunctions(module, funcStats, true);
+        for (auto &funcSt : funcStats)
+        {
+            if (st == funcSt)
+            {
+                for (SgStatement *stat = module; stat != module->lastNodeOfStmt(); stat = stat->lexNext())
+                    if (stat->variant() == USE_STMT)
+                        useStats.push_back(stat);
+                    else if (stat->variant() == CONTAINS_STMT)
+                        break;
+                break;
+            }
+        }
+    }
+}
+
+static void recFillUsedVars(SgStatement *st, SgExpression *exp, map<string, SgSymbol*> &vars)
+{
+    if (exp)
+    {
+        if (exp->symbol() && (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF) && !(exp->symbol()->attributes() & PRIVATE_BIT))
+        {
+            if (vars.find(exp->symbol()->identifier()) == vars.end())
+                vars.insert(make_pair<string, SgSymbol*>(exp->symbol()->identifier(), exp->symbol()));
+        }
+        recFillUsedVars(st, exp->lhs(), vars);
+        recFillUsedVars(st, exp->rhs(), vars);
+    }
+}
+
+static void fillUsedVars(SgStatement *st, map<string, SgSymbol*> &vars)
+{
+    if (st)
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            SgExpression *exp = st->expr(i);
+            recFillUsedVars(st, exp, vars);
+        }
+    }
+}
+
+static void joinMaps(map<string, SgSymbol*> &map1, const map<string, SgSymbol*> &map2, const map<string, SgSymbol*> &exept = map<string, SgSymbol*>())
+{
+    for (auto &pair : map2)
+        if (exept.find(pair.first) == exept.end() && map1.find(pair.first) == map1.end())
+            map1.insert(make_pair(pair.first, pair.second));
+}
+
+void fillVisibleInUseVariables(SgStatement *useSt, map<string, SgSymbol*> &vars)
+{
+    if (useSt)
+    {
+        if (useSt->variant() == USE_STMT)
+        {
+            bool only = false;
+
+            map<string, SgSymbol*> localVars;  // local module variables
+            map<string, SgSymbol*> useVars;    // variables from other modules
+            map<string, SgSymbol*> renamedVas; // renamed variables
+            map<string, SgSymbol*> originVars; // origin variables names in USE_STAT
+
+            // check USE_STAT
+            // fill from ONLY_NODE and RENAME_NODE
+            SgExpression *ex = useSt->expr(0);
+            if (ex && ex->variant() == ONLY_NODE)
+            {
+                only = true;
+                ex = ex->lhs();
+            }
+
+            for (auto exI = ex; exI; exI = exI->rhs())
+            {
+                if (exI->lhs()->variant() == RENAME_NODE)
+                {
+                    SgExpression *ren = exI->lhs();
+                    if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
+                    {
+                        if (renamedVas.find(ren->lhs()->symbol()->identifier()) == renamedVas.end())
+                            renamedVas.insert(make_pair<string,SgSymbol*>(ren->lhs()->symbol()->identifier(), ren->lhs()->symbol()));
+                        if (originVars.find(ren->rhs()->symbol()->identifier()) == originVars.end())
+                            originVars.insert(make_pair<string, SgSymbol*>(ren->rhs()->symbol()->identifier(), ren->rhs()->symbol()));
+                    }
+                    else if (only && ren->lhs()->symbol())
+                    {
+                        if (renamedVas.find(ren->lhs()->symbol()->identifier()) == renamedVas.end())
+                            renamedVas.insert(make_pair<string, SgSymbol*>(ren->lhs()->symbol()->identifier(), ren->lhs()->symbol()));
+                    }
+                }
+            }
+
+            if (!only)
+            {
+                // check module
+                const string modName(useSt->symbol()->identifier());
+                vector<SgStatement*> modules;
+                findModulesInFile(useSt->getFile(), modules);
+
+                bool found = false;
+                for (auto i = 0; i < modules.size(); ++i)
+                {
+                    if (modName == modules[i]->symbol()->identifier())
+                    {
+                        found = true;
+
+                        vector<SgStatement*> useStats;
+                        for (SgStatement *st = modules[i]->lexNext(); st != modules[i]->lastNodeOfStmt(); st = st->lexNext())
+                        {
+                            if (st->variant() == USE_STMT)
+                                useStats.push_back(st);
+                            else if (st->variant() == CONTAINS_STMT)
+                                break;
+                            else
+                                fillUsedVars(st, localVars);
+                        }
+
+                        for (auto &useSt : useStats)
+                        {
+                            map<string, SgSymbol*> visibleVars;
+                            fillVisibleInUseVariables(useSt, visibleVars);
+                            joinMaps(useVars, visibleVars);
+                        }
+
+                        break;
+                    }
+                }
+
+                if (!found)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+
+            // fill vars
+            // TODO: check renaming
+            joinMaps(vars, useVars, originVars);
+            joinMaps(vars, localVars, originVars);
+            joinMaps(vars, renamedVas);
+        }
+    }
+}
+
 Variable::Variable(SgFile* file, SgStatement* function, SgSymbol* symbol, const std::string& name, const varType type, const int position) :
                    symbol(symbol), name(name), type(type), position(position)
 {
