@@ -32,7 +32,7 @@ int ParallelLoop(SgStatement *stmt)
   SgForStmt *stdo;
   int ub; /*OMP*/
   SgSymbol  *newj = NULL; /*OMP*/
-  SgExpression *clause[12] = {NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
+  SgExpression *clause[13] = {NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
 
   // initialize global variables
   parallel_dir = stmt;
@@ -413,6 +413,13 @@ void CheckClauses(SgStatement *stmt, SgExpression *clause[])
                 err("Double CUDA_BLOCK clause",608,stmt);
                 break; 
 
+           case ACC_TIE_OP:
+	     if(!clause[TIE_]){
+                clause[TIE_] = e;
+             }  else
+                err("Double TIE clause",608,stmt);
+                break; 
+
            case ACROSS_OP:
 	     if(!clause[ACROSS_]){
                 clause[ACROSS_] = e;
@@ -448,6 +455,7 @@ int WhatInterface(SgStatement *stmt)
            case SHADOW_RENEW_OP:
            case SHADOW_COMP_OP:
            case ACROSS_OP:
+           case ACC_TIE_OP:
                 break;
            case REDUCTION_OP:
                 if(TestReductionClause(e))
@@ -465,7 +473,7 @@ int areIllegalClauses(SgStatement *stmt)
 { SgExpression *el;
 
   for(el=stmt->expr(1); el; el=el->rhs()) 
-    if(el->lhs()->variant() != REDUCTION_OP && el->lhs()->variant() != ACC_PRIVATE_OP && el->lhs()->variant() != ACC_CUDA_BLOCK_OP) // && el->lhs()->variant() != ACROSS_OP)
+    if(el->lhs()->variant() != REDUCTION_OP && el->lhs()->variant() != ACC_PRIVATE_OP && el->lhs()->variant() != ACC_CUDA_BLOCK_OP && el->lhs()->variant() != ACROSS_OP && el->lhs()->variant() != ACC_TIE_OP)
       return 1;
   return 0;                 
 }          
@@ -556,6 +564,14 @@ int doParallelLoopByHandler(int iplp, SgStatement *first, SgExpression *clause[]
         CudaBlockSize(clause[CUDA_BLOCK_]->lhs());
         InsertNewStatementAfter(SetCudaBlock_H(ilh, ib), cur_st, cur_st->controlParent());
     }
+
+    if (clause[TIE_])  //there is TIE clause
+    {
+        SgExpression *el;
+        for (el=clause[TIE_]->lhs(); el; el=el->rhs())
+            InsertNewStatementAfter(Correspondence_H(ilh, HeaderForArrayInParallelDir(el->lhs()->symbol(),parallel_dir), AxisList(parallel_dir,el->lhs())), cur_st, cur_st->controlParent());
+    }
+
     if (oldGroup) // loop with ACROSS clause
         InsertNewStatementAfter(LoopAcross_H(ilh, oldGroup, newGroup), cur_st, cur_st->controlParent());
 
@@ -1116,7 +1132,8 @@ int RecurList (SgExpression *el, SgStatement *st, SgExpression *gref, int *ag, i
      ar = ear->symbol();
      if(HEADER(ar))
        head = HeaderRef(ar);
-     else {
+     else 
+     {
        Error("'%s' isn't distributed array", ar->identifier(), 72,st);
        return(0);
      }
@@ -1581,10 +1598,11 @@ SgExpression *doLowHighList(SgExpression *shl, SgSymbol *ar, SgStatement *st)
 
 void AcrossList(int ilh, int isOut, SgExpression *el, SgStatement *st)
 { 
-  SgExpression *es, *ear;  
+  SgExpression *es, *ear, *head=NULL;  
   
   // looking through the dependent_array_list
   for(es = el; es; es = es->rhs()) {
+    
     if( es->lhs()->variant() == ARRAY_OP){
       ear = es->lhs()->lhs();
       err("SECTION  specification is not permitted", 643, st);
@@ -1596,12 +1614,19 @@ void AcrossList(int ilh, int isOut, SgExpression *el, SgStatement *st)
       }
     }
      SgSymbol *ar = ear->symbol();
-     if(!HEADER(ar)) {
-       Error("'%s' isn't distributed array", ar->identifier(), 72, st);
+     SgExpression *head = HeaderForArrayInParallelDir(ar, st);
+/*
+     if(HEADER(ar)) 
+       head = HeaderRef(ar);     
+     else if(st->expr(0) && HEADER_OF_REPLICATED(ar)) 
+       head = DVM000(*HEADER_OF_REPLICATED(ar));
+     else
+     {
+       Error("'%s' isn't distributed array", ar->identifier(), 72, st);   
        continue;
      }
-     
-     doCallAfter(LoopAcross_H2(ilh, isOut, HeaderRef(ar), Rank(ar), doLowHighList(ear->lhs(), ar, st)));
+*/
+     doCallAfter(LoopAcross_H2(ilh, isOut, head, Rank(ar), doLowHighList(ear->lhs(), ar, st)));  
   }
 }
 
@@ -2084,6 +2109,29 @@ int CreateParallelLoopByHandler_H2(SgExpression *init[], SgExpression *last[], S
    return(ilh);
 }
 
+SgExpression *AxisList(SgStatement *stmt, SgExpression *tied_array_ref)
+{
+   SgExpression *axis[MAX_LOOP_LEVEL],
+                *coef[MAX_LOOP_LEVEL],
+                *cons[MAX_LOOP_LEVEL];
+   SgExpression *arglist=NULL, *el, *e, *c;
+
+   int nt = Alignment(stmt,tied_array_ref,axis,coef,cons,2); // 2 - interface of RTS2
+   for(int i=0; i<nt; i++)
+   {  
+      c = Calculate(coef[i]);
+      if(c && c->isInteger() && (c->valueInteger() < 0))
+         e =  & SgUMinusOp(*DvmType_Ref(axis[i]));
+      else
+         e =  DvmType_Ref(axis[i]);  
+      (el = new SgExprListExp(*e))->setRhs(arglist);
+      arglist = el;
+   }
+   (el = new SgExprListExp(*ConstRef(nt)))->setRhs(arglist);  // add rank to axis list
+   arglist = el;
+   return arglist;
+}
+
 void MappingParallelLoop(SgStatement *stmt, int ilh )
 {
    SgExpression *axis[MAX_LOOP_LEVEL],
@@ -2121,27 +2169,37 @@ void Interface_2(SgStatement *stmt,SgExpression *clause[],SgExpression *init[],S
      CudaBlockSize(clause[CUDA_BLOCK_]->lhs(), eSize);
      doCallAfter(SetCudaBlock_H2(ilh, eSize[0], eSize[1], eSize[2]));
   }
-  if(clause[SHADOW_COMPUTE_]) //there is SHADOW_COMPUTE clause
+  if (clause[TIE_])  //there is TIE clause
   {
-     if( (clause[SHADOW_COMPUTE_]->lhs()))
+     SgExpression *el;
+     for (el=clause[TIE_]->lhs(); el; el=el->rhs())  //list of tied arrays
+     {
+        SgExpression *head = HeaderForArrayInParallelDir(el->lhs()->symbol(), stmt);
+        doCallAfter(Correspondence_H(ilh, head, AxisList(stmt, el->lhs())));
+     }
+  }
+
+  if (clause[SHADOW_COMPUTE_]) //there is SHADOW_COMPUTE clause
+  {
+     if ( (clause[SHADOW_COMPUTE_]->lhs()))
 	ShadowComp(clause[SHADOW_COMPUTE_]->lhs(),stmt,ilh);
      else 
         doCallAfter(ShadowCompute(ilh,HeaderRef(stmt->expr(0)->symbol()),0,NULL));          
         //doCallAfter(ShadowCompute(ilh,Register_Array_H2(HeaderRef(stmt->expr(0)->symbol())),0,NULL));                 
   }
-  if(clause[REDUCTION_])  //there is REDUCTION clause
+  if (clause[REDUCTION_])  //there is REDUCTION clause
   {
      red_list = clause[REDUCTION_]->lhs();
      ReductionList(red_list,NULL,stmt,cur_st,cur_st,ilh);
   }
-  if(clause[ACROSS_])  //there is ACROSS clause
+  if (clause[ACROSS_])  //there is ACROSS clause
   {
-        SgExpression *e_spec[2];
-        InOutAcross(clause[ACROSS_],e_spec,stmt);
-        if(e_spec[IN_])
-           AcrossList(ilh,IN_, e_spec[IN_], stmt);
-        if(e_spec[OUT_])
-           AcrossList(ilh,OUT_,e_spec[OUT_],stmt);
+     SgExpression *e_spec[2];
+     InOutAcross(clause[ACROSS_],e_spec,stmt);
+     if (e_spec[IN_])
+        AcrossList(ilh,IN_, e_spec[IN_], stmt);
+     if (e_spec[OUT_])
+        AcrossList(ilh,OUT_,e_spec[OUT_],stmt);
   }
 
   //---------------------------------------------------------------------------

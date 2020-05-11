@@ -358,36 +358,37 @@
      ACC_INLOCAL = 317,
      ACC_CUDA_BLOCK = 318,
      ACC_ROUTINE = 319,
-     BY = 320,
-     IO_MODE = 321,
-     CP_CREATE = 322,
-     CP_LOAD = 323,
-     CP_SAVE = 324,
-     CP_WAIT = 325,
-     FILES = 326,
-     VARLIST = 327,
-     STATUS = 328,
-     EXITINTERVAL = 329,
-     TEMPLATE_CREATE = 330,
-     TEMPLATE_DELETE = 331,
-     SPF_ANALYSIS = 332,
-     SPF_PARALLEL = 333,
-     SPF_TRANSFORM = 334,
-     SPF_NOINLINE = 335,
-     SPF_PARALLEL_REG = 336,
-     SPF_END_PARALLEL_REG = 337,
-     SPF_PRIVATES_EXPANSION = 338,
-     SPF_FISSION = 339,
-     SPF_SHRINK = 340,
-     SPF_CHECKPOINT = 341,
-     SPF_EXCEPT = 342,
-     SPF_FILES_COUNT = 343,
-     SPF_INTERVAL = 344,
-     SPF_TIME = 345,
-     SPF_ITER = 346,
-     SPF_FLEXIBLE = 347,
-     BINARY_OP = 350,
-     UNARY_OP = 351
+     ACC_TIE = 320,
+     BY = 321,
+     IO_MODE = 322,
+     CP_CREATE = 323,
+     CP_LOAD = 324,
+     CP_SAVE = 325,
+     CP_WAIT = 326,
+     FILES = 327,
+     VARLIST = 328,
+     STATUS = 329,
+     EXITINTERVAL = 330,
+     TEMPLATE_CREATE = 331,
+     TEMPLATE_DELETE = 332,
+     SPF_ANALYSIS = 333,
+     SPF_PARALLEL = 334,
+     SPF_TRANSFORM = 335,
+     SPF_NOINLINE = 336,
+     SPF_PARALLEL_REG = 337,
+     SPF_END_PARALLEL_REG = 338,
+     SPF_PRIVATES_EXPANSION = 339,
+     SPF_FISSION = 340,
+     SPF_SHRINK = 341,
+     SPF_CHECKPOINT = 342,
+     SPF_EXCEPT = 343,
+     SPF_FILES_COUNT = 344,
+     SPF_INTERVAL = 345,
+     SPF_TIME = 346,
+     SPF_ITER = 347,
+     SPF_FLEXIBLE = 348,
+     BINARY_OP = 351,
+     UNARY_OP = 352
    };
 #endif
 /* Tokens.  */
@@ -710,43 +711,44 @@
 #define ACC_INLOCAL 317
 #define ACC_CUDA_BLOCK 318
 #define ACC_ROUTINE 319
-#define BY 320
-#define IO_MODE 321
-#define CP_CREATE 322
-#define CP_LOAD 323
-#define CP_SAVE 324
-#define CP_WAIT 325
-#define FILES 326
-#define VARLIST 327
-#define STATUS 328
-#define EXITINTERVAL 329
-#define TEMPLATE_CREATE 330
-#define TEMPLATE_DELETE 331
-#define SPF_ANALYSIS 332
-#define SPF_PARALLEL 333
-#define SPF_TRANSFORM 334
-#define SPF_NOINLINE 335
-#define SPF_PARALLEL_REG 336
-#define SPF_END_PARALLEL_REG 337
-#define SPF_PRIVATES_EXPANSION 338
-#define SPF_FISSION 339
-#define SPF_SHRINK 340
-#define SPF_CHECKPOINT 341
-#define SPF_EXCEPT 342
-#define SPF_FILES_COUNT 343
-#define SPF_INTERVAL 344
-#define SPF_TIME 345
-#define SPF_ITER 346
-#define SPF_FLEXIBLE 347
-#define BINARY_OP 350
-#define UNARY_OP 351
+#define ACC_TIE 320
+#define BY 321
+#define IO_MODE 322
+#define CP_CREATE 323
+#define CP_LOAD 324
+#define CP_SAVE 325
+#define CP_WAIT 326
+#define FILES 327
+#define VARLIST 328
+#define STATUS 329
+#define EXITINTERVAL 330
+#define TEMPLATE_CREATE 331
+#define TEMPLATE_DELETE 332
+#define SPF_ANALYSIS 333
+#define SPF_PARALLEL 334
+#define SPF_TRANSFORM 335
+#define SPF_NOINLINE 336
+#define SPF_PARALLEL_REG 337
+#define SPF_END_PARALLEL_REG 338
+#define SPF_PRIVATES_EXPANSION 339
+#define SPF_FISSION 340
+#define SPF_SHRINK 341
+#define SPF_CHECKPOINT 342
+#define SPF_EXCEPT 343
+#define SPF_FILES_COUNT 344
+#define SPF_INTERVAL 345
+#define SPF_TIME 346
+#define SPF_ITER 347
+#define SPF_FLEXIBLE 348
+#define BINARY_OP 351
+#define UNARY_OP 352
 
 
 
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 430 "gram1.y"
+#line 431 "gram1.y"
 {
     int token;
     char charv;
@@ -759,7 +761,7 @@ typedef union YYSTYPE
     PTR_LABEL label;
 }
 /* Line 1489 of yacc.c.  */
-#line 763 "gram1.tab.h"
+#line 765 "gram1.tab.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1

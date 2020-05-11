@@ -1262,12 +1262,12 @@ opt_on:   opt_key_word ON distribute_cycles
 distribute_cycles: ident LEFTPAR par_subscript_list RIGHTPAR
         {
           if($1->type->variant != T_ARRAY) 
-           errstr("'%s' isn't array", $1->entry.Template.symbol->ident, 66);
-                 $1->entry.Template.ll_ptr1 = $3;
-                 $$ = $1;
-                 $$->type = $1->type->entry.ar_decl.base_type;
-         }
-         ;
+             errstr("'%s' isn't array", $1->entry.Template.symbol->ident, 66);
+          $1->entry.Template.ll_ptr1 = $3;
+          $$ = $1;
+          $$->type = $1->type->entry.ar_decl.base_type;
+        }
+        ;
 
 par_subscript_list: par_subscript
 	    { $$ = set_ll_list($1,LLNULL,EXPR_LIST); }
@@ -1308,6 +1308,7 @@ par_spec: new_spec
         | consistent_spec
         | private_spec     /*ACC*/
         | cuda_block_spec  /*ACC*/
+        | tie_spec         /*ACC*/
         ;
 
 remote_access_spec:  COMMA needkeyword REMOTE_ACCESS_SPEC LEFTPAR group_name COLON remote_data_list RIGHTPAR
@@ -1364,10 +1365,20 @@ sizelist:  expr
         ;
 
 variable_list: lhs
-            { $$ = set_ll_list($1,LLNULL,EXPR_LIST);}
+               { $$ = set_ll_list($1,LLNULL,EXPR_LIST);}
              | variable_list COMMA lhs
-            { $$ = set_ll_list($1,$3,EXPR_LIST);}
+               { $$ = set_ll_list($1,$3,EXPR_LIST);}
              ;
+
+tie_spec: COMMA needkeyword ACC_TIE LEFTPAR tied_array_list RIGHTPAR
+         { $$ = make_llnd(fi,ACC_TIE_OP,$5,LLNULL,SMNULL);} /*ACC*/
+        ;
+
+tied_array_list: distribute_cycles
+                 { $$ = set_ll_list($1,LLNULL,EXPR_LIST);}
+               | tied_array_list COMMA distribute_cycles
+                 { $$ = set_ll_list($1,$3,EXPR_LIST);}
+               ;
 
 indirect_access_spec: COMMA needkeyword INDIRECT_ACCESS LEFTPAR group_name COLON indirect_list RIGHTPAR 
                     { if(!($5->attr & INDIRECT_BIT))

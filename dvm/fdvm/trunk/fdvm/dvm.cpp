@@ -8753,7 +8753,8 @@ int Alignment(SgStatement *stat, SgExpression *aref, SgExpression *axis[], SgExp
        else {
          axis[nt] = new SgValueExp(num); 
          CoeffConst(e, ei, &coef[nt], &cons[nt]); 
-         TestReverse(coef[nt],stat);     
+         if(interface != 2)
+           TestReverse(coef[nt],stat);     
          if(!coef[nt]){
            err("Wrong iteration-align-subscript in PARALLEL", 160,stat);
            coef[nt] = & c0.copy();

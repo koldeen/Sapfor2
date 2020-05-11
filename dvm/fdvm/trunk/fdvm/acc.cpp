@@ -1912,6 +1912,29 @@ void StoreLowerBoundsOfNonDvmArray(SgSymbol *ar)
     }
 }
 
+SgExpression *HeaderForArrayInParallelDir(SgSymbol *ar, SgStatement *st)
+{
+    SgExpression *head = NULL;
+    if(HEADER(ar)) 
+      return HeaderRef(ar);     
+    if(st->expr(0))
+    {
+       Error("'%s' isn't distributed array", ar->identifier(), 72, st);   
+       return NULL;
+    }
+    if(HEADER_OF_REPLICATED(ar) && HEADER_OF_REPLICATED(ar) != 0)
+       return DVM000(*HEADER_OF_REPLICATED(ar));
+    if(!HEADER_OF_REPLICATED(ar)) 
+    {
+       int *id = new int;
+       *id = 0;
+       ar->addAttribute(REPLICATED_ARRAY, (void *)id, sizeof(int));      
+    }   
+    *HEADER_OF_REPLICATED(ar) = ndvm;
+    HeaderForNonDvmArray(ar, st);
+    return DVM000(*HEADER_OF_REPLICATED(ar));
+}
+
 int HeaderForNonDvmArray(SgSymbol *s, SgStatement *stat)
 {
     int dvm_ind, static_sign, re_sign, rank, i;
@@ -1979,15 +2002,16 @@ void DoHeadersForNonDvmArrays()
             *dummy = NULL;
             sl->symb->addAttribute(DUMMY_ARRAY, (void*)dummy, sizeof(SgSymbol *));
         }
-
+        if(*HEADER_OF_REPLICATED(sl->symb) != 0)
+            continue;
         *HEADER_OF_REPLICATED(sl->symb) = dvm_ind;
         ndvm += 2 * rank + DELTA;   // extended header
         if(INTERFACE_RTS2)
         {
-             doCallAfter(CreateDvmArrayHeader_2(sl->symb, DVM000(dvm_ind), rank, doShapeList(sl->symb,dvm_parallel_dir)));
-             if (TestType_RTS2(sl->symb->type()->baseType()) == -1)
-                 Error("Array reference of illegal type in region: %s ", sl->symb->identifier(), 583, dvm_parallel_dir);
-             continue;
+            doCallAfter(CreateDvmArrayHeader_2(sl->symb, DVM000(dvm_ind), rank, doShapeList(sl->symb,dvm_parallel_dir)));
+            if (TestType_RTS2(sl->symb->type()->baseType()) == -1)
+                Error("Array reference of illegal type in region: %s ", sl->symb->identifier(), 583, dvm_parallel_dir);
+            continue;
         }  
 
         //store lower bounds of array in Header(rank+3:2*rank+2)

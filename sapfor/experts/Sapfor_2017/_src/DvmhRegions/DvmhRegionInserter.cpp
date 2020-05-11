@@ -614,17 +614,157 @@ ArraySet DvmhRegionInserter::get_used_arrs_for_block(SgStatement* st, int usage_
     return usages;
 }
 
+static string getInterfaceBlock(SgStatement* func, const FuncParam& pars)
+{
+    string oldFile = current_file->filename();
+    if (!func->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    func->symbol()->copySubprogram(*current_file->firstStatement());
+
+    auto copy = current_file->firstStatement()->lexNext()->extractStmt();
+
+    const set<string> ident(pars.identificators.begin(), pars.identificators.end());
+
+    //remove all exec
+    SgStatement* st = copy->lexNext();
+    SgStatement* last = copy->lastNodeOfStmt();
+    vector<SgStatement*> toExtract;
+    while (st != last)
+    {
+        if (isDVM_stat(st) || isSPF_stat(st))
+        {
+            if (st->variant() != ACC_ROUTINE_DIR)
+            {
+                SgStatement* next = st->lexNext();
+                st->extractStmt();
+                st = next;
+            }
+            else
+                st = st->lexNext();
+        }
+        else if (isSgExecutableStatement(st))
+        {
+            SgStatement* next = st->lastNodeOfStmt();
+            if (next != last)
+                next = next->lexNext();
+            toExtract.push_back(st);
+            st = next;
+        }
+        else
+            st = st->lexNext();
+    }  
+
+    //remove unused declarations
+    st = copy->lexNext();
+    while (st != last)
+    {
+        if (st->variant() == VAR_DECL || st->variant() == VAR_DECL_90)
+        {
+            SgExpression* list = st->expr(0);
+            vector<SgExpression*> newList;
+            while (list)
+            {
+                if (ident.find(list->lhs()->symbol()->identifier()) != ident.end())
+                    newList.push_back(list->lhs());
+                list = list->rhs();
+            }
+
+            if (newList.size() == 0)
+            {
+                SgStatement* next = st->lexNext();
+                toExtract.push_back(st);
+                st = next;
+                continue;
+            }
+            else
+                st->setExpression(0, makeExprList(newList));
+        }
+        if (st->variant() == CONTAINS_STMT)
+            break;
+        st = st->lexNext();
+    }
+
+    for (auto& elem : toExtract)
+        elem->extractStmt();
+
+    string retVal = copy->unparse();
+
+    if (SgFile::switchToFile(oldFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    return retVal;
+}
+
+static void insertInterface(SgStatement* func, const string& iface)
+{
+    string oldFile = current_file->filename();
+    if (!func->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgStatement* st = func->lexNext();
+    SgStatement* last = func->lastNodeOfStmt();
+    while (st != last)
+    {
+        if (isSgExecutableStatement(st))
+            break;
+        st = st->lexNext();
+    }
+    SgStatement* ifaceBlock = new SgStatement(INTERFACE_STMT);
+    addControlEndToStmt(ifaceBlock->thebif);
+
+    ifaceBlock->setlineNumber(st->lineNumber());
+    ifaceBlock->setFileName(st->fileName());
+    st->insertStmtBefore(*ifaceBlock, *st->controlParent());    
+    ifaceBlock->lastNodeOfStmt()->addComment(iface.c_str());
+
+    if (SgFile::switchToFile(oldFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+}
+
+static void insertRoutine(SgStatement* func)
+{
+    string oldFile = current_file->filename();
+    if (!func->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    
+    SgStatement* st = func->lexNext();
+    SgStatement* last = func->lastNodeOfStmt();
+    bool has = false;
+    while (st != last)
+    {
+        if (st->variant() == ACC_ROUTINE_DIR)
+        {
+            has = true;
+            break;                
+        }
+        st = st->lexNext();
+    }
+
+    if (has == false)
+    {
+        st = func->lexNext();
+        st->insertStmtBefore(*new SgStatement(ACC_ROUTINE_DIR), *st->controlParent());
+    }
+
+    if (SgFile::switchToFile(oldFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+}
+
 void DvmhRegionInserter::createInterfaceBlock()
 {
     for (auto& parF : parallel_functions)
     {        
         for (auto& callTo : parF->callsTo)
         {
+            insertRoutine(parF->funcPointer->GetOriginal());
             if (callTo->fileName != parF->fileName)
             {
-                if (callTo->interfaceBlocks.find(parF->funcName) == callTo->interfaceBlocks.end())
+                if (callTo->interfaceBlocks.find(parF->funcName) == callTo->interfaceBlocks.end() && parF->funcParams.countOfPars > 0)
                 {
-                    //callTo->interfaceBlocks[parF->funcName] = 
+                    callTo->interfaceBlocks[parF->funcName] = parF;
+                    insertInterface(callTo->funcPointer, getInterfaceBlock(parF->funcPointer->GetOriginal(), parF->funcParams));
                 }
             }
         }

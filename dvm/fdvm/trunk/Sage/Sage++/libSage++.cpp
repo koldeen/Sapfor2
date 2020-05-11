@@ -4474,7 +4474,7 @@ SgExecutableStatement* isSgExecutableStatement(SgStatement *pt)
                  var == DVM_HEAP_DIR || var == DVM_CONSISTENT_DIR || var == DVM_POINTER_DIR ||
                  var == HPF_TEMPLATE_STAT || var == HPF_PROCESSORS_STAT || var == DVM_TASK_DIR || 
                  var == DVM_INDIRECT_GROUP_DIR || var == DVM_REMOTE_GROUP_DIR || var == DVM_REDUCTION_GROUP_DIR ||
-                 var == DVM_CONSISTENT_GROUP_DIR || var == DVM_ASYNCID_DIR)
+                 var == DVM_CONSISTENT_GROUP_DIR || var == DVM_ASYNCID_DIR || var == ACC_ROUTINE_DIR)
             return NULL;
         else if (var == SPF_ANALYSIS_DIR)
             return isSgExecutableStatement(pt->lexNext());

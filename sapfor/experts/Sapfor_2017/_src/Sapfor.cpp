@@ -2443,11 +2443,42 @@ int main(int argc, char **argv)
                     parallizeFreeLoops = 1;
                 else if (string(curr_arg) == "-parse")
                 {
-                    int code = parse_file(argc - i, argv + i, "dvm.proj");
+                    auto result = splitCommandLineForParse(argv + i + 1, argc - i - 1);
+                    if (result.second.size() == 0)
+                    {
+                        printf("Nothing to parse\n");
+                        exit(0);
+                    }
+
+                    int code = -1;
+                    char** nextArgv = new char* [32];
+                    nextArgv[0] = "parse from spf";
+                    int z = 0;
+                    for (auto& file : result.second)
+                    {
+                        int countOfArgs = 1;
+                        for (auto& opt : result.first)
+                            nextArgv[countOfArgs++] = (char*)opt.c_str();
+                        
+                        if (z != 0)
+                        {
+                            nextArgv[countOfArgs++] = "-a";
+                            nextArgv[countOfArgs++] = "dvm.proj";
+                        }
+                        nextArgv[countOfArgs++] = (char*)file.c_str();
+                        //code = parse_file(argc - i, argv + i, "dvm.proj");
+                        code = parse_file(countOfArgs, nextArgv, "dvm.proj");
+                        if (code != 0)
+                        {
+                            printf("Parsing was completed with error code %d\n", code);
+                            break;
+                        }
+                        ++z;
+                    }
+
+                    delete[] nextArgv;
                     if (code == 0)
                         printf("Parsing was completed successfully\n");
-                    else
-                        printf("Parsing was completed with error code %d\n", code);
                     exit(0);
                 }
                 else if (string(curr_arg) == "-pppa")

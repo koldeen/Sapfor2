@@ -275,7 +275,7 @@ UNFORMATTED_,POSITION_,ACTION_,READWRITE_,READ_,WRITE_,DELIM_,PAD_,CONVERT_, NUM
 
 enum {SIZE,LBOUND,UBOUND,LEN,CHAR,KIND,F_INT,F_REAL,F_CHAR,F_LOGICAL,F_CMPLX,MAX_,MIN_,IAND_,IOR_,ALLOCATED_,ASSOCIATED_}; //intrinsic functions of Fortran 90
 
-enum {NEW_,REDUCTION_,SHADOW_RENEW_,SHADOW_START_,SHADOW_WAIT_,SHADOW_COMPUTE_,REMOTE_ACCESS_,CONSISTENT_,STAGE_,PRIVATE_,CUDA_BLOCK_,ACROSS_}; //clauses of PARALLEL directive
+enum {NEW_,REDUCTION_,SHADOW_RENEW_,SHADOW_START_,SHADOW_WAIT_,SHADOW_COMPUTE_,REMOTE_ACCESS_,CONSISTENT_,STAGE_,PRIVATE_,CUDA_BLOCK_,ACROSS_,TIE_}; //clauses of PARALLEL directive
 
 
 const int Integer   = 0;
@@ -942,7 +942,7 @@ int TestReductionClause(SgExpression *e);
 align *CopyAlignTreeNode(SgSymbol *ar);
 void InOutAcross(SgExpression *e, SgExpression* e_spec[], SgStatement *stmt);
 void InOutSpecification(SgExpression *ea, SgExpression* e_spec[]);
-
+SgExpression *AxisList(SgStatement *stmt, SgExpression *tied_array_ref);
 
 /*  acc.cpp */
 SgStatement *RegistrateDVMArray(SgSymbol *ar,int ireg,int inflag,int outflag);
@@ -1207,6 +1207,7 @@ SgExpression *DoReductionOperationList(SgStatement *par);
 SgStatement *Create_Empty_Stat();
 void DoHeadersForNonDvmArrays();
 int HeaderForNonDvmArray(SgSymbol *s, SgStatement *stat);
+SgExpression *HeaderForArrayInParallelDir(SgSymbol *ar, SgStatement *st);
 SgSymbol *CreateReplicatedArray(SgSymbol *s);
 void StoreLowerBoundsOfNonDvmArray(SgSymbol *ar);
 void DeleteNonDvmArrays();
@@ -1840,6 +1841,7 @@ SgStatement *ForgetHeader(SgExpression *objref);
 SgExpression *DvmhArraySlice(int rank, SgExpression *slice_list);
 SgStatement *DvmhArrayCopy( SgExpression *array_header_right, int rank_right, SgExpression *slice_list_right, SgExpression *array_header_left, int rank_left, SgExpression *slice_list_left );
 SgStatement *DvmhArrayCopyWhole( SgExpression *array_header_right, SgExpression *array_header_left );
+SgStatement *Correspondence_H (int il, SgExpression *hedr, SgExpression *axis_list);
 
 /*  io.cpp      */
 void IO_ThroughBuffer(SgSymbol *ar, SgStatement *stmt);
