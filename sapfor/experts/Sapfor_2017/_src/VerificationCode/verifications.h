@@ -31,3 +31,5 @@ std::map<std::string, SgStatement*> createDerivedTypeDeclMap(SgStatement *forS);
 void fillUseStatement(SgStatement* st, std::set<std::string>& useMod, std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>>& modByUse, std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>>& modByUseOnly);
 void removeExecutableFromModuleDeclaration(SgFile* current, const std::set<std::string>& filesInProj);
 bool needToReplaceInterfaceName(SgStatement* interf);
+
+std::string getOrigName(const std::string& file, const std::string& s);

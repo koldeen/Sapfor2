@@ -534,13 +534,25 @@ void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &
 
             //check for ranges
             SgExpression* arrayList = list.back();
+            bool needToGetBefore = false;
             if (arrayList)
             {
-                SgExpression* list = arrayList->lhs();
-                if (list && list->variant() == EXPR_LIST)
-                    if (list->lhs() && list->lhs()->variant() == DDOT)
-                        if (list->lhs()->lhs() && list->lhs()->lhs()->variant() == DDOT)
-                            list->setLhs(list->lhs()->lhs());
+                SgExpression* listA = arrayList->lhs();
+
+                if (listA && listA->variant() == EXPR_LIST)
+                    if (listA->lhs() && listA->lhs()->variant() == DDOT)
+                        if (listA->lhs()->lhs() && listA->lhs()->lhs()->variant() == DDOT)
+                        {
+                            arrayList->setLhs(NULL);
+                            needToGetBefore = true;
+                        }
+            }
+
+            if (needToGetBefore)
+            {
+                SgStatement* getBefore = new SgStatement(ACC_GET_ACTUAL_DIR);
+                getBefore->setExpression(0, makeExprList(list));
+                prev->insertStmtBefore(*getBefore, *prev->controlParent());
             }
         }
     }

@@ -470,8 +470,8 @@ int WhatInterface(SgStatement *stmt)
 }
 
 int areIllegalClauses(SgStatement *stmt)
-{ SgExpression *el;
-
+{ 
+  SgExpression *el;
   for(el=stmt->expr(1); el; el=el->rhs()) 
     if(el->lhs()->variant() != REDUCTION_OP && el->lhs()->variant() != ACC_PRIVATE_OP && el->lhs()->variant() != ACC_CUDA_BLOCK_OP && el->lhs()->variant() != ACROSS_OP && el->lhs()->variant() != ACC_TIE_OP)
       return 1;
@@ -536,7 +536,7 @@ int TestParallelDirective(SgStatement *stmt, int nloop, int ndo, SgStatement *fi
         if(flag_err)
           err("Illegal clause",150,stmt );
         return(0);
-      }
+      } 
   }
 
   if(!only_debug && stmt->expr(0) && !HEADER(stmt->expr(0)->symbol())) {
@@ -1582,7 +1582,7 @@ SgExpression *doLowHighList(SgExpression *shl, SgSymbol *ar, SgStatement *st)
   nw = i; 
 
   if (rank && (nw != rank) ) 
-     Error("--Wrong dependence length list of distributed array '%s'", ar->identifier(), 180, st); 
+     Error("Wrong dependence length list of distributed array '%s'", ar->identifier(), 180, st); 
 
   TestShadowWidths(ar, lbound, hbound, nw, st);
   
@@ -1596,7 +1596,20 @@ SgExpression *doLowHighList(SgExpression *shl, SgSymbol *ar, SgStatement *st)
   return( shlist );
 }
 
-void AcrossList(int ilh, int isOut, SgExpression *el, SgStatement *st)
+int isInTieList(SgSymbol *ar, SgExpression *tie_list)
+{
+  SgExpression *el;
+  for(el=tie_list; el; el=el->rhs())
+  {
+    if(el->lhs()->symbol() && el->lhs()->symbol() == ar)
+      return 1;
+    else
+      continue;
+  }
+  return 0;
+}
+
+void AcrossList(int ilh, int isOut, SgExpression *el, SgStatement *st, SgExpression *tie_clause)
 { 
   SgExpression *es, *ear, *head=NULL;  
   
@@ -1613,20 +1626,13 @@ void AcrossList(int ilh, int isOut, SgExpression *el, SgStatement *st)
         continue;
       }
     }
-     SgSymbol *ar = ear->symbol();
-     SgExpression *head = HeaderForArrayInParallelDir(ar, st);
-/*
-     if(HEADER(ar)) 
-       head = HeaderRef(ar);     
-     else if(st->expr(0) && HEADER_OF_REPLICATED(ar)) 
-       head = DVM000(*HEADER_OF_REPLICATED(ar));
-     else
-     {
-       Error("'%s' isn't distributed array", ar->identifier(), 72, st);   
-       continue;
-     }
-*/
-     doCallAfter(LoopAcross_H2(ilh, isOut, head, Rank(ar), doLowHighList(ear->lhs(), ar, st)));  
+    SgSymbol *ar = ear->symbol();
+
+    if(!tie_clause || !isInTieList(ar,tie_clause->lhs()))
+      Error("Array from ACROSS clause should be specified in TIE clause: %s", ar->identifier(), 648, st);
+    
+    SgExpression *head = HeaderForArrayInParallelDir(ar, st);
+    doCallAfter(LoopAcross_H2(ilh, isOut, head, Rank(ar), doLowHighList(ear->lhs(), ar, st)));  
   }
 }
 
@@ -2197,9 +2203,9 @@ void Interface_2(SgStatement *stmt,SgExpression *clause[],SgExpression *init[],S
      SgExpression *e_spec[2];
      InOutAcross(clause[ACROSS_],e_spec,stmt);
      if (e_spec[IN_])
-        AcrossList(ilh,IN_, e_spec[IN_], stmt);
+        AcrossList(ilh,IN_, e_spec[IN_], stmt, clause[TIE_]);
      if (e_spec[OUT_])
-        AcrossList(ilh,OUT_,e_spec[OUT_],stmt);
+        AcrossList(ilh,OUT_,e_spec[OUT_],stmt, clause[TIE_]);
   }
 
   //---------------------------------------------------------------------------

@@ -13343,8 +13343,12 @@ SgStatement *InterfaceBlock(SgStatement *hedr)
 { SgStatement *stmt;
  in_interface++;
  for(stmt=hedr->lexNext(); stmt->variant()!=CONTROL_END; stmt=stmt->lexNext())
+ {
    if(stmt->variant() == FUNC_HEDR || stmt->variant() == PROC_HEDR) //may be module procedure statement
      stmt = InterfaceBody(stmt);
+   else if(stmt->variant() != MODULE_PROC_STMT)
+     err("Misplaced directive/statement", 103, stmt);     
+ }
  //if(stmt->controlParent() != hedr)
  //  Error("Illegal END statement");
 

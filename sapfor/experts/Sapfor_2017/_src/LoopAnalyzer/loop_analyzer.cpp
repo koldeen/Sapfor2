@@ -2814,7 +2814,32 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName
                 if (oldVal == DIST::DISTR || oldVal == DIST::NO_DISTR)
                 {
                     if (privates.find(symb->identifier()) != privates.end() || itNew->second.first->IsOmpThreadPrivate())
-                        itNew->second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
+                    {
+                        //check in module
+                        if (itNew->second.first->GetLocation().first == DIST::l_MODULE)
+                        {
+                            for (auto& data : getAttributes<SgStatement*, SgStatement*>(decl, set<int>{ SPF_ANALYSIS_DIR }))
+                            {
+                                set<string> privatesS;
+                                fillPrivatesFromComment(new Statement(data), privatesS);
+                                if (privatesS.find(symb->identifier()) != privatesS.end())
+                                {
+                                    itNew->second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
+                                    break;
+                                }
+                            }
+
+                            auto prev = decl->lexPrev();
+                            checkNull(prev, convertFileName(__FILE__).c_str(), __LINE__);
+
+                            set<string> privatesS;
+                            fillPrivatesFromComment(new Statement(prev), privatesS);
+                            if (privatesS.find(symb->identifier()) != privatesS.end())
+                                itNew->second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
+                        }
+                        else
+                            itNew->second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
+                    }
                     else if (deprecatedByIO.find(symb->identifier()) != deprecatedByIO.end())
                         itNew->second.first->SetNonDistributeFlag(DIST::IO_PRIV);
                     else if (isSgConstantSymb(symb))
@@ -3131,7 +3156,7 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             if (st->variant() == CONTAINS_STMT)
                 break;
 
-            if (!isSPF_stat(st))
+            if (!isSPF_stat(st) && !isDVM_stat(st))
             {
                 set<ParallelRegion*> currRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());
                 vector<string> regNames;
@@ -3180,7 +3205,7 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             if (st->variant() == CONTAINS_STMT)
                 break;
 
-            if (!isSPF_stat(st))
+            if (!isSPF_stat(st) && !isDVM_stat(st))
             {
                 //TODO: set clear regions for modules
                 set<ParallelRegion*> currRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());

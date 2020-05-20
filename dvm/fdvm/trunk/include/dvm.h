@@ -928,7 +928,7 @@ void CreateShadowGroupsForAccrossNeg(SgExpression *in_spec,SgStatement * stmt,Sg
 int Recurrences(SgExpression *shl, SgExpression *lrec[], SgExpression *rrec[],int n);
 int DepList (SgExpression *el, SgStatement *st, SgExpression *gref, int dep);
 int doDepLengthArrays(SgExpression *shl, SgSymbol *ar, SgStatement *st, int dep);
-void AcrossList(int ilh, int isOut, SgExpression *el, SgStatement *st);
+void AcrossList(int ilh, int isOut, SgExpression *el, SgStatement *st, SgExpression *tie_clause);
 SgExpression *doLowHighList(SgExpression *shl, SgSymbol *ar, SgStatement *st);
 void ReceiveArray(SgExpression *spec_accr,SgStatement *parst);
 void SendArray(SgExpression *spec_accr);
@@ -943,6 +943,7 @@ align *CopyAlignTreeNode(SgSymbol *ar);
 void InOutAcross(SgExpression *e, SgExpression* e_spec[], SgStatement *stmt);
 void InOutSpecification(SgExpression *ea, SgExpression* e_spec[]);
 SgExpression *AxisList(SgStatement *stmt, SgExpression *tied_array_ref);
+int isInTieList(SgSymbol *ar, SgExpression *tie_list);
 
 /*  acc.cpp */
 SgStatement *RegistrateDVMArray(SgSymbol *ar,int ireg,int inflag,int outflag);

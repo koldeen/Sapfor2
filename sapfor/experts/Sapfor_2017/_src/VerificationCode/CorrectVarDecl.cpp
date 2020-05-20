@@ -208,8 +208,18 @@ static void fillInfo(SgStatement *mod, map<string, ModuleInfo> &modsInfo)
     modsInfo[mod->symbol()->identifier()] = currInfo;
 }
 
-static map<string, map<SgSymbol*,pair<string, string>>> moduleRenameByFile;
+static map<string, map<SgSymbol*, pair<string, string>>> moduleRenameByFile;
 static map<SgSymbol*, pair<string, string>>* currModuleRename = NULL;
+
+string getOrigName(const string& file, const string& s)
+{
+    auto it = moduleRenameByFile.find(file);
+    if (it != moduleRenameByFile.end())
+        for (auto& elem : it->second)
+            if (elem.second.second == s)
+                return elem.second.first;
+    return s;
+}
 
 static void changeNameOfModuleFunc(string funcName, SgSymbol *curr, const map<string, ModuleInfo> &modsInfo, SgStatement *cp,
                                    const set<string> &globalF)

@@ -520,7 +520,7 @@ static void findArrayRefs(LoopGraph *loop)
 {
     for (SgStatement *st = loop->loop->lexNext(); st != loop->loop->lastNodeOfStmt(); st = st->lexNext())
     {
-        if (isSgExecutableStatement(st))
+        if (isSgExecutableStatement(st) && !isDVM_stat(st) && !isSPF_stat(st))
         {
             for (int z = 0; z < 3; ++z)
             {

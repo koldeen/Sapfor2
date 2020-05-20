@@ -790,7 +790,9 @@ ArgsForKernel *Create_C_Adapter_Function_Across(SgSymbol *sadapter)
                 loop_body = CopyOfBody.top();
                 CopyOfBody.pop();
 
-                if (options.isOn(AUTO_TFM))
+                // temporary check for ON mapping
+                const bool contitionOfOptimization = options.isOn(AUTO_TFM) && dvm_parallel_dir->expr(0);
+                if (contitionOfOptimization)
                     currentLoop = new Loop(loop_body, true);
 
                 string kernel_symb = tmp.s_kernel_symb->identifier();
@@ -836,7 +838,7 @@ ArgsForKernel *Create_C_Adapter_Function_Across(SgSymbol *sadapter)
                     correctPrivateList(RESTORE);
                     newVars.clear();
                 }
-                if (options.isOn(AUTO_TFM))
+                if (contitionOfOptimization)
                     delete currentLoop;
             }
             if (options.isOn(RTC))

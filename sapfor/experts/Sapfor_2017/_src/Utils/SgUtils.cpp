@@ -2828,8 +2828,9 @@ static string shiftLines(const string &in, const map<string, const FileInfo*> &m
     return newStr;
 }
 
-static void dumpErrors(const vector<FileInfo>& listOfProject, const vector<string>& errors)
+static int dumpErrors(const vector<FileInfo>& listOfProject, const vector<string>& errors)
 {
+    int errorsCount = 0;
     map<string, const FileInfo*> mapOfFiles;
     for (auto& elem : listOfProject)
         mapOfFiles[elem.fileName] = &elem;
@@ -2861,7 +2862,10 @@ static void dumpErrors(const vector<FileInfo>& listOfProject, const vector<strin
             if (elem.find("Warning") != string::npos)
                 outS += shiftLines(elem, mapOfFiles, &file) + "\n";
             else if (elem.find("Error") != string::npos)
+            {
                 errS += shiftLines(elem, mapOfFiles, &file) + "\n";
+                errorsCount++;
+            }
 
         fprintf(fout, "%s", outS.c_str());
         fprintf(ferr, "%s", errS.c_str());
@@ -2872,6 +2876,8 @@ static void dumpErrors(const vector<FileInfo>& listOfProject, const vector<strin
         fclose(ferr);
         ++z;
     }
+
+    return errorsCount;
 }
 
 static int createMapOfUse(const vector<string>& errors, const vector<FileInfo>& listOfProject, map<string, set<string>> &mapModuleDeps)
@@ -3081,11 +3087,11 @@ int parseFiles(const char* proj, vector<string>& filesCompilationOrder)
         rethrow = -1;
     }
 
-    dumpErrors(listOfProject, errors);
+    int errCount = dumpErrors(listOfProject, errors);
 
     if (rethrow != 0)
         throw rethrow;
-    return 0;
+    return -errCount;
 }
 
 extern int pppa_analyzer(int argv, char** argc);

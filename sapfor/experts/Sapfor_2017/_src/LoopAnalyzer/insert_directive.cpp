@@ -356,7 +356,7 @@ static void moveComment(SgStatement *elem, const string addNew = "")
             if (toAddComm && !isDVM_stat(toAddComm))
                 break;
         }
-        if (toAddComm->lexNext() == NULL)
+        if (toAddComm == NULL)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         
         string comms2 = "";
@@ -1792,6 +1792,36 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
 
                                     if (templDecl != "")
                                         templateDeclInIncludes[templDecl] = st->fileName();
+                                }
+                            }
+                            else // may be INHERIT array?
+                            {
+                                SgStatement* st_cp = st->controlParent();
+                                if (!extractDir && (st_cp->variant() == PROC_HEDR || st_cp->variant() == FUNC_HEDR))
+                                {
+                                    SgProgHedrStmt* hedr = (SgProgHedrStmt*)st_cp;
+                                    for (int z = 0; z < hedr->numberOfParameters(); ++z)
+                                    {
+                                        if (hedr->parameter(z)->identifier() == string(currSymb->identifier()))
+                                        {
+                                            auto array = getArrayFromDeclarated(declaratedInStmt(currSymb), currSymb->identifier());
+                                            checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
+                                      
+                                            set<DIST::Array*> realRefs;
+                                            getRealArrayRefs(array, array, realRefs, arrayLinksByFuncCalls);
+
+                                            bool distributed = false;
+                                            for (auto& elem : realRefs)
+                                            {
+                                                if (elem->GetNonDistributeFlag() == false)
+                                                    distributed = true;
+                                            }
+
+                                            if (distributed)
+                                                createInherit(inheritDir, st, new SgVarRefExp(currSymb));
+                                            break;
+                                        }
+                                    }
                                 }
                             }
                         }
