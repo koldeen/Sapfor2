@@ -78,7 +78,7 @@ static vector<void*> createParamCalls(const pair<void*, int> &callPointer, const
         auto curr = callList->lhs();
         if (curr->variant() == ARRAY_REF)
         {
-            SgSymbol* par = callList->lhs()->symbol();
+            SgSymbol* par = OriginalSymbol(callList->lhs()->symbol());
             DIST::Array* array = getArrayFromDeclarated(declaratedInStmt(par), par->identifier());
             if (array)
             {
@@ -189,7 +189,7 @@ static vector<FuncInfo*> detect(const map<string, vector<FuncInfo*>> &allFuncs, 
 
             for (int z = 0; z < prog->numberOfParameters(); ++z)
             {
-                SgSymbol *par = prog->parameter(z);                
+                SgSymbol *par = OriginalSymbol(prog->parameter(z));
                 DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(par), par->identifier());
 
                 if (array)
@@ -327,10 +327,53 @@ static void findAllFunctionCalls(SgExpression* ex, const vector<void*> &paramVar
     }
 }
 
+static void findInterfaceBlockAndDuplicate(SgStatement* func, const string& ifaceName, const string& ifaceCopy, int variant)
+{
+    if (SgFile::switchToFile(func->fileName()) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgStatement* end = func->lastNodeOfStmt();
+    for ( ; func != end; func = func->lexNext())
+    {
+        if (func->variant() == INTERFACE_STMT)
+        {
+            SgStatement* ifaceEnd = func->lastNodeOfStmt();
+            bool found = false;
+            for (auto st = func->lexNext(); st != ifaceEnd; st = st->lexNext())
+            {
+                if (st->variant() == variant && st->symbol()->identifier() == ifaceName)
+                {
+                    auto copy = st->copyBlockPtr();
+                    st->insertStmtBefore(*copy, *st->controlParent());
+                    SgSymbol* copyS = &copy->symbol()->copy();
+                    copyS->changeName(ifaceCopy.c_str());
+                    copy->setSymbol(*copyS);
+                    found = true;
+                    break;
+                }
+            }
+            if (found)
+                break;
+        }
+
+        if (isSgExecutableStatement(func) && !isDVM_stat(func) && !isSPF_stat(func))
+            break;
+        if (func->variant() == CONTAINS_STMT)
+            break;
+    }
+}
+
 static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<FuncInfo*> &toCopyGroups, map<FuncInfo*, callInfo> &funcInfoOfCall)
 {
     if (toCopyGroups.size() == 0)
         return;
+
+    // function -> functions witn interface to thisF
+    map<FuncInfo*, set<FuncInfo*>> interfaceInfo;
+
+    for (auto& func: mapOfFunc)
+        for (auto& interf : func.second->interfaceBlocks)
+            interfaceInfo[interf.second].insert(func.second);
 
     bool changed = true;
     map<FuncInfo*, int> numCopyF;
@@ -400,6 +443,7 @@ static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<Func
                         fillOrigCopyEx(origStat->expr(z), copyStat->expr(z), origCopyEx);
                 }
 
+                int varOfCall = PROC_HEDR;
                 //replace calls
                 for (auto& places : varCall.callPlaces)
                 {
@@ -414,6 +458,7 @@ static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<Func
                     }
                     else if (places.second == FUNC_CALL)
                     {
+                        varOfCall = FUNC_HEDR;
                         SgExpression* proc = (SgExpression*)places.first;
                         SgStatement* parent = SgStatement::getStatmentByExpression(proc);
                         if (parent == NULL)
@@ -437,6 +482,12 @@ static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<Func
                     else
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
+
+                //duplicate interfaces
+                auto itInterf = interfaceInfo.find(currFunc);
+                if (itInterf != interfaceInfo.end())
+                    for (auto& func : itInterf->second)
+                        findInterfaceBlockAndDuplicate(func->funcPointer->GetOriginal(), origName, newName, varOfCall);
 
                 // fill additional places to next replaces
                 for (int z = 0; z < currFunc->pointerDetailCallsFrom.size(); ++z)
@@ -598,7 +649,6 @@ bool duplicateFunctions(const map<string, vector<FuncInfo*>> &allFuncs, const ma
     }
     if (checkOk)
         copyGroup(mapOfFunc, toCopyVec, funcInfoOfCall);
-
     return checkOk;
 }
 
@@ -633,6 +683,7 @@ static map<string, set<FuncInfo*>> removed;
 static map<string, set<SgStatement*>> copied;
 static map<string, string> newNamesOfUniqCopies;
 static map<SgSymbol*, pair<string, string>> replaced;
+static map<string, set<SgStatement*>> hiddenInterfaceBlocks;
 
 static bool removeThisFunctions(const string &file, const map<FuncInfo*, set<FuncInfo*>> &uniqCopies, const vector<FuncInfo*>& toRem)
 {
@@ -778,6 +829,59 @@ static void doReplacements(SgStatement* st, SgStatement* last, map<SgSymbol*, pa
     }
 }
 
+static void hiddenInterfaces(SgStatement* func)
+{
+    SgStatement* last = func;
+    const string fileName = func->fileName();
+
+    for (auto st = func->lexNext(); st != last; st = st->lexNext())
+    {
+        if (st->variant() == CONTAINS_STMT)
+            break;
+        if (isSgExecutableStatement(st) && !isDVM_stat(st) && !isSPF_stat(st))
+            break;
+
+        if (st->variant() == INTERFACE_STMT)
+        {
+            int total = 0;
+            map<string, set<SgStatement*>> objects;
+            SgStatement* iEnd = st->lastNodeOfStmt();
+            for (auto iSt = st->lexNext(); iSt != iEnd; iSt = iSt->lexNext())
+            {
+                if (iSt->variant() == PROC_HEDR || iSt->variant() == FUNC_HEDR)
+                    objects[iSt->symbol()->identifier()].insert(iSt);
+                total++;
+                iSt = iSt->lastNodeOfStmt();
+            }
+
+            if (objects.size() != total)
+            {
+                for (auto& uniq : objects)
+                {
+                    int first = 0;
+                    for (auto& obj : uniq.second)
+                    {
+                        if (first)
+                        {
+                            obj->setVariant(-obj->variant());
+                            hiddenInterfaceBlocks[fileName].insert(obj);
+                            --total;
+                        }
+                        ++first;
+                    }
+                }
+            }
+
+            if (total == 0)
+            {
+                st->setVariant(-st->variant());
+                hiddenInterfaceBlocks[fileName].insert(st);
+            }
+            st = iEnd;
+        }
+    }
+}
+
 static void replaceNewNames(const map<string, vector<FuncInfo*>> &allFuncs)
 {
     for (auto& byfile : allFuncs)
@@ -791,6 +895,7 @@ static void replaceNewNames(const map<string, vector<FuncInfo*>> &allFuncs)
                 continue;
             SgStatement* p = func->funcPointer->GetOriginal();
             doReplacements(p, p->lastNodeOfStmt());
+            hiddenInterfaces(p);
         }
 
         map<SgSymbol*, pair<string, string>> replaced_tmp;
@@ -805,7 +910,6 @@ static void replaceNewNames(const map<string, vector<FuncInfo*>> &allFuncs)
 void removeCopies(const map<string, vector<FuncInfo*>>& allFuncs)
 {
     bool changed = true;
-
     while (changed)
     {
         changed = false;
@@ -839,8 +943,9 @@ void removeCopies(const map<string, vector<FuncInfo*>>& allFuncs)
 
 void restoreCopies(SgFile* file)
 {
-    restoreFunctions(file->filename());
+    const string fileName = file->filename();
 
+    restoreFunctions(fileName);
     for (auto& elem : copied[file->filename()])
         elem->deleteStmt();
     copied[file->filename()].clear();
@@ -848,5 +953,15 @@ void restoreCopies(SgFile* file)
     for (auto& elem : replaced)
         elem.first->changeName(elem.second.first.c_str());
     replaced.clear();
-    newNamesOfUniqCopies.clear(); 
+    newNamesOfUniqCopies.clear();
+
+    auto it = hiddenInterfaceBlocks.find(fileName);
+    if (it != hiddenInterfaceBlocks.end())
+    {
+        for (auto& obj : it->second)
+            if (obj->variant() < 0)
+                obj->setVariant(-obj->variant());
+
+        hiddenInterfaceBlocks.erase(it);
+    }
 }

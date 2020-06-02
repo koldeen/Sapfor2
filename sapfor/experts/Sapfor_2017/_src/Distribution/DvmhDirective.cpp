@@ -321,45 +321,48 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
     auto onTo = arrayRef2->IsLoopArray() ? on : on2;
 
     dirStatement[2] = new Expression(expr);
+    
     if (mpiProgram)
         directive += ")";
     else
-    {
         directive += ") ON " + mapTo->GetShortName() + "(";
 
-        SgSymbol* symbForPar;
-        if (arrayRef->IsTemplate())
+    SgSymbol* symbForPar;
+    if (arrayRef->IsTemplate())
+    {
+        if (mapTo->IsLoopArray())
+            symbForPar = getFromModule(byUseInFunc, findSymbolOrCreate(file, mapTo->GetShortName(), new SgArrayType(*SgTypeInt()), file->GetOriginal()->firstStatement()), usedInLoop);
+        else
+            symbForPar = getFromModule(byUseInFunc, mapTo->GetDeclSymbol()->GetOriginal(), usedInLoop);
+    }
+    else
+        symbForPar = getFromModule(byUseInFunc, arrayRef->GetDeclSymbol()->GetOriginal(), usedInLoop);
+
+    SgArrayRefExp* arrayExpr = new SgArrayRefExp(*symbForPar);
+    string arrayExprS = "";
+    for (int i = 0; i < (int)onTo.size(); ++i)
+    {
+        const pair<int, int>& coeffs = onTo[i].second;
+        assert((coeffs.first != 0 && onTo[i].first != "*") || onTo[i].first == "*");
+
+        if (i != 0)
+            arrayExprS += ",";
+
+        if (onTo[i].first == "*")
         {
-            if (mapTo->IsLoopArray())
-                symbForPar = getFromModule(byUseInFunc, findSymbolOrCreate(file, mapTo->GetShortName(), new SgArrayType(*SgTypeInt()), file->GetOriginal()->firstStatement()), usedInLoop);
-            else
-                symbForPar = getFromModule(byUseInFunc, mapTo->GetDeclSymbol()->GetOriginal(), usedInLoop);
+            arrayExprS += "*";
+            SgVarRefExp* varExpr = new SgVarRefExp(findSymbolOrCreate(file, "*"));
+            arrayExpr->addSubscript(*varExpr);
         }
         else
-            symbForPar = getFromModule(byUseInFunc, arrayRef->GetDeclSymbol()->GetOriginal(), usedInLoop);
-
-        SgArrayRefExp* arrayExpr = new SgArrayRefExp(*symbForPar);
-        for (int i = 0; i < (int)onTo.size(); ++i)
         {
-            const pair<int, int>& coeffs = onTo[i].second;
-            assert((coeffs.first != 0 && onTo[i].first != "*") || onTo[i].first == "*");
-
-            if (i != 0)
-                directive += ",";
-
-            if (onTo[i].first == "*")
-            {
-                directive += "*";
-                SgVarRefExp* varExpr = new SgVarRefExp(findSymbolOrCreate(file, "*"));
-                arrayExpr->addSubscript(*varExpr);
-            }
-            else
-            {
-                directive += genStringExpr(onTo[i].first, coeffs);
-                arrayExpr->addSubscript(*genSgExpr(file, onTo[i].first, coeffs));
-            }
+            arrayExprS += genStringExpr(onTo[i].first, coeffs);
+            arrayExpr->addSubscript(*genSgExpr(file, onTo[i].first, coeffs));
         }
-        directive += ")";
+    }
+    if (!mpiProgram)
+    {
+        directive += arrayExprS + ")";
         dirStatement[0] = new Expression(arrayExpr);
     }
 
@@ -384,6 +387,36 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
         dirStatement[1] = new Expression(expr);
 
         p->setLhs(makeExprList(list));
+    }
+
+    if (mpiProgram)
+    {
+        if (!arrayRef2->IsLoopArray())
+        {
+            if (dirStatement[1] != NULL)
+            {
+                expr = createAndSetNext(RIGHT, EXPR_LIST, expr);
+                p = expr;
+            }
+            p = createAndSetNext(LEFT, ACC_TIE_OP, p);
+
+            vector<SgExpression*> tieList;
+            tieList.push_back(arrayExpr);
+            //TODO: add all arrays 
+
+            directive += ", TIE(";
+            int k = 0;
+            for (auto& tieL : tieList)
+            {
+                if (k != 0)
+                    directive += ",";
+                directive += tieL->unparse();
+                ++k;
+            }
+            directive += ")";
+
+            p->setLhs(makeExprList(tieList));
+        }
     }
 
     set<DIST::Array*> arraysInAcross;

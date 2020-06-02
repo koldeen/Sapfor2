@@ -130,8 +130,7 @@ struct FuncInfo
 
     std::vector<int> linesOfIO;
     std::vector<int> linesOfStop;
-    
-    //name of key is 'iface_<funcName>'
+
     std::map<std::string, FuncInfo*> interfaceBlocks;
 
     bool isPure; // does this func or funcs called from this have common block[s] and have no side effects

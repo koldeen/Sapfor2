@@ -221,6 +221,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
             map<SgSymbol*, tuple<int, int, int>> acrossToAdd;
 
             bool varIn = false, varOut = false;
+            bool isEqual = false;
 
             for (int k = 0; k < nodes.size(); ++k)
             {
@@ -245,8 +246,10 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                             found = varInOut.insert(found, make_pair(vOut, vOut->identifier()));
                         varOut = nonDistrArrays.find(found->second) != nonDistrArrays.end();
                     }
+
+                    isEqual = isEqExpressions(currNode->varin, currNode->varout, collection);
                     //dont check if textual identically 
-                    if ((!isEqExpressions(currNode->varin, currNode->varout, collection) || varIn || varOut) && (currNode->varin != currNode->varout))
+                    if ((!isEqual || varIn || varOut) && (currNode->varin != currNode->varout))
                     {
                         // TODO: process all loop, not only top loop
                         if (currNode->knowndist[1] == 0 || currNode->distance[1] != 0)
@@ -311,18 +314,21 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                             }
                             //currNode->displayDep();
                         }
-                        else if (varIn || varOut) // found dependencies between non ditributed arrays
+                        else if (!isEqual && (varIn || varOut)) // found dependencies between non ditributed arrays
                         {
-                            if (!findUnknownDepLen)
+                            if (currNode->knowndist[1] == 0 || currNode->distance[1] != 0)
                             {
-                                //TODO
-                                wstring depMessage = to_wstring(currNode->createDepMessagebetweenArrays()) + L" prevents parallelization";
-                                currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage, depMessage, 3006));
+                                if (!findUnknownDepLen)
+                                {
+                                    //TODO
+                                    wstring depMessage = to_wstring(currNode->createDepMessagebetweenArrays()) + L" prevents parallelization";
+                                    currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage, depMessage, 3006));
 
-                                // __spf_print only first unknown dep length
-                                findUnknownDepLen = true;
-                                if (!onlyOneStep)
-                                    currLoop->hasUnknownArrayDep = true;
+                                    // __spf_print only first unknown dep length
+                                    findUnknownDepLen = true;
+                                    if (!onlyOneStep)
+                                        currLoop->hasUnknownArrayDep = true;
+                                }
                             }
                         }
                     }

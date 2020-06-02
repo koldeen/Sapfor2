@@ -152,8 +152,8 @@ static void setOptions(const short *options)
     langOfMessages = intOptions[TRANSLATE_MESSAGES];
     removeNestedIntervals = (intOptions[KEEP_LOOPS_CLOSE_NESTING] == 1);
     showDebug = (intOptions[DEBUG_PRINT_ON] == 1);
-    //mpiProgram = intOptions[MPI_PROGRAM];
-    //ignoreIO = (mpiProgram == 1) ? 1 : intOptions[IGNORE_IO_SAPFOR];
+    mpiProgram = (mpiProgram != 1) ? intOptions[MPI_PROGRAM] : mpiProgram;
+    ignoreIO = (mpiProgram == 1) ? 1 : intOptions[IGNORE_IO_SAPFOR];
 
     string optAnalisys = splited.size() > ANALYSIS_OPTIONS ? splited[ANALYSIS_OPTIONS] : "";
 }

@@ -1003,7 +1003,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             //collect info about <parallel> functions
             regionInserter.updateParallelFunctions(loopGraph);
             
-            if (parallelRegions.size() == 0 && parallelRegions[0]->GetName() == "DEFAULT")
+            if ((parallelRegions.size() == 0 && parallelRegions[0]->GetName() == "DEFAULT") || mpiProgram == 1)
                 regionInserter.insertDirectives(NULL);
             else
                 regionInserter.insertDirectives(&parallelRegions);
@@ -1288,12 +1288,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         if (detected)
         {
             mpiProgram = 1;
-            parallizeFreeLoops = 1;
+            /*parallizeFreeLoops = 1;
             for (auto& array : declaredArrays)
             {
                 if (array.second.first->GetNonDistributeFlagVal() == DIST::DISTR)
                     array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
-            }
+            }*/
         }
 
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaredArrays, SPF_messages, keepFiles);
@@ -2480,6 +2480,11 @@ int main(int argc, char **argv)
                     if (code == 0)
                         printf("Parsing was completed successfully\n");
                     exit(0);
+                }
+                else if (string(curr_arg) == "-mpi")
+                {
+                    mpiProgram = 1;
+                    ignoreIO = 1;
                 }
                 else if (string(curr_arg) == "-pppa")
                 {

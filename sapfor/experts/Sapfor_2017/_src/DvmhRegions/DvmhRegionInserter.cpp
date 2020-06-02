@@ -313,9 +313,10 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
 
         auto readBlocks = get_used_arrs_for_block(st, DVMH_REG_RD);
         auto writeBlocks = get_used_arrs_for_block(st, DVMH_REG_WT);
+        ArraySet unite;
+        std::merge(readBlocks.begin(), readBlocks.end(), writeBlocks.begin(), writeBlocks.end(), std::inserter(unite, unite.end()));
 
-        insertActualDirective(block_dir, writeBlocks, ACC_GET_ACTUAL_DIR, true);
-        insertActualDirective(block_dir, readBlocks, ACC_GET_ACTUAL_DIR, true);
+        insertActualDirective(block_dir, unite, ACC_GET_ACTUAL_DIR, true);
         insertActualDirective(st->lastNodeOfStmt()->lexNext(), writeBlocks, ACC_ACTUAL_DIR, false);
 
         return st->lastNodeOfStmt()->lexNext();

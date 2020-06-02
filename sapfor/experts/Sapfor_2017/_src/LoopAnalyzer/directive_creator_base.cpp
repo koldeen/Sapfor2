@@ -1563,8 +1563,7 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
     for (int i = 0; i < loopGraph.size(); ++i)
     {
         LoopGraph* loop = loopGraph[i];
-        if (loop->lineNum == 48)
-            printf("");
+
         if (loop->directive &&
             (loop->hasLimitsToParallel() == false) &&
             (loop->region == currParReg) &&

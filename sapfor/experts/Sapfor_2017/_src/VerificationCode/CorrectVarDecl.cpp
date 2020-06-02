@@ -739,6 +739,9 @@ void restoreCorrectedModuleProcNames(SgFile *file)
             {
                 if (st->variant() == PROC_STAT)
                 {
+                    if (string(st->symbol()->identifier()).find("_spf_") != string::npos)
+                        continue;
+
                     changeNameAndSwap(st->symbol(), swaped);
 
                     const vector<SgSymbol*> attrs1 = getAttributes<SgStatement*, SgSymbol*>(st, set<int>({ VARIABLE_NAME }));

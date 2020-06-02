@@ -1585,10 +1585,12 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
 
                                         set<string> fullArrayNames;
                                         if (itIface->second->fullCopiesOfThisFunction.size() == 0)
-                                            fullArrayNames.insert(getFullArrayNameOfParameter(itIface->second->funcPointer->GetOriginal(), numOfParams, z));
+                                            if (itIface->second->funcPointer->variant() > 0)
+                                                fullArrayNames.insert(getFullArrayNameOfParameter(itIface->second->funcPointer->GetOriginal(), numOfParams, z));
 
                                         for (auto& fullCopies : itIface->second->fullCopiesOfThisFunction)
-                                            fullArrayNames.insert(getFullArrayNameOfParameter(fullCopies->funcPointer->GetOriginal(), numOfParams, z));
+                                            if (fullCopies->funcPointer->variant() > 0)
+                                                fullArrayNames.insert(getFullArrayNameOfParameter(fullCopies->funcPointer->GetOriginal(), numOfParams, z));
 
                                         bool needToInherit = false;
                                         for (auto& fullArrayName : fullArrayNames)
