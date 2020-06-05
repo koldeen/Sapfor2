@@ -252,10 +252,79 @@ static SgStatement* getModuleScope(const string& origFull, vector<SgStatement*>&
     return local;
 }
 
-/*
-(file, newRules, alignRules, reducedG, allArrays, loop->acrossOutAttribute,
- loop->readOps, loop->loop, loop->lineNum, loop->altLineNum, regionId, arrayLinksByFuncCalls, loop);
-*/
+static void compliteTieList(vector<SgExpression*>& tieList, const LoopGraph* currLoop, SgArrayRefExp* etalon, DIST::Array* etalonA, 
+                            const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls, const int regId, File* file)
+{
+    vector<SgExpression*> etalonExprs(etalon->numberOfSubscripts());
+    if (etalonExprs.size() == 0)
+        return;
+    for (int z = 0; z < etalonExprs.size(); ++z)
+        etalonExprs[z] = etalon->subscript(z);
+
+    set<DIST::Array*> realRefs; 
+    getRealArrayRefs(etalonA, etalonA, realRefs, arrayLinksByFuncCalls);
+    if (realRefs.size() != 1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    etalonA = *realRefs.begin();
+
+    vector<pair<DIST::Array*, DIST::Array*>> realRefsUsed;
+    for (auto& elem : currLoop->usedArrays)
+    {
+        set<DIST::Array*> realRefs;
+        getRealArrayRefs(elem, elem, realRefs, arrayLinksByFuncCalls);
+        if (realRefs.size() != 1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (*realRefs.begin() == etalonA)
+            continue;
+        realRefsUsed.push_back(make_pair(*realRefs.begin(), elem));
+    }
+
+    if (realRefsUsed.size() == 0)
+        return;
+
+    auto tmpl = etalonA->GetTemplateArray(regId);
+    checkNull(tmpl, convertFileName(__FILE__).c_str(), __LINE__);
+
+    auto linksWithTempl = etalonA->GetLinksWithTemplate(regId);
+    SgVarRefExp* zeroS = new SgVarRefExp(findSymbolOrCreate(file, "*"));
+
+    for (auto& pairs : realRefsUsed)
+    {
+        auto tmplP = pairs.first->GetTemplateArray(regId);
+        if (tmplP != tmpl)
+            continue;
+        
+        auto links = pairs.first->GetLinksWithTemplate(regId);
+
+        SgArrayRefExp* array = new SgArrayRefExp(*findSymbolOrCreate(file, pairs.second->GetShortName()));
+        bool needToAdd = false;
+        for (int z = 0; z < links.size(); ++z)
+        {
+            int dim = links[z];
+            if (dim >= 0)
+            {
+                bool wasAdded = true;
+                for (int k = 0; k < linksWithTempl.size(); ++k)
+                {
+                    if (linksWithTempl[k] == dim)
+                    {
+                        wasAdded = needToAdd = true;
+                        array->addSubscript(etalonExprs[k]->copy());
+                        break;
+                    }
+                }
+                if (!wasAdded)
+                    array->addSubscript(zeroS->copy());
+            }
+            else
+                array->addSubscript(zeroS->copy());
+        }
+        if (needToAdd)
+            tieList.push_back(array);
+    }
+}
+
 pair<string, vector<Expression*>> 
 ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, const DistrVariant*>>& distribution,
                                 const vector<AlignRule>& alignRules,
@@ -402,7 +471,8 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
 
             vector<SgExpression*> tieList;
             tieList.push_back(arrayExpr);
-            //TODO: add all arrays 
+
+            compliteTieList(tieList, currLoop, arrayExpr, arrayRef2, arrayLinksByFuncCalls, regionId, file);
 
             directive += ", TIE(";
             int k = 0;

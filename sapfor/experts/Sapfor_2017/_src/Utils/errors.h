@@ -133,11 +133,13 @@ private:
         value = value_;
         //check for \n at the end
         if (value[value.size() - 1] == '\n')
-            value.erase(value.begin() + value.size() - 1);                
+            value.erase(value.begin() + value.size() - 1);
     }
 public:
     explicit Messages(const typeMessage type, const int line, const std::wstring &rus, const std::wstring &eng, const int group) : 
-        Messages(type, line, (langOfMessages == 1) ? rus : eng, group) { }
+        Messages(type, line, (langOfMessages == 1) ? rus : eng, group)
+    {
+    }
 
     std::wstring toString()
     {

@@ -791,7 +791,7 @@ ArgsForKernel *Create_C_Adapter_Function_Across(SgSymbol *sadapter)
                 CopyOfBody.pop();
 
                 // temporary check for ON mapping
-                const bool contitionOfOptimization = options.isOn(AUTO_TFM) && dvm_parallel_dir->expr(0);
+                const bool contitionOfOptimization = options.isOn(AUTO_TFM);
                 if (contitionOfOptimization)
                     currentLoop = new Loop(loop_body, true);
 

@@ -1507,6 +1507,14 @@ int SPF_RemoveDvmIntervals(void*& context, int winHandler, short *options, short
     return simpleTransformPass(REMOVE_DVM_INTERVALS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
+int SPF_CreateCheckpoints(void*& context, int winHandler, short* options, short* projName, short* folderName, short*& output,
+                          int*& outputSize, short*& outputMessage, int*& outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(CREATE_CHECKPOINTS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
 static inline void convertBackSlash(char *str, int strL)
 {
     for (int z = 0; z < strL; ++z)
@@ -2108,6 +2116,8 @@ const wstring Sapfor_RunTransformation(const char* transformName_c, const char* 
         retCode = SPF_DuplicateFunctionChains(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
     else if (whichRun == "SPF_InlineProcedures")
         retCode = SPF_InlineProcedures(context, winHandler, optSh, projSh, fold, addOpt, output, outputSize, outputMessage, outputMessageSize);
+    else if (whichRun == "SPF_CreateCheckpoints")
+        retCode = SPF_CreateCheckpoints(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
     else
     {
         if (showDebug)

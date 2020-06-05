@@ -659,17 +659,17 @@ void correctModuleSymbols(SgFile *file)
     }
 }
 
-static void changeNameAndSwap (SgSymbol *s, set<SgSymbol*> &swaped)
+static void changeNameAndSwap(SgSymbol* s, set<SgSymbol*>& swaped)
 {
     if (currModuleRename->find(s) == currModuleRename->end())
         return;
 
-    if (swaped.find(s) == swaped.end())
-        swaped.insert(s);
-    else
+    if (swaped.find(s) != swaped.end())
         return;
 
+    swaped.insert(s);
     pair<string, string> oldVal = (*currModuleRename)[s];
+
     s->changeName(oldVal.first.c_str());
     std::swap(oldVal.first, oldVal.second);
     (*currModuleRename)[s] = oldVal;
@@ -689,7 +689,6 @@ static void restoreInFunc(SgExpression *ex, set<SgSymbol*> &swaped, const map<Sg
                 ex->setSymbol(it->second);
                         
         }
-
         restoreInFunc(ex->lhs(), swaped, byUseMapping);
         restoreInFunc(ex->rhs(), swaped, byUseMapping);
     }

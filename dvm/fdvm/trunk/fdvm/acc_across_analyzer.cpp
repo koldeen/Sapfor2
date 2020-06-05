@@ -1159,15 +1159,16 @@ void Array::generateAssigns(SgVarRefExp* offsetX, SgVarRefExp* offsetY, SgVarRef
 
 Loop::Loop(SgStatement* loop_body, bool enable_opt) : enable_opt(enable_opt), loop_body(loop_body), dimension(0), acrossType(0), acrossDims(NULL)
 {
-    lhs.clear(); rhs.clear(); unparsedLhs.clear(); unparsedRhs.clear();    
+    lhs.clear();
+    rhs.clear();
+    unparsedLhs.clear();
+    unparsedRhs.clear();
 
     buildCFG();
     setupSubstitutes();
     for (int i = 2; i < blocks.size(); ++i)
-    {
         if (blocks[i].head != NULL && (blocks[i].head->variant() == ASSIGN_STAT || blocks[i].head->variant() == PROC_STAT))
             analyzeAssignments(blocks[i].index, blocks[i].head);
-    }
 
     for (SgExpression* tmp = dvm_parallel_dir->expr(2); tmp != NULL; tmp = tmp->rhs())
     {
@@ -1188,8 +1189,64 @@ Loop::Loop(SgStatement* loop_body, bool enable_opt) : enable_opt(enable_opt), lo
         }
     }
 
-    SgSymbol* symbol = dvm_parallel_dir->expr(0)->symbol();
-    SgExpression* subscripts = ((SgArrayRefExp*)dvm_parallel_dir->expr(0))->subscripts();
+    SgSymbol* symbol = NULL;
+    SgExpression* subscripts = NULL;
+
+    if (dvm_parallel_dir->expr(0))
+    {
+        symbol = dvm_parallel_dir->expr(0)->symbol();
+        subscripts = ((SgArrayRefExp*)dvm_parallel_dir->expr(0))->subscripts();
+    }
+    else // TIE
+    {
+        SgExpression* arc = findDirect(dvm_parallel_dir->expr(1), ACROSS_OP);
+        SgExpression* tie = findDirect(dvm_parallel_dir->expr(1), ACC_TIE_OP);
+
+        if (arc != NULL && tie == NULL)
+        {
+            err("internal error in across", 424, first_do_par);
+            exit(-1);
+        }
+        else if (arc && tie)
+        {
+            map<string, SgExpression*> acrossArrays, tieArrays;
+            SgExpression* ex = arc->lhs();
+            while (ex)
+            {
+                acrossArrays[ex->lhs()->symbol()->identifier()] = ex->lhs();
+                ex = ex->rhs();
+            }
+            ex = tie->lhs();
+            while (ex)
+            {
+                tieArrays[ex->lhs()->symbol()->identifier()] = ex->lhs();
+                ex = ex->rhs();
+            }
+
+            bool errM = false;
+            for (map<string, SgExpression*>::iterator acrA = acrossArrays.begin(); acrA != acrossArrays.end(); acrA++)
+            {
+                if (tieArrays.find(acrA->first) == tieArrays.end())
+                {
+                    errM = true;
+                    err((string("can not find array '") + acrA->first + "' in TIE clause").c_str(), 425, first_do_par);
+                }
+            }
+            if (errM)
+                exit(-1);
+
+            //TODO: multiple arrays
+            for (map<string, SgExpression*>::iterator acrA = acrossArrays.begin(); acrA != acrossArrays.end(); acrA++)
+            {
+                SgExpression* firstTie = tieArrays[acrA->first];
+                symbol = firstTie->symbol();
+                subscripts = ((SgArrayRefExp*)firstTie)->subscripts();
+                break;
+            }
+        }
+        else
+            return;
+    }
     //TODO: tmp is undefined in this scope
     if (arrays.find(symbol) == arrays.end())
         warn((string("array '") + symbol->identifier() + "': unused").c_str(), 900, first_do_par);
@@ -2059,7 +2116,18 @@ SgExpression* analyzeArrayIndxs(SgSymbol* ar, SgExpression* subscripts)
         return NULL;
 
     map<SgSymbol*, Array*>& arrays = currentLoop->getArrays();
-    Array* array = arrays.find(ar) != arrays.end() ? arrays[ar] : NULL;
+    Array* array = NULL;
+    
+    string toFind = OriginalSymbol(ar)->identifier();
+    for (map<SgSymbol*, Array*>::iterator it = arrays.begin(); it != arrays.end(); it++)
+    {
+        if (OriginalSymbol(it->first)->identifier() == toFind)
+        {
+            array = it->second;
+            break;
+        }
+    }
+        
     if (array != NULL)
     {
         string expr;
