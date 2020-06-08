@@ -36,6 +36,7 @@ extern "C" { __declspec(dllexport) int SPF_CreateIntervalsTree           (void*&
 extern "C" { __declspec(dllexport) int SPF_RemoveDvmIntervals            (void*& context, int winHandler, short *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_DuplicateFunctionChains       (void*& context, int winHandler, short *options, short* projName, short* folderName, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_InlineProcedures              (void*& context, int winHandler, short *options, short* projName, short* folderName, short* names, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize); }
+                                   int SPF_CreateCheckpoints             (void*& context, int winHandler, short* options, short* projName, short* folderName, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize);
 
 //CODE MODIFICATION
 extern "C" { __declspec(dllexport) int SPF_ModifyArrayDistribution    (void*& context, int winHandler, short *options, short* projName, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize, int regId, int64_t* toModify); }

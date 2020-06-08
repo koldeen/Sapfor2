@@ -1053,7 +1053,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             convertSaveToModule(file);
         else if (curr_regime == PROCESS_IO)
             preprocessOpenOperators(file, filesInfo);        
-
+        else if (curr_regime == CONVERT_STRUCTURES_TO_SIMPLE)
+            replaceStructuresToSimpleTypes(file);
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, allIncludeFiles);
     } // end of FOR by files
         
@@ -2045,8 +2046,6 @@ static SgProject* createProject(const char *proj_name)
     {
         SgFile* file = &(project->file(z));
         correctModuleSymbols(file);
-        replaceStructuresToSimpleTypes(file);
-
         //file->unparsestdout();
     }
     
@@ -2231,6 +2230,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case CREATE_PARALLEL_REGIONS:
     case DUPLICATE_FUNCTIONS:
     case LOOPS_COMBINER:
+    case CONVERT_STRUCTURES_TO_SIMPLE:
         runAnalysis(*project, curr_regime, false);
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)
