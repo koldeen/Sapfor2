@@ -87,6 +87,7 @@ static map<string, vector<SgLabel*> > labelsExitCycle;
 static set<int> unSupportedVars;
 static int cond_generator;
 static SgStatement* curTranslateStmt;
+static map<string, SgSymbol*> autoTfmReplacing;
 
 static map<SgStatement*, vector<SgStatement*> > insertBefore;
 static map<SgStatement*, vector<SgStatement*> > insertAfter;
@@ -555,97 +556,101 @@ SgStatement* getInterfaceForCall(SgSymbol* s)
 //
 //}
 
-SgExpression* switchArgumentsByKeyword(SgExpression *funcCall, SgStatement *funcInterface)
+SgExpression* switchArgumentsByKeyword(const string& name, SgExpression* funcCall, SgStatement* funcInterface)
 {
     //get list of arguments names
     vector<string> listArgsNames;
-    SgFunctionSymb *s = (SgFunctionSymb *)funcInterface->symbol();
-    vector<SgExpression*> resultExprCall(s->numberOfParameters(), (SgExpression *)NULL);
+    SgFunctionSymb* s = (SgFunctionSymb*)funcInterface->symbol();
+    vector<SgExpression*> resultExprCall(s->numberOfParameters(), (SgExpression*)NULL);
     int useKeywords = false;
     int useOptional = false;
     int useArray = false;
 
-    for(int i = 0; i < s->numberOfParameters(); ++i)
+    for (int i = 0; i < s->numberOfParameters(); ++i)
     {
         listArgsNames.push_back(s->parameter(i)->identifier());
-        if(s->parameter(i)->attributes()&OPTIONAL_BIT)
+        if (s->parameter(i)->attributes() & OPTIONAL_BIT)
             useOptional = true;
     }
 
     SgExpression* parseExpr;
-    if(funcCall->variant() == FUNC_CALL)
+    if (funcCall->variant() == FUNC_CALL)
         parseExpr = funcCall->lhs();
     else
         parseExpr = funcCall;
 
     int curArgumentPos = 0;
-    while(parseExpr)
+    while (parseExpr)
     {
-        if(parseExpr->lhs()->variant() == KEYWORD_ARG)
+        if (parseExpr->lhs()->variant() == KEYWORD_ARG)
         {
             useKeywords = true;
             int newPos = 0;
             string keyword = string(((SgKeywordValExp*)parseExpr->lhs()->lhs())->value());
-            while(listArgsNames[newPos] != keyword )
+            while (listArgsNames[newPos] != keyword)
                 newPos++;
 
             resultExprCall[newPos] = parseExpr->lhs()->rhs();
-        }        
-        else if(useKeywords)            
-            Error("Position argument after keyword", "", 900, cur_st);
+        }
+        else if (useKeywords)
+            Error("Position argument after keyword", "", 900, first_do_par);
         else
             resultExprCall[curArgumentPos] = parseExpr->lhs();
         curArgumentPos++;
         parseExpr = parseExpr->rhs();
     }
 
-    //check asuumed form array
-    for(int i = 0; i < resultExprCall.size(); ++i)
+    //check assumed form array
+    for (int i = 0; i < resultExprCall.size(); ++i)
     {
-        SgSymbol *sarg = s->parameter(i);
-        if(isSgArrayType(sarg->type()))
+        SgSymbol* sarg = s->parameter(i);
+        if (isSgArrayType(sarg->type()))
         {
             int needChanged = true;
-            SgArrayType *arrT = (SgArrayType*)sarg->type();
+            SgArrayType* arrT = (SgArrayType*)sarg->type();
             int dims = arrT->dimension();
-            SgExprListExp *dimList = (SgExprListExp*)arrT->getDimList();
-            while(dimList && dimList->rhs())
+            SgExpression* dimList = arrT->getDimList();
+            while (dimList)
             {
-                if(dimList->lhs()->variant() != DDOT)
+                if (dimList->lhs()->variant() != DDOT)
                 {
                     needChanged = false;
                     break;
                 }
-                else if(dimList->lhs()->rhs())
+                else if (dimList->lhs()->rhs())
                 {
                     needChanged = false;
                     break;
                 }
-                dimList =(SgExprListExp*) dimList->rhs();
+                dimList = dimList->rhs();
             }
 
-            if(needChanged)
+            if (needChanged)
             {
                 useArray = true;
 
-                SgArrayType *argType = (SgArrayType*)resultExprCall[i]->symbol()->type();
-                SgExprListExp *argInfo = (SgExprListExp*)argType->getDimList();
-                SgExpression *tmp;
+                SgArrayType* argType = (SgArrayType*)resultExprCall[i]->symbol()->type();
+                SgExprListExp* argInfo = (SgExprListExp*)argType->getDimList();
+                SgExpression* tmp;
                 int argDims = argType->dimension();
 
                 //TODO: 
-                if(argDims != dims)
-                    Error("Count of formal and actual arguments are not equal", "", 900, cur_st);
-
-                SgExpression *argList = NULL;
-                for(int j = 6; j >= 0; --j)
+                if (argDims != dims)
                 {
-                    if(argInfo->elem(j) == NULL)
+                    char buf[256];
+                    sprintf(buf, "Dimention of the %d formal and actual parameters of '%s' call is not equal", i, name.c_str());
+                    Error(buf, "", 900, first_do_par);
+                }
+
+                SgExpression* argList = NULL;
+                for (int j = 6; j >= 0; --j)
+                {
+                    if (argInfo->elem(j) == NULL)
                         continue;
 
                     //TODO: not checked!!                    
-                    SgExpression *val = Calculate(&(*UpperBound(resultExprCall[i]->symbol(), j) - *LowerBound(resultExprCall[i]->symbol(), j) + *LowerBound(s->parameter(i), j)));
-                    if(val != NULL)
+                    SgExpression* val = Calculate(&(*UpperBound(resultExprCall[i]->symbol(), j) - *LowerBound(resultExprCall[i]->symbol(), j) + *LowerBound(s->parameter(i), j)));
+                    if (val != NULL)
                         tmp = new SgExprListExp(*val);
                     else
                         tmp = new SgExprListExp(*new SgValueExp(int(0)));
@@ -653,7 +658,7 @@ SgExpression* switchArgumentsByKeyword(SgExpression *funcCall, SgStatement *func
                     tmp->setRhs(argList);
                     argList = tmp;
                     val = LowerBound(s->parameter(i), j);
-                    if(val != NULL)
+                    if (val != NULL)
                         tmp = new SgExprListExp(*val);
                     else
                         tmp = new SgExprListExp(*new SgValueExp(int(0)));
@@ -661,16 +666,16 @@ SgExpression* switchArgumentsByKeyword(SgExpression *funcCall, SgStatement *func
                     argList = tmp;
                 }
 
-                SgArrayRefExp *arrRef = new SgArrayRefExp(*resultExprCall[i]->symbol());
+                SgArrayRefExp* arrRef = new SgArrayRefExp(*resultExprCall[i]->symbol());
                 for (int j = 0; j < dims; ++j)
                     arrRef->addSubscript(*new SgValueExp(0));
 
                 tmp = new SgExprListExp(SgAddrOp(*arrRef));
                 tmp->setRhs(argList);
                 argList = tmp;
-                SgSymbol *aa = s->parameter(i);
+                SgSymbol* aa = s->parameter(i);
 
-                SgTypeRefExp *typeExpr = new SgTypeRefExp(*C_Type(s->parameter(i)->type()));
+                SgTypeRefExp* typeExpr = new SgTypeRefExp(*C_Type(s->parameter(i)->type()));
                 resultExprCall[i] = new SgFunctionCallExp(*((new SgDerivedTemplateType(typeExpr, new SgSymbol(TYPE_NAME, "s_array")))->typeName()), *argList);
                 resultExprCall[i]->setRhs(typeExpr);
             }
@@ -678,18 +683,18 @@ SgExpression* switchArgumentsByKeyword(SgExpression *funcCall, SgStatement *func
     }
 
     //change position in call expression if argument passed by keyword
-    if(useKeywords || useOptional || useArray )
+    if (useKeywords || useOptional || useArray)
     {
         int mask = 0;
         SgExpression* maskExpr = new SgValueExp(int(0));
         int bit = 1;
         //change arg -> point to arg when arg is optional
-        for(int i = 0; i < resultExprCall.size() - 1; ++i)
+        for (int i = 0; i < resultExprCall.size() - 1; ++i)
         {
             SgSymbol* tmps = s->parameter(i);
 
             //TODO: WTF ???!
-            if((s->parameter(i)->attributes() & OPTIONAL_BIT) && resultExprCall[i]!=NULL)
+            if ((s->parameter(i)->attributes() & OPTIONAL_BIT) && resultExprCall[i] != NULL)
             {
                 /*if(resultExprCall[i]->variant() == VAR_REF && resultExprCall[i]->symbol()->attributes()&OPTIONAL_BIT )
                 {
@@ -701,38 +706,38 @@ SgExpression* switchArgumentsByKeyword(SgExpression *funcCall, SgStatement *func
                             pos = j;
                             break;
                         }
-                        maskExpr = &(*maskExpr | (((*new SgVarRefExp(fName->parameter(0)) >> (*new SgValueExp(pos))) & *new SgValueExp(1)) << *new SgValueExp(i)));  
+                        maskExpr = &(*maskExpr | (((*new SgVarRefExp(fName->parameter(0)) >> (*new SgValueExp(pos))) & *new SgValueExp(1)) << *new SgValueExp(i)));
                 }
                 else*/
-                   // maskExpr = Calculate(&(*maskExpr | *new SgValueExp(int(1<<i))));
+                // maskExpr = Calculate(&(*maskExpr | *new SgValueExp(int(1<<i))));
             }
-            else if((s->parameter(i)->attributes() & OPTIONAL_BIT) && resultExprCall[i] == NULL)
+            else if ((s->parameter(i)->attributes() & OPTIONAL_BIT) && resultExprCall[i] == NULL)
             {
                 SgTypeRefExp* typeExpr = new SgTypeRefExp(*C_Type(s->parameter(i)->type()));
-                resultExprCall[i] = new SgFunctionCallExp(*((new SgDerivedTemplateType(typeExpr, new SgSymbol(TYPE_NAME, "optArg")))->typeName()));             
+                resultExprCall[i] = new SgFunctionCallExp(*((new SgDerivedTemplateType(typeExpr, new SgSymbol(TYPE_NAME, "optArg")))->typeName()));
                 resultExprCall[i]->setRhs(new SgExprListExp(*typeExpr));
-            }               
+            }
         }
 
-        SgExprListExp *expr =new SgExprListExp();
-        SgExprListExp *tmp = expr;
-        SgExprListExp *tmp2;
+        SgExprListExp* expr = new SgExprListExp();
+        SgExprListExp* tmp = expr;
+        SgExprListExp* tmp2;
         //insert info-argument at first position
 
         //insert rguments
-        for(int i = 0; i < resultExprCall.size() - 1; ++i)
+        for (int i = 0; i < resultExprCall.size() - 1; ++i)
         {
             tmp->setLhs(resultExprCall[i]);
             tmp->setRhs(new SgExprListExp());
-            tmp=(SgExprListExp*)tmp->rhs();
+            tmp = (SgExprListExp*)tmp->rhs();
         }
 
         tmp->setLhs(resultExprCall[resultExprCall.size() - 1]);
-        if(funcCall->variant() == FUNC_CALL)
+        if (funcCall->variant() == FUNC_CALL)
             funcCall->setLhs(expr);
-        else funcCall = expr;
+        else
+            funcCall = expr;
     }
-
     return funcCall;
 }
 
@@ -858,23 +863,30 @@ static pair<SgSymbol*, pair<vector<SgStatement*>, vector<SgStatement*> > > creat
         dumS *= dimSizes[symbs.size() - z];
     }
     
+    SgExpression* copyDvmArrayElems = convertDvmAssign(&dvmArray->copy(), symbs);
+    const string key(copyDvmArrayElems->unparse());
+
+    if (autoTfmReplacing.find(key) != autoTfmReplacing.end())
+        return make_pair(autoTfmReplacing[key], make_pair(ret, retInv));
+
     arrayRef->addSubscript(*subs);
     ret.push_back(makeSymbolDeclaration(array));
 
     if (in)
     {
-        inner = new SgAssignStmt(*arrayRef, *convertDvmAssign(&dvmArray->copy(), symbs));
+        inner = new SgAssignStmt(*arrayRef, copyDvmArrayElems->copy());
         forSt = createFor(dimSizes, symbs, inner);
         ret.push_back(forSt);
     }
 
     if (out)
     {
-        inner = new SgAssignStmt(*convertDvmAssign(&dvmArray->copy(), symbs), arrayRef->copy());
+        inner = new SgAssignStmt(copyDvmArrayElems->copy(), arrayRef->copy());
         forStInv = createFor(dimSizes, symbs, inner);
         retInv.push_back(forStInv);
     }
-    
+
+    autoTfmReplacing[key] = array;    
     return make_pair(array, make_pair(ret, retInv));
 }
 
@@ -909,7 +921,7 @@ static bool isPrivate(const string& array)
 }
 
 //#define DEB
-static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
+static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs, bool isFunction)
 {
     bool ret = true;
 
@@ -933,6 +945,11 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
     vector<int> argsBits;
     if (canFoundinterface == false)
     {
+#if DEB
+        map<string, vector<graph_node*>> tmp;
+        for (graph_node* ndl = node_list; ndl; ndl = ndl->next)
+            tmp[ndl->name].push_back(ndl);
+#endif 
         for (graph_node *ndl = node_list; ndl; ndl = ndl->next)
         {
             if (ndl->name == name && current_file == ndl->file)
@@ -948,7 +965,7 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                     argsBits = fillBitsOfArgs(isSgProgHedrStmt(ndl->st_header));
                 }
             }
-            else  if(ndl->st_interface)
+            else if(ndl->name == name && ndl->st_interface)
             {
                   CreateIntefacePrototype(ndl->st_interface);
                   argsBits = fillBitsOfArgs(isSgProgHedrStmt(ndl->st_interface));
@@ -1010,7 +1027,7 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                     typeInCall = argInCall->lhs()->symbol()->type();
                     parS = argInCall->lhs()->symbol();
 #ifdef DEB
-                    printf("simple type of typeInCall %d\n", typeInCall->variant());
+                    printf("simple type of typeInCall %d, %s\n", typeInCall->variant(), argInCall->lhs()->symbol()->identifier());
 #endif
                 }
                 else                      // expression
@@ -1216,8 +1233,11 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                     {
                         if (dimSizeInProt == 0)
                         {
-                            SgExpression* arrayRef = argInCall->lhs();
-                            convertExpr(arrayRef, arrayRef);
+                            if (isFunction)
+                            {
+                                SgExpression* arrayRef = argInCall->lhs();
+                                convertExpr(arrayRef, arrayRef);
+                            }
                         }
                         else
                         {
@@ -1362,13 +1382,13 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
                     if(inter)
                     {
                         //switch arguments by keyword
-                        expr = (SgFunctionCallExp *)switchArgumentsByKeyword(tmpF, inter);
+                        expr = switchArgumentsByKeyword(name, tmpF, inter);
                         //check ommited arguments
                         //transform fact to formal
                     }
 
                     SgExpression *tmp = expr->lhs();
-                    matchPrototype(tmpF->funName(), tmp);
+                    matchPrototype(tmpF->funName(), tmp, true);
 
                     retExp->setLhs(expr->lhs());
                     retExp->setRhs(expr->rhs());
@@ -2614,7 +2634,7 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
         printf("convert call node\n");
         lvl_convert_st += 2;
 #endif
-        SgExpression *lhs = st->expr(0);
+        SgExpression *lhs = st->expr(0);                
         convertExpr(lhs, lhs);
 
         if (lhs == NULL)
@@ -2638,12 +2658,12 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
                 if (inter)
                 {
                     //switch arguments by keyword
-                    lhs = (SgFunctionCallExp*)switchArgumentsByKeyword(lhs, inter);
+                    lhs = switchArgumentsByKeyword(st->symbol()->identifier(), lhs, inter);
                     //check ommited arguments
                     //transform fact to formal
                 }
 
-                matchPrototype(st->symbol(), lhs);
+                matchPrototype(st->symbol(), lhs, false);
                 retSt = new SgCExpStmt(*new SgFunctionCallExp(*st->symbol(), *lhs));
             }
         }
@@ -3103,6 +3123,7 @@ void Translate_Fortran_To_C(SgStatement *Stmt)
     SgStatement *copyFSt = Stmt;
     vector<stack<SgStatement*> > copyBlock;
     labelsExitCycle.clear();
+    autoTfmReplacing.clear();
     labels_num.clear();
     cond_generator = 0;
     unSupportedVars.clear();
@@ -3161,6 +3182,7 @@ void Translate_Fortran_To_C(SgStatement *firstStmt, SgStatement *lastStmt, vecto
     SgStatement *copyFSt = firstStmt->lexNext();
     vector<SgStatement*> forRemove;        
     labelsExitCycle.clear();
+    autoTfmReplacing.clear();
     labels_num.clear();
     unSupportedVars.clear();
     insertAfter.clear();
@@ -3241,7 +3263,6 @@ void Translate_Fortran_To_C(SgStatement *firstStmt, SgStatement *lastStmt, vecto
             }
         }
     }
-    
 #if TRACE
     lvl_convert_st -= 2;
     printf("END: CONVERTION OF BODY ON LINE %d\n", number_of_loop_line);

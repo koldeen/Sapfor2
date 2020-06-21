@@ -1145,7 +1145,7 @@ SgExpression *isInUsesListByChar(const char *symb);
 //int IntrinsicInd(SgSymbol *sf);
 
 void Call(SgSymbol *s, SgExpression *e);
-void Argument(SgExpression *e, int i);
+void Argument(SgExpression *e, int i, SgSymbol *s);
 SgSymbol *FunctionResultVar(SgStatement *func);
 int isParDoIndexVar(SgSymbol *s);
 SgSymbol *IntentConst(int intent);
@@ -1397,6 +1397,7 @@ SgStatement *getInterface(SgSymbol *s);
 //void Private_Vars_Analyzer(SgStatement *firstSt, SgStatement *lastSt);
 //void Private_Vars_Function_Analyzer(SgStatement* start);
 void Private_Vars_Project_Analyzer();
+void TieList(SgStatement *par);
 
 /*  hpf.cpp    */ 
 int SearchDistArrayRef(SgExpression *e, SgStatement *stmt);
@@ -2095,6 +2096,9 @@ SgStatement *HeaderStatement(SgSymbol *s);
 void InsertCalledProcedureCopies();
 SgStatement *InsertProcedureCopy(SgStatement *st_header, SgSymbol *sproc, int is_routine, SgStatement *after);
 int FromOtherFile(SgSymbol *s);
+int findParameterNumber(SgSymbol *s, char *name); 
+int isInParameter(SgSymbol *s, int i);
+SgSymbol *ProcedureSymbol(SgSymbol *s);
 int IsPureProcedure(SgSymbol *s);
 int IsElementalProcedure(SgSymbol *s);
 int IsRecursiveProcedure(SgSymbol *s);

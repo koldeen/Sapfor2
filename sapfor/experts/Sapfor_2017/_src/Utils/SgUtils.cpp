@@ -203,7 +203,8 @@ static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *cu
 //TODO: read includes and find last lines, all included files
 string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, 
                                     set<string> &allIncludeFiles, bool outFree, 
-                                    const map<string, set<string>>& moduleUsesByFile, const map<string, string>& moduleDelcs, bool toString)
+                                    const map<string, set<string>>& moduleUsesByFile, const map<string, string>& moduleDelcs, 
+                                    bool toString, bool dontReplaceIncludes)
 { 
     fflush(NULL);
 
@@ -240,6 +241,7 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
 
     // name -> unparse comment
     map<string, pair<string, vector<pair<int, int>> > > includeFiles = findIncludes(currFile);
+
     //add spaces if needed
     if (!outFree)
     {
@@ -355,22 +357,25 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
 
                     if (moduleIncudeUses.find(lowerInclude) == moduleIncudeUses.end())
                     {
-                        if (st->comments())
+                        if (dontReplaceIncludes == false)
                         {
-                            string comments = st->comments();
-                            if (comments.find(it.second.first) == string::npos)
+                            if (st->comments())
                             {
-                                string commLow = comments;
-                                convertToLower(commLow);
-                                const size_t pos = commLow.rfind("include");
-                                if (pos == string::npos)
-                                    st->setComments((it.second.first + comments).c_str());
-                                else
-                                    st->setComments((comments.insert(comments.find('\n', pos) + 1, it.second.first)).c_str());
+                                string comments = st->comments();
+                                if (comments.find(it.second.first) == string::npos)
+                                {
+                                    string commLow = comments;
+                                    convertToLower(commLow);
+                                    const size_t pos = commLow.rfind("include");
+                                    if (pos == string::npos)
+                                        st->setComments((it.second.first + comments).c_str());
+                                    else
+                                        st->setComments((comments.insert(comments.find('\n', pos) + 1, it.second.first)).c_str());
+                                }
                             }
+                            else
+                                st->addComment(it.second.first.c_str());
                         }
-                        else
-                            st->addComment(it.second.first.c_str());
                     }
                 }
             }
@@ -388,11 +393,36 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);*/
     }
 
+    set<string> moduleDeclsInFiles;
+    for (auto& elem : moduleDelcs)
+        moduleDeclsInFiles.insert(elem.second);
+
     //remove
     //XXX: use Sage hack!!
-    for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
-        if (st->fileName() != fileN || st->getUnparseIgnore())
-            st->setVariant(-1 * st->variant());
+    for (SgStatement* st = file->firstStatement(); st; st = st->lexNext())
+    {
+        if (dontReplaceIncludes == false)
+        {
+            if (st->fileName() != fileN || st->getUnparseIgnore())
+                st->setVariant(-1 * st->variant());
+        }
+        else
+        {
+            if (st->getUnparseIgnore())
+                st->setVariant(-1 * st->variant());
+            else if (st->fileName() != fileN)
+            {
+                if (st->variant() == MODULE_STMT && moduleDeclsInFiles.find(st->fileName()) != moduleDeclsInFiles.end())
+                {
+                    for (auto mSt = st; mSt != st->lastNodeOfStmt(); mSt = mSt->lexNext())
+                        mSt->setVariant(-1 * mSt->variant());
+
+                    st = st->lastNodeOfStmt();
+                    st->setVariant(-1 * st->variant());
+                }
+            }
+        }
+    }
 
     string strUnparse = "";
     if (toString)

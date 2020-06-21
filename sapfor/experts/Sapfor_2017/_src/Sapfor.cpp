@@ -286,24 +286,11 @@ static string unparseProjectIfNeed(SgFile* file, const int curr_regime, const bo
             __spf_print(1, "  in set %d, result %d\n", (int)filesToInclude.size(), filesToInclude.find(file_name) != filesToInclude.end());
         }
 
-        if (curr_regime == INSERT_INCLUDES && filesToInclude.find(file_name) != filesToInclude.end())
-        {
-            FILE* fOut = fopen(fout_name.c_str(), "w");
-            if (fOut)
-            {
-                file->unparse(fOut);
-                fclose(fOut);
-            }
-            else
-            {
-                __spf_print(1, "ERROR: can not create file '%s'\n", fout_name.c_str());
-                getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, R103, L"Internal error during unparsing process has occurred", 2007));
-                throw(-1);
-            }
-        }
+        //TODO: add freeForm for each file
+        if (curr_regime == INSERT_INCLUDES && filesToInclude.find(file_name) != filesToInclude.end())            
+            unparseToBuf = removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles, out_free_form == 1, moduleUsesByFile, moduleDecls, toString, true);
         else
         {
-            //TODO: add freeForm for each file
             unparseToBuf = removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles, out_free_form == 1, moduleUsesByFile, moduleDecls, toString);
 
             // copy includes that have not changed
@@ -877,10 +864,19 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (fileIt == includeDependencies.end())
                 fileIt = includeDependencies.insert(fileIt, make_pair(file_name, set<string>()));
 
+            set<string> modFiles;
+            for (auto& elem : moduleDecls)
+                modFiles.insert(elem.second);
+
             for (SgStatement *first = file->firstStatement(); first; first = first->lexNext())
             {
                 if (strcmp(file_name, first->fileName()))
-                    fileIt->second.insert(first->fileName());
+                {
+                    if (first->variant() == MODULE_STMT && modFiles.find(first->fileName()) != modFiles.end())
+                        first = first->lastNodeOfStmt();
+                    else
+                        fileIt->second.insert(first->fileName());
+                }
             }
         }
         else if (curr_regime == REMOVE_AND_CALC_SHADOW)

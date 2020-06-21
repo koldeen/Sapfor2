@@ -27,7 +27,7 @@ static SgExpression *red_var_list, *formal_red_offset_list, *red_offset_list, *c
 static SgConstantSymb *device_const[Ndev], *const_LONG, *intent_const[Nintent], *handler_const[Nhandler];
 static SgSymbol *red_offset_symb, *sync_proc_symb, *mem_use_loc_array[8];
 static SgSymbol *adapter_symb, *hostproc_symb, *s_offset_type, *s_of_cudaindex_type;
-static symb_list *acc_func_list, *acc_registered_list, *non_dvm_list, *parallel_on_list;
+static symb_list *acc_func_list, *acc_registered_list, *non_dvm_list, *parallel_on_list, *tie_list;
 static symb_list *assigned_var_list, *range_index_list, *acc_array_list_whole;
 static SgSymbol *Imem_k, *Rmem_k, *Dmem_k, *Cmem_k, *DCmem_k, *Lmem_k, *Chmem_k;
 static SgSymbol *fdim3;
@@ -1572,7 +1572,7 @@ void RegisterVariablesInRegion(SgExpression *evl, int intent, int irgn)
             else
             {
                 if(INTERFACE_RTS2)
-                   RegionRegisterScalar(irgn, IntentConst(intent), s); 
+                   doCallAfter(RegionRegisterScalar(irgn, IntentConst(intent), s)); 
                 else
                 {
                    doCallAfter(RegisterScalar(irgn, IntentConst(intent), s));
@@ -1586,7 +1586,7 @@ void RegisterVariablesInRegion(SgExpression *evl, int intent, int irgn)
             if (isSgArrayType(s->type())) //is array reference or is not string
 
             {
-                if (!HEADER(s) && !isIn_acc_array_list(s))  //reduction array is not included in acc_array_list and not registered
+                if (!HEADER(s) && !isIn_acc_array_list(s) && !isInSymbList(s, tie_list))  //reduction array is not included in acc_array_list and not registered
                     //!!!  && !HEADER_OF_REPLICATED(s) is wrong: may be used in previous region as not reduction array          
                 {      //doCallAfter(RegisterScalar(irgn,IntentConst(intent),s));  //must be destroyed!!!              
                     //Warning("%s is not DVM-array",s->identifier(),606,cur_region->region_dir);
@@ -1645,17 +1645,16 @@ void RegisterVariablesInRegion(SgExpression *evl, int intent, int irgn)
 void RegisterUses(int irgn)
 {
     SgExpression *el;
-    //SgStatement *call;
 
     for (el = uses_list; el; el = el->rhs())
-    {
+    {    
         if (el->lhs()->variant() == CONST_REF || el->lhs()->symbol()->attributes() & PARAMETER_BIT) // is named constant 
         {
             by_value_list = AddNewToSymbList(by_value_list, el->lhs()->symbol());
             continue;
         }
         if (*VAR_INTENT(el) == EMPTY) continue;  // is registered early by user specification in REGION directive
-
+        
         if (*VAR_INTENT(el) == INTENT_IN)   // this variable doesn't need to be registered
         { // inserting call dvmh_get_actual_variable() before dvm000(i) = region_create()
             where->insertStmtBefore(*GetActualScalar(el->lhs()->symbol()), *cur_region->region_dir->controlParent());
@@ -1697,6 +1696,9 @@ void RegisterDvmArrays(int irgn)
     {
         if (sl->symb)
         {
+            if (!HEADER(sl->symb))
+                HeaderForNonDvmArray(sl->symb, cur_region->region_dir); //creating header (HEADER_OF_REPLICATED) for non-dvm array in TIE-clause
+
             if(INTERFACE_RTS2)
                 doCallAfter(RegionRegisterArray(irgn, IntentConst(EMPTY), sl->symb));
             else
@@ -2041,6 +2043,7 @@ int AnalyzeRegion(SgStatement *reg_dir) //AnalyzeLoopBody()  AnalyzeBlock()
     uses_list = NULL;
     acc_array_list = NULL;
     parallel_on_list = NULL;
+    tie_list = NULL;
     save = cur_st;
     analyzing = 1;
     for (stmt = reg_dir->lexNext(); stmt; stmt = stmt->lexNext())
@@ -2210,7 +2213,7 @@ int AnalyzeRegion(SgStatement *reg_dir) //AnalyzeLoopBody()  AnalyzeBlock()
             dvm_parallel_dir = stmt;
                
             ParallelOnList(stmt);  // add target array reference to list 
-
+            TieList(stmt);
             par_do = stmt->lexNext();
             while (par_do->variant() != FOR_NODE)
                 par_do = par_do->lexNext();
@@ -3718,9 +3721,9 @@ void RefInExpr(SgExpression *e, int mode)
 {
     int i;
     SgExpression *el, *use;
-
     if (!e)
         return;
+
     if (!analyzing && inparloop && mode == _WRITE_ && !isSgArrayRefExp(e) && e->symbol()  && !isPrivate(e->symbol()) && !isReductionVar(e->symbol()) )  //  && !HEADER(e->symbol()) && !IS_CONSISTENT(e->symbol())
         //Error("Assign to %s",e->symbol()->identifier(),586,cur_st);
         assigned_var_list = AddNewToSymbListEnd(assigned_var_list, e->symbol());
@@ -3755,9 +3758,10 @@ void RefInExpr(SgExpression *e, int mode)
             }
         use = new SgExprListExp(*e);
         uses_list = AddListToList(uses_list, use);
-        {int *id = new int;
-        *id = WhatMode(mode,mode);
-        use->addAttribute(INTENT_OF_VAR, (void *)id, sizeof(int));
+        {
+            int *id = new int;
+            *id = WhatMode(mode,mode); 
+            use->addAttribute(INTENT_OF_VAR, (void *)id, sizeof(int));
         }        
         return;
     }
@@ -4125,6 +4129,29 @@ void ParallelOnList(SgStatement *par)
        parallel_on_list = AddNewToSymbList(parallel_on_list, par->expr(0)->symbol());
 }
 
+void TieList(SgStatement *par)
+{
+    SgExpression *el, *es;
+    for(el=par->expr(1); el; el=el->rhs()) 
+       if(el->lhs()->variant() == ACC_TIE_OP)            // TIE specification
+       {
+         for(es=el->lhs()->lhs(); es; es=es->rhs())
+         {
+            SgSymbol *s = es->lhs()->symbol();
+            if (!HEADER(s) && !HEADER_OF_REPLICATED(s))
+            {
+                int *id = new int;
+                *id = 0;
+                s->addAttribute(REPLICATED_ARRAY, (void *)id, sizeof(int));
+            }
+
+            tie_list = AddNewToSymbList(tie_list, s);
+            parallel_on_list = AddNewToSymbList(parallel_on_list, s);
+         }
+         return;
+       }
+}
+
 void DoPrivateList(SgStatement *par)
 {
     SgExpression *el;
@@ -4189,10 +4216,12 @@ SgSymbol *FunctionResultVar(SgStatement *func)
 }
 
 
-void Argument(SgExpression *e, int i)
+void Argument(SgExpression *e, int i, SgSymbol *s)
 {
     int variant;
-
+    if(e->variant() == LABEL_ARG) return; //!!! illegal
+    if(e->variant() == KEYWORD_ARG) 
+        Argument(e->rhs(), findParameterNumber(ProcedureSymbol(s), NODE_STR(e->lhs()->thellnd)), s);
     if (e->variant() == CONST_REF)
     {
         RefInExpr(e, _READ_);
@@ -4200,10 +4229,10 @@ void Argument(SgExpression *e, int i)
     }
     if (isSgVarRefExp(e))
     {
-        variant = e->symbol()->variant(); /* printf("argument %s\n", e->symbol()->identifier());*/
+        variant = e->symbol()->variant();  /*printf("argument %s\n", e->symbol()->identifier());*/
         if ((variant == FUNCTION_NAME && e->symbol() != FunctionResultVar(cur_func)) || variant == PROCEDURE_NAME || variant == ROUTINE_NAME)
             return;
-        RefInExpr(e, _READ_WRITE_);
+        RefInExpr(e, isInParameter(ProcedureSymbol(s),i) ? _READ_ : _READ_WRITE_); 
         return;
     }
     else if (isSgArrayRefExp(e))
@@ -4269,8 +4298,8 @@ void Call(SgSymbol *s, SgExpression *e)
     if (!e)  //argument list is absent
         return;
     in_arg_list++;
-    for (el = e, i = 1; el; el = el->rhs(), i++)
-        Argument(el->lhs(), i);
+    for (el = e, i = 0; el; el = el->rhs(), i++)
+        Argument(el->lhs(), i, s);
     in_arg_list--;
 
     return;

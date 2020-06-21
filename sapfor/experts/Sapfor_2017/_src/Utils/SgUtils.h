@@ -11,7 +11,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, std::vector<SgStatement*> *allDe
 #include "DefUseList.h"
 #include "CommonBlock.h"
 
-std::string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, std::set<std::string> &allIncludeFiles, bool outFree, const std::map<std::string, std::set<std::string>> &moduleUsesByFile, const std::map<std::string, std::string>& moduleDelcs, bool toString);
+std::string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, std::set<std::string> &allIncludeFiles, bool outFree, const std::map<std::string, std::set<std::string>> &moduleUsesByFile, const std::map<std::string, std::string>& moduleDelcs, bool toString, bool dontReplaceIncls = false);
 SgSymbol* findSymbolOrCreate(SgFile *file, const std::string toFind, SgType *type = NULL, SgStatement *scope = NULL);
 void recExpressionPrint(SgExpression *exp);
 void removeSubstrFromStr(std::string &str, const std::string &del);

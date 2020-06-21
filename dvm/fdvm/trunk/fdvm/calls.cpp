@@ -109,22 +109,35 @@ void SaveInterface(SgSymbol *s, SgStatement *interface)
         GRAPHNODE(s)->st_interface = interface; 
 }
 
+int findParameterNumber(SgSymbol *s, char *name) 
+{
+    int i;
+    int n = ((SgFunctionSymb *) s)->numberOfParameters();
+    for(i=0; i<n; i++)
+        if(!strcmp(((SgFunctionSymb *) s)->parameter(i)->identifier(), name))
+            return i;
+    return -1;
+}
+
+int isInParameter(SgSymbol *s, int i)
+{
+    return (s && ((SgFunctionSymb *) s)->parameter(i) && (((SgFunctionSymb *) s)->parameter(i)->attributes() & IN_BIT) ? 1 : 0);
+}
+ 
+SgSymbol *ProcedureSymbol(SgSymbol *s)
+{
+    if (FromOtherFile(s)) 
+    {  
+        SgStatement *header = Interface(s);
+        return( header ? header->symbol() : NULL);
+    }
+    return (GetProcedureHeaderSymbol(s));
+}
+
 int IsPureProcedure(SgSymbol *s)
 {
-    SgSymbol *shedr;
-    SgStatement *header;
-    if (FromOtherFile(s)) 
-    {
-        if (header = Interface(s))
-            return(header->symbol()->attributes() & PURE_BIT);
-        else
-            return 0;
-    }
-    shedr = GetProcedureHeaderSymbol(s);
-    if (shedr)
-        return(shedr->attributes() & PURE_BIT);
-    else
-        return 0;
+    SgSymbol *sproc = ProcedureSymbol(s);
+    return ( sproc ? sproc->attributes() & PURE_BIT : 0 );
 }
 
 int IsElementalProcedure(SgSymbol *s)
@@ -153,7 +166,7 @@ int isUserFunction(SgSymbol *s)
 }
 
 int IsNoBodyProcedure(SgSymbol *s)
-{ //SgSymbol *shedr;
+{ 
     if (!ATTR_NODE(s))
         return 0;
     return(GRAPHNODE(s)->st_header == NULL);
@@ -329,7 +342,7 @@ SgStatement *InsertProcedureCopy(SgStatement *st_header, SgSymbol *sproc, int is
     if (options.isOn(C_CUDA))
     {
         int flagHasDerivedTypeVariables = HasDerivedTypeVariables(new_header); 
-
+       
         end_st = new_header->lastNodeOfStmt();
         ConvertArrayReferences(new_header->lexNext(), end_st);  //!!!! 
 

@@ -152,7 +152,7 @@ static pair<SgStatement*, SgStatement*> convertForall(SgStatement *st)
 }
 
 template<vector<SgStatement*> funcConv(SgStatement*)>
-static void convert(SgStatement *&curr, const wstring &messageR, const wstring &messageE)
+static void convert(SgStatement *&curr, const wstring &messageE, const wstring &messageR)
 {
     const int lineNum = curr->lineNumber();
     vector<SgStatement*> replaceSt = funcConv(curr);
@@ -218,18 +218,12 @@ static void tryToCorrectLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOf
         wstring bufR = L"";
         if (curr->variant() == ARITHIF_NODE)
         {
-#ifdef _WIN32
-            __spf_printToLongBuf(bufR, R96);
-#endif
-            convert<convertArithIf>(curr, L"convert arithmetic IF to simple IF", bufR);
+            convert<convertArithIf>(curr, L"convert arithmetic IF to simple IF", R96);
             continue;
         }
         else if (curr->variant() == COMGOTO_NODE)
         {
-#ifdef _WIN32
-            __spf_printToLongBuf(bufR, R97);
-#endif
-            convert<convertComGoto>(curr, L"convert computed GOTO to simple IF", bufR);
+            convert<convertComGoto>(curr, L"convert computed GOTO to simple IF", R97);
             continue;
         }
         else if (curr->variant() == ASSGOTO_NODE)
