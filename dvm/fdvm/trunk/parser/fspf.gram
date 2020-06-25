@@ -33,16 +33,21 @@ analysis_spec_list:  analysis_spec
              ;
 
 analysis_spec: analysis_reduction_spec
-             | analysis_private_spec     
+             | analysis_private_spec
+             | analysis_parameter_spec     
              ;
 
 analysis_reduction_spec: needkeyword REDUCTION LEFTPAR reduction_list RIGHTPAR
                { $$ = make_llnd(fi,REDUCTION_OP,$4,LLNULL,SMNULL); }    
                        ;
 
-analysis_private_spec: needkeyword PRIVATE LEFTPAR variable_list RIGHTPAR
+analysis_private_spec:   needkeyword PRIVATE LEFTPAR variable_list RIGHTPAR
                { $$ = make_llnd(fi,ACC_PRIVATE_OP,$4,LLNULL,SMNULL);} 
                      ;
+
+analysis_parameter_spec: needkeyword PARAMETER LEFTPAR paramlist RIGHTPAR
+               { $$ = make_llnd(fi,SPF_PARAMETER_OP,$4,LLNULL,SMNULL);}
+                     ;   
 
 parallel_spec_list:  parallel_spec
 	       { $$ = set_ll_list($1,LLNULL,EXPR_LIST); }

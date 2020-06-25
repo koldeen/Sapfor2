@@ -1113,14 +1113,15 @@ static SgStatement* insertDvmhModule(SgStatement *firstSt, const vector<SgStatem
 }
 
 //TODO: if in many file -> create new module file and move template decls
-void correctTemplateModuleDeclaration()
+void correctTemplateModuleDeclaration(const string& folderName)
 {
     int ifInOneFile = 0;
 
     map<SgFile*, vector<SgStatement*>> modsAndFuncs;
+
     for (int z = 0; z < CurrentProject->numberOfFiles(); ++z)
     {
-        SgFile* file = &CurrentProject->file(z);        
+        SgFile* file = &CurrentProject->file(z);
         getModulesAndFunctions(file, modsAndFuncs[file]);
 
         for (auto& elem : modsAndFuncs[file])
@@ -1133,22 +1134,20 @@ void correctTemplateModuleDeclaration()
     //TODO:
     if (ifInOneFile > 1)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    else
+
+    for (int z = 0; z < CurrentProject->numberOfFiles(); ++z)
     {
-        for (int z = 0; z < CurrentProject->numberOfFiles(); ++z)
+        SgFile* file = &CurrentProject->file(z);
+        for (auto& elem : modsAndFuncs[file])
         {
-            SgFile* file = &CurrentProject->file(z);
-            for (auto& elem : modsAndFuncs[file])
+            if (elem->variant() == MODULE_STMT && elem->symbol()->identifier() == dvmhModuleName)
             {
-                if (elem->variant() == MODULE_STMT && elem->symbol()->identifier() == dvmhModuleName)
+                if (elem->lexNext()->variant() != CONTROL_END)
+                    ifInOneFile++;
+                else
                 {
-                    if (elem->lexNext()->variant() != CONTROL_END)
-                        ifInOneFile++;
-                    else
-                    {
-                        elem->deleteStmt();
-                        break;
-                    }
+                    elem->deleteStmt();
+                    break;
                 }
             }
         }
@@ -1157,20 +1156,20 @@ void correctTemplateModuleDeclaration()
 
 static void findAllArrayRefs(SgExpression *ex, set<SgSymbol*> &refs)
 {
-	if (ex)
-	{
-		if (ex->variant() == ARRAY_REF)
-		{
-			SgSymbol* symb = ex->symbol();
-			if (symb->type())
-			{
-				if (symb->type()->variant() == T_ARRAY)
-					refs.insert(ex->symbol());
-			}
-		}
-		findAllArrayRefs(ex->lhs(), refs);
-		findAllArrayRefs(ex->rhs(), refs);
-	}
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF)
+        {
+            SgSymbol* symb = ex->symbol();
+            if (symb->type())
+            {
+                if (symb->type()->variant() == T_ARRAY)
+                    refs.insert(ex->symbol());
+            }
+        }
+        findAllArrayRefs(ex->lhs(), refs);
+        findAllArrayRefs(ex->rhs(), refs);
+    }
 }
 
 static bool hasPrivateAllInModule(SgStatement *mod)
@@ -1198,22 +1197,22 @@ static bool hasPrivateAllInModule(SgStatement *mod)
 }
 
 void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
-{	
-	int funcNum = file->numberOfFunctions();
+{
+    int funcNum = file->numberOfFunctions();
     map<string, set<string>> moduleUseMap = createMapOfModuleUses(file);
 
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
 
-	for (int i = 0; i < funcNum; ++i)
-	{
-		SgStatement *st = file->functions(i);
-		auto cp = st->controlParent();
-		if (cp->variant() != GLOBAL &&
-			cp->variant() != PROG_HEDR &&
-			cp->variant() != PROC_HEDR &&
-			cp->variant() != FUNC_HEDR)
-			continue;
+    for (int i = 0; i < funcNum; ++i)
+    {
+        SgStatement *st = file->functions(i);
+        auto cp = st->controlParent();
+        if (cp->variant() != GLOBAL &&
+            cp->variant() != PROG_HEDR &&
+            cp->variant() != PROC_HEDR &&
+            cp->variant() != FUNC_HEDR)
+            continue;
         else
         {
             //check for module
@@ -1224,34 +1223,34 @@ void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
             }
         }
 
-		set<SgSymbol*> refs;
-		set<string> modUse;
-		for (st = st->lexNext(); st; st = st->lexNext())
-		{
-			if (isSgExecutableStatement(st))
-				break;
-			if (st->variant() == VAR_DECL || st->variant() == VAR_DECL_90)
-			{
-				for (int z = 0; z < 3; ++z)
-					findAllArrayRefs(st->expr(z), refs);
-			}
-			else if (st->variant() == USE_STMT)
-				modUse.insert(st->symbol()->identifier());
-		}
+        set<SgSymbol*> refs;
+        set<string> modUse;
+        for (st = st->lexNext(); st; st = st->lexNext())
+        {
+            if (isSgExecutableStatement(st))
+                break;
+            if (st->variant() == VAR_DECL || st->variant() == VAR_DECL_90)
+            {
+                for (int z = 0; z < 3; ++z)
+                    findAllArrayRefs(st->expr(z), refs);
+            }
+            else if (st->variant() == USE_STMT)
+                modUse.insert(st->symbol()->identifier());
+        }
 
-		set<DIST::Array*> templates;
-		for (auto &arrayR : refs)
-		{
-			SgStatement *decl = declaratedInStmt(arrayR);
-			DIST::Array *currArray = getArrayFromDeclarated(decl, arrayR->identifier());
-			checkNull(currArray, convertFileName(__FILE__).c_str(), __LINE__);
+        set<DIST::Array*> templates;
+        for (auto &arrayR : refs)
+        {
+            SgStatement *decl = declaratedInStmt(arrayR);
+            DIST::Array *currArray = getArrayFromDeclarated(decl, arrayR->identifier());
+            checkNull(currArray, convertFileName(__FILE__).c_str(), __LINE__);
 
-			if (!currArray->GetNonDistributeFlag())
-			{
-				for (auto& num : regNums)
-				{
-					auto templ = currArray->GetTemplateArray(num);
-					if (templ)
+            if (!currArray->GetNonDistributeFlag())
+            {
+                for (auto& num : regNums)
+                {
+                    auto templ = currArray->GetTemplateArray(num);
+                    if (templ)
                         if (templ->GetLocation().first == DIST::l_MODULE)
                         {
                             bool needToAdd = true;
@@ -1278,20 +1277,20 @@ void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
                             if (needToAdd)
                                 templates.insert(templ);
                         }
-				}
-			}
-		}
-		
-		if (templates.size())		
-		{
-			st = file->functions(i);
+                }
+            }
+        }
+        
+        if (templates.size())
+        {
+            st = file->functions(i);
 
-			SgStatement* useSt = new SgStatement(USE_STMT);
-			useSt->setSymbol(*findSymbolOrCreate(file, dvmhModuleName));
-			useSt->setlineNumber(getNextNegativeLineNumber());
-			st->insertStmtAfter(*useSt, *st);
-		}
-	}	
+            SgStatement* useSt = new SgStatement(USE_STMT);
+            useSt->setSymbol(*findSymbolOrCreate(file, dvmhModuleName));
+            useSt->setlineNumber(getNextNegativeLineNumber());
+            st->insertStmtAfter(*useSt, *st);
+        }
+    }	
 }
 
 static set<SgStatement*> filterAllocateStats(const vector<SgStatement*> &current, const string &array)
@@ -1813,18 +1812,28 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                             getRealArrayRefs(array, array, realRefs, arrayLinksByFuncCalls);
 
                                             bool distributed = false;
+                                            int rank = -1;
+                                            bool diffRank = false;
+
                                             for (auto& elem : realRefs)
                                             {
                                                 if (elem->GetNonDistributeFlag() == false)
+                                                {
                                                     distributed = true;
+                                                    int oldRank = rank;
+                                                    rank = elem->GetDimSize();
+
+                                                    if (oldRank != -1 && oldRank != elem->GetDimSize())
+                                                        diffRank = true;
+                                                }
                                             }
 
-                                            if (distributed)
+                                            if (distributed && !diffRank && rank == array->GetDimSize())
                                                 createInherit(inheritDir, st, new SgVarRefExp(currSymb));
                                             break;
                                         }
                                     }
-                                }
+                                } 
                             }
                         }
                     }

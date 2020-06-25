@@ -827,7 +827,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     createNestedLoops(itFound->second[i], depInfoForLoopGraphV, mapFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
         }
         else if (curr_regime == GET_ALL_ARRAY_DECL)
-            getAllDeclaratedArrays(file, declaredArrays, declaratedArraysSt, getObjectForFileFromMap(file_name, SPF_messages), subs_parallelRegions, keyValueFromGUI);
+            getAllDeclaredArrays(file, declaredArrays, declaratedArraysSt, getObjectForFileFromMap(file_name, SPF_messages), subs_parallelRegions, keyValueFromGUI);
         else if (curr_regime == FILE_LINE_INFO)
         {
             SgStatement *st = file->firstStatement();
@@ -1821,7 +1821,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == REMOVE_COPIES)
         removeCopies(allFuncInfo);
     else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
-        correctTemplateModuleDeclaration();
+        correctTemplateModuleDeclaration((folderName == NULL) ? "" : folderName);
 
 #if _WIN32
     const float elapsed = duration_cast<milliseconds>(high_resolution_clock::now() - timeForPass).count() / 1000.;

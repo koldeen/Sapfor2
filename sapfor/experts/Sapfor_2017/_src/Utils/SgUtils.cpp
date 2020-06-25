@@ -884,7 +884,7 @@ bool isSPF_stat(SgStatement *st)
 
     const int var = st->variant();
     //for details see dvm_tag.h
-    if (var >= SPF_ANALYSIS_DIR && var <= SPF_FLEXIBLE_OP)
+    if (var >= SPF_ANALYSIS_DIR && var <= SPF_PARAMETER_OP)
         ret = true;
     return ret;
 }
@@ -2676,8 +2676,13 @@ static set<FileInfo*> applyModuleDeclsForFile(FileInfo *forFile, const map<strin
     }
 
     string include = "";
+    set<string> included;
     for (auto& incl : toIncl)
-        include += "      include '" + incl + "'\n";
+    {
+        if (included.find(incl) == included.end())
+            include += "      include '" + incl + "'\n";
+        included.insert(incl);
+    }
 
     string data = include + mainText;
     writeFileFromStr(forFile->fileName, data);

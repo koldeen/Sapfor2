@@ -149,3 +149,4 @@
 #define SPF_TIME_OP                      966     /* SAPFOR */
 #define SPF_ITER_OP                      967     /* SAPFOR */
 #define SPF_FLEXIBLE_OP                  968     /* SAPFOR */
+#define SPF_PARAMETER_OP                 969     /* SAPFOR */

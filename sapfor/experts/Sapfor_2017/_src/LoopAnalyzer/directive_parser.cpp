@@ -584,7 +584,7 @@ static inline void addToAttribute(SgStatement* st, int var, const vector<SgExpre
         if (var == ACC_PRIVATE_OP)
             __spf_print(1, "-- set private attribute to line %d from OMP dir\n%s", st->lineNumber(), toAdd->unparse());
         else if (var == REDUCTION_OP)
-            __spf_print(1, "-- set ךףגדסורשע attribute to line %d from OMP dir\n%s", st->lineNumber(), toAdd->unparse());
+            __spf_print(1, "-- set reduction attribute to line %d from OMP dir\n%s", st->lineNumber(), toAdd->unparse());
     }
 }
 

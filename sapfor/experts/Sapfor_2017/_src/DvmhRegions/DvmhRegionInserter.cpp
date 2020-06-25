@@ -130,14 +130,15 @@ void DvmhRegionInserter::updateParallelFunctions(const map<string, vector<LoopGr
     {
         changes_done = false;
         set<FuncInfo*> newList;
-        for (auto& func : allFunctions)
+        for (auto& funcPair : allFunctions)
         {
-            for (auto& callsTo : func.second->callsTo)
+            FuncInfo* func = funcPair.second;
+            for (auto& callsTo : func->callsTo)
             {
                 if (parallel_functions.find(callsTo) != parallel_functions.end() && 
-                    parallel_functions.find(func.second) == parallel_functions.end())
+                    parallel_functions.find(func) == parallel_functions.end())
                 {
-                    newList.insert(callsTo);
+                    newList.insert(func);
                     changes_done = true;
                 }
             }
@@ -294,6 +295,15 @@ static void createExceptList(SgExpression *ex, set<string> &symbs)
     }
 }
 
+static void excludePrivates(ArraySet& block)
+{
+    ArraySet tmp;
+    for (auto& elem : block)
+        if (!elem->IsOmpThreadPrivate() && !elem->IsSpfPrivate())
+            tmp.insert(elem);
+    block = tmp;
+}
+
 //TODO:
 SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<ParallelRegion*>* regs)
 {
@@ -313,7 +323,12 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
 
         auto readBlocks = get_used_arrs_for_block(st, DVMH_REG_RD);
         auto writeBlocks = get_used_arrs_for_block(st, DVMH_REG_WT);
-        ArraySet unite;
+
+        //TODO: do it better, exclude only true private arrays
+        excludePrivates(readBlocks);
+        excludePrivates(writeBlocks);
+
+        ArraySet unite;        
         std::merge(readBlocks.begin(), readBlocks.end(), writeBlocks.begin(), writeBlocks.end(), std::inserter(unite, unite.end()));
 
         insertActualDirective(block_dir, unite, ACC_GET_ACTUAL_DIR, true);

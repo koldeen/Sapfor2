@@ -628,7 +628,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 /* SAPFOR */
 %type <bf_node> spf_directive spf_analysis spf_parallel spf_transform spf_parallel_reg spf_end_parallel_reg
 %type <bf_node> spf_checkpoint
-%type <ll_node> analysis_spec_list analysis_spec analysis_reduction_spec analysis_private_spec
+%type <ll_node> analysis_spec_list analysis_spec analysis_reduction_spec analysis_private_spec analysis_parameter_spec
 %type <ll_node> parallel_spec_list parallel_spec parallel_shadow_spec parallel_across_spec parallel_remote_access_spec
 %type <ll_node> transform_spec_list transform_spec array_element_list
 %type <ll_node> checkpoint_spec checkpoint_spec_list spf_type_list spf_type interval_spec
@@ -7979,16 +7979,21 @@ analysis_spec_list:  analysis_spec
              ;
 
 analysis_spec: analysis_reduction_spec
-             | analysis_private_spec     
+             | analysis_private_spec
+             | analysis_parameter_spec     
              ;
 
 analysis_reduction_spec: needkeyword REDUCTION LEFTPAR reduction_list RIGHTPAR
                { $$ = make_llnd(fi,REDUCTION_OP,$4,LLNULL,SMNULL); }    
                        ;
 
-analysis_private_spec: needkeyword PRIVATE LEFTPAR variable_list RIGHTPAR
+analysis_private_spec:   needkeyword PRIVATE LEFTPAR variable_list RIGHTPAR
                { $$ = make_llnd(fi,ACC_PRIVATE_OP,$4,LLNULL,SMNULL);} 
                      ;
+
+analysis_parameter_spec: needkeyword PARAMETER LEFTPAR paramlist RIGHTPAR
+               { $$ = make_llnd(fi,SPF_PARAMETER_OP,$4,LLNULL,SMNULL);}
+                     ;   
 
 parallel_spec_list:  parallel_spec
 	       { $$ = set_ll_list($1,LLNULL,EXPR_LIST); }

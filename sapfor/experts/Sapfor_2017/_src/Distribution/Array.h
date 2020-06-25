@@ -572,6 +572,7 @@ namespace Distribution
         }
 
         bool IsOmpThreadPrivate() const { return ompThreadPrivate; }
+        bool IsSpfPrivate() const { return ((isNonDistribute == SPF_PRIV) || (isNonDistribute == IO_PRIV)); }
 
         ~Array() 
         {

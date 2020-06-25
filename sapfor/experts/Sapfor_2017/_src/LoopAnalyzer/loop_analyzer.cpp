@@ -2990,7 +2990,35 @@ static void findConstructorRef(SgStatement* st, set<string>& privates, vector<Me
     }
 }
 
-void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays,
+static void addPrivates(SgStatement *st, set<string>& privates, map<string, set<Symbol*>>& reductions, 
+                        map<string, set<tuple<Symbol*, Symbol*, int>>>& reductionsLoc)
+{
+    //after SPF preprocessing 
+    for (auto& data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR }))
+    {
+        set<Symbol*> privatesS;
+        fillPrivatesFromComment(new Statement(data), privatesS);
+        fillReductionsFromComment(new Statement(data), reductions);
+        fillReductionsFromComment(new Statement(data), reductionsLoc);
+
+        for (auto& elem : privatesS)
+            privates.insert(elem->GetOriginal()->identifier());
+    }
+
+    //before SPF preprocessing 
+    if (st->variant() == SPF_ANALYSIS_DIR)
+    {
+        set<Symbol*> privatesS;
+        fillPrivatesFromComment(new Statement(st), privatesS);
+        fillReductionsFromComment(new Statement(st), reductions);
+        fillReductionsFromComment(new Statement(st), reductionsLoc);
+
+        for (auto& elem : privatesS)
+            privates.insert(elem->GetOriginal()->identifier());
+    }
+}
+
+void getAllDeclaredArrays(SgFile *file, map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays,
                             map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt, vector<Messages> &currMessages,
                             const vector<ParallelRegion*> &regions, const map<string, int>& keyValueFromGUI)
 {
@@ -3048,29 +3076,7 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             if (iter->variant() == CONTAINS_STMT)
                 break;
 
-            //after SPF preprocessing 
-            for (auto& data : getAttributes<SgStatement*, SgStatement*>(iter, set<int>{ SPF_ANALYSIS_DIR }))
-            {
-                set<Symbol*> privatesS;
-                fillPrivatesFromComment(new Statement(data), privatesS);
-                fillReductionsFromComment(new Statement(data), reductions);
-                fillReductionsFromComment(new Statement(data), reductionsLoc);
-
-                for (auto& elem : privatesS)
-                    privates.insert(elem->GetOriginal()->identifier());
-            }
-
-            //before SPF preprocessing 
-            if (iter->variant() == SPF_ANALYSIS_DIR)
-            {
-                set<Symbol*> privatesS;
-                fillPrivatesFromComment(new Statement(iter), privatesS);
-                fillReductionsFromComment(new Statement(iter), reductions);
-                fillReductionsFromComment(new Statement(iter), reductionsLoc);
-
-                for (auto& elem : privatesS)
-                    privates.insert(elem->GetOriginal()->identifier());
-            }
+            addPrivates(iter, privates, reductions, reductionsLoc);
 
             if (iter->variant() == USE_STMT)
                 fillFromModule(iter->symbol(), privatesByModule, privates);

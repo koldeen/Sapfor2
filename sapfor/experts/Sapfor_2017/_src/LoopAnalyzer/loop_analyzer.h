@@ -55,7 +55,7 @@ bool isIntrinsic(const char *funName);
 std::tuple<int, std::string, std::string> getUniqName(const std::map<std::string, SgStatement*> &commonBlocks, SgStatement *decl, SgSymbol *symb);
 std::string getShortName(const std::tuple<int, std::string, std::string> &uniqKey);
 
-void getAllDeclaratedArrays(SgFile *file, std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays,
+void getAllDeclaredArrays(SgFile *file, std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays,
                             std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt, std::vector<Messages> &currMessages,
                             const std::vector<ParallelRegion*> &regions, const std::map<std::string, int>& keyValueFromGUI);
 void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
@@ -114,7 +114,7 @@ void insertDistributeDirsToParallelRegions(const std::vector<ParallelRegionLines
 
 void insertTemplateModuleUse(SgFile* file, const std::set<int> &regNum);
 void removeStatementsFromAllproject(const std::set<int>& variants);
-void correctTemplateModuleDeclaration();
+void correctTemplateModuleDeclaration(const std::string& folderName);
 
 // spf_directive_preproc.cpp
 bool preprocess_spf_dirs(SgFile *file, const std::map<std::string, CommonBlock> &commonBlocks, std::vector<Messages> &messagesForFile);
