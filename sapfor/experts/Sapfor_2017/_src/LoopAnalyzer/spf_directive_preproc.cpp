@@ -1691,8 +1691,10 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
     {
         SgStatement *modIterator = modules[i];
         SgStatement *modEnd = modules[i]->lastNodeOfStmt();
-        while (modIterator != modEnd)
+        
+        do
         {
+            modIterator = modIterator->lexNext();
             if (modIterator->variant() == CONTAINS_STMT)
                 break;
 
@@ -1704,8 +1706,8 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
                 if (next->variant() == SPF_END_PARALLEL_REG_DIR)
                     addToattribute(next, modIterator, SPF_END_PARALLEL_REG_DIR);
 
-            modIterator = modIterator->lexNext();
-        }
+
+        } while (modIterator != modEnd);
     }
 
     return retVal;
@@ -1756,8 +1758,10 @@ bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlo
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
-        while (st != lastNode)
-        {            
+
+        do
+        {
+            st = st->lexNext();
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -1774,8 +1778,7 @@ bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlo
             if (next)
                 if (next->variant() == SPF_END_PARALLEL_REG_DIR)
                     addToattribute(next, st, SPF_END_PARALLEL_REG_DIR);
-            st = st->lexNext();
-        }
+        } while (st != lastNode);
     }
 
     vector<SgStatement*> modules;
