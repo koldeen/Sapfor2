@@ -239,7 +239,7 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
         throw(-1);
     }
 
-    // name -> unparse comment
+    // name -> unparse comment and position
     map<string, pair<string, vector<pair<int, int>> > > includeFiles = findIncludes(currFile);
 
     //add spaces if needed
@@ -268,10 +268,16 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
     map<string, set<SgStatement*>> insertedIncludeFiles;
     map<int, pair<int, int>> placesForInsert;
 
+    set<string> foundForIncludes;
+    map<int, int> stIdByLine;
+
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
     {
         removeOmpDir(st);
+        if (st->lineNumber() <= 0 || st->variant() < 0)
+            continue;
 
+        stIdByLine[st->lineNumber()] = st->id();
         string currFileName = st->fileName();
         if (currFileName != fileN)
         {
@@ -280,6 +286,7 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
 
             if (it != includeFiles.end())
             {
+                foundForIncludes.insert(currFileName);
                 pair<int, int> lines = make_pair(lineBefore, -1);
 
                 SgStatement *locSt = st->lexNext();
@@ -331,6 +338,32 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
         }
         else
             lineBefore = st->lineNumber();
+    }
+
+    //if not found, it indicates that file contains of other include files
+    for (auto& incl : includeFiles)
+    {
+        if (foundForIncludes.find(incl.first) == foundForIncludes.end())
+        {
+            for (auto& interval : incl.second.second)
+            {
+                bool added = false;
+                for (int z = interval.second; z > interval.first; z--)
+                {
+                    auto it = stIdByLine.find(z);
+                    if (it != stIdByLine.end())
+                    {
+                        placesForInsert.insert(make_pair(it->second, interval));
+                        added = true;
+                        break;
+                    }
+                }
+
+                if (added == false)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+            
+        }
     }
 
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())

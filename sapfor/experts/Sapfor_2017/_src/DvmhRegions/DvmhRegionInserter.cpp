@@ -82,7 +82,7 @@ void DvmhRegionInserter::parFuncsInNode(LoopGraph *loop, bool isParallel)
     // check for parallel
     isParallel |= isLoopParallel(loop);
 
-    // meat: save parallel calls
+    // save parallel calls
     if (isParallel)
     {
         for (auto& call : loop->calls)  // mark call as parallel
@@ -96,7 +96,8 @@ void DvmhRegionInserter::parFuncsInNode(LoopGraph *loop, bool isParallel)
             else
                 parallel_functions.insert(it->second);
         }
-        writesToArraysInParallelLoop.insert(loop->usedArraysWriteAll.begin(), loop->usedArraysWriteAll.end());
+        writesToArraysInParallelLoops.insert(loop->usedArraysWriteAll.begin(), loop->usedArraysWriteAll.end());
+        usedArraysInParallelLoops.insert(loop->usedArraysAll.begin(), loop->usedArraysAll.end());
     }
     else    
         for (auto& nestedLoop : loop->children)
@@ -120,10 +121,15 @@ void DvmhRegionInserter::updateParallelFunctions(const map<string, vector<LoopGr
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
 
-    ArraySet newSet = writesToArraysInParallelLoop;
-    for (auto& elem : writesToArraysInParallelLoop)
+    ArraySet newSet = writesToArraysInParallelLoops;
+    for (auto& elem : writesToArraysInParallelLoops)
         getRealArrayRefs(elem, elem, newSet, arrayLinksByFuncCalls);
-    writesToArraysInParallelLoop = newSet;
+    writesToArraysInParallelLoops = newSet;
+
+    newSet = usedArraysInParallelLoops;
+    for (auto& elem : usedArraysInParallelLoops)
+        getRealArrayRefs(elem, elem, newSet, arrayLinksByFuncCalls);
+    usedArraysInParallelLoops = newSet;
 
     bool changes_done = true;
     while (changes_done)
@@ -295,13 +301,28 @@ static void createExceptList(SgExpression *ex, set<string> &symbs)
     }
 }
 
-static void excludePrivates(ArraySet& block)
+static ArraySet excludePrivates(const ArraySet& block)
 {
     ArraySet tmp;
     for (auto& elem : block)
         if (!elem->IsOmpThreadPrivate() && !elem->IsSpfPrivate())
             tmp.insert(elem);
-    block = tmp;
+    return tmp;
+}
+
+ArraySet DvmhRegionInserter::applyUseFilter(const ArraySet& block, const set<DIST::Array*>& filter) const
+{
+    ArraySet newReadArrays;
+    for (auto& elem : block)
+    {
+        ArraySet newSet;
+        getRealArrayRefs(elem, elem, newSet, arrayLinksByFuncCalls);
+
+        for (auto& orig : newSet)
+            if (filter.find(orig) != filter.end())
+                newReadArrays.insert(elem);
+    }
+    return newReadArrays;
 }
 
 //TODO:
@@ -325,8 +346,8 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
         auto writeBlocks = get_used_arrs_for_block(st, DVMH_REG_WT);
 
         //TODO: do it better, exclude only true private arrays
-        excludePrivates(readBlocks);
-        excludePrivates(writeBlocks);
+        readBlocks = excludePrivates(readBlocks);
+        writeBlocks = excludePrivates(writeBlocks);
 
         ArraySet unite;        
         std::merge(readBlocks.begin(), readBlocks.end(), writeBlocks.begin(), writeBlocks.end(), std::inserter(unite, unite.end()));
@@ -359,21 +380,14 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
         if (var != WRITE_STAT)
             for (int z = 0; z < 3; ++z)
                 createExceptList(st->expr(z), exceptSymbsForActual);
+                
+        auto readArrays = get_used_arrs(st, DVMH_REG_RD);
 
         //filtering by writes in DVMH regions
-        auto readArrays = get_used_arrs(st, DVMH_REG_RD);
-        ArraySet newReadArrays;
-        for (auto& elem : readArrays)
-        {
-            ArraySet newSet;
-            getRealArrayRefs(elem, elem, newSet, arrayLinksByFuncCalls);
+        readArrays = applyUseFilter(readArrays, writesToArraysInParallelLoops);
+        readArrays = excludePrivates(readArrays);
 
-            for (auto& orig : newSet)
-                if (writesToArraysInParallelLoop.find(orig) != writesToArraysInParallelLoop.end())
-                    newReadArrays.insert(elem);
-        }
-
-        insertActualDirective(st, newReadArrays, ACC_GET_ACTUAL_DIR, true, &exceptSymbsForActual);
+        insertActualDirective(st, readArrays, ACC_GET_ACTUAL_DIR, true, &exceptSymbsForActual);
     }
 
     if (var != PROC_STAT && var != WRITE_STAT)
@@ -383,7 +397,11 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
             for (int z = 0; z < 3; ++z)
                 createExceptList(st->expr(z), exceptSymbsForActual);
 
-        insertActualDirective(st->lexNext(), get_used_arrs(st, DVMH_REG_WT), ACC_ACTUAL_DIR, false, &exceptSymbsForActual);
+        auto readArrays = get_used_arrs(st, DVMH_REG_WT);
+        readArrays = excludePrivates(readArrays);
+        //filtering by use in DVMH regions
+        readArrays = applyUseFilter(readArrays, usedArraysInParallelLoops);
+        insertActualDirective(st->lexNext(), readArrays, ACC_ACTUAL_DIR, false, &exceptSymbsForActual);
     }
     return st->lexNext();
 }

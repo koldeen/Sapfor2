@@ -40,7 +40,8 @@ class DvmhRegionInserter
 
     ReadWriteAnalyzer& rw_analyzer;
     std::set<FuncInfo*> parallel_functions;
-    std::set<DIST::Array*> writesToArraysInParallelLoop;
+    std::set<DIST::Array*> writesToArraysInParallelLoops;
+    std::set<DIST::Array*> usedArraysInParallelLoops;
     std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls;
     // operating data
     std::vector<DvmhRegion*> regions;
@@ -61,6 +62,7 @@ class DvmhRegionInserter
     void parFuncsInNode(LoopGraph *loop, bool isParallel);
     bool isLoopParallel(const LoopGraph *loop) const;
     std::vector<SgExpression*> getArrayList(Statement* start, Statement* end, bool left = false) const;
+    ArraySet applyUseFilter(const ArraySet& block, const std::set<DIST::Array*>& filter) const;
 public:
     DvmhRegionInserter(
         SgFile* curFile,
