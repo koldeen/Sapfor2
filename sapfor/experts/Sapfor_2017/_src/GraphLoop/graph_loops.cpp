@@ -31,7 +31,7 @@
 #include "../DynamicAnalysis/gCov_parser_func.h"
 
 #include "../GraphCall/graph_calls_func.h"
-#include "..//LoopConverter/array_assign_to_loop.h"
+#include "../Transformations/array_assign_to_loop.h"
 
 using std::vector;
 using std::map;

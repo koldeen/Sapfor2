@@ -28,6 +28,7 @@ public:
     bool isBlockDataUse() const { return isBlockData; }
     SgFile* getFile() const { return file; }
     SgStatement* getFunction() const { return function; }
+    SgSymbol* getUseS() const { return useS; }
     SgStatement* getDeclaratedPlace() const 
     {
         if (current_file->filename() != fileName)

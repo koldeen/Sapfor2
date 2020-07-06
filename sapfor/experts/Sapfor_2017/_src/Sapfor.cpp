@@ -31,7 +31,6 @@
 
 #include "Utils/errors.h"
 #include "Utils/SgUtils.h"
-#include "LoopConverter/enddo_loop_converter.h"
 #include "LoopAnalyzer/loop_analyzer.h"
 
 #include "GraphCall/graph_calls_func.h"
@@ -44,12 +43,7 @@
 #include "Distribution/CreateDistributionDirs.h"
 #include "PrivateAnalyzer/private_analyzer.h"
 #include "ExpressionTransform/expr_transform.h"
-#include "LoopConverter/loop_transform.h"
-#include "LoopConverter/array_assign_to_loop.h"
-#include "LoopConverter/private_arrays_breeder.h"
-#include "LoopConverter/loops_splitter.h"
-#include "LoopConverter/loops_combiner.h"
-#include "LoopConverter/uniq_call_chain_dup.h"
+
 #include "Predictor/PredictScheme.h"
 #include "Predictor/PredictorModel.h"
 #include "ExpressionTransform/expr_transform.h"
@@ -60,10 +54,19 @@
 #include "Utils/utils.h"
 #include "LoopAnalyzer/directive_creator.h"
 #include "Distribution/Array.h"
-#include "LoopConverter/swap_array_dims.h"
 #include "VisualizerCalls/get_information.h"
 #include "VisualizerCalls/SendMessage.h"
-#include "LoopConverter/checkpoints.h"
+
+#include "Transformations/enddo_loop_converter.h"
+#include "Transformations/loop_transform.h"
+#include "Transformations/array_assign_to_loop.h"
+#include "Transformations/private_arrays_breeder.h"
+#include "Transformations/loops_splitter.h"
+#include "Transformations/loops_combiner.h"
+#include "Transformations/uniq_call_chain_dup.h"
+#include "Transformations/checkpoints.h"
+#include "Transformations/swap_array_dims.h"
+#include "Transformations/function_purifying.h"
 
 #include "dvm.h"
 #include "Sapfor.h"
@@ -516,7 +519,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 functionAnalyzer(file, allFuncInfo, getObjectForFileFromMap(file_name, loopGraph), getObjectForFileFromMap(file_name, SPF_messages));
         }
         else if (curr_regime == CALL_GRAPH2)
+        {
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
+            intentInsert(getObjectForFileFromMap(file_name, allFuncInfo));
+        }
         else if (curr_regime == LOOP_GRAPH)
             loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph), getObjectForFileFromMap(file_name, intervals), getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == VERIFY_ENDDO)
@@ -1051,6 +1057,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             preprocessOpenOperators(file, filesInfo);        
         else if (curr_regime == CONVERT_STRUCTURES_TO_SIMPLE)
             replaceStructuresToSimpleTypes(file);
+        else if (curr_regime == PURE_INTENT_INSERT)
+            intentInsert(getObjectForFileFromMap(file_name, allFuncInfo));
+
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, allIncludeFiles);
     } // end of FOR by files
         
@@ -1822,6 +1831,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         removeCopies(allFuncInfo);
     else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
         correctTemplateModuleDeclaration((folderName == NULL) ? "" : folderName);
+    else if (curr_regime == PURE_COMMON_TO_PARAMS)
+        commonTransfer(allFuncInfo, commonBlocks);
+    else if (curr_regime == PURE_SAVE_TO_PARAMS)
+        saveTransfer(allFuncInfo);
+    else if (curr_regime == PURE_MODULE_TO_PARAMS)
+        moduleTransfer(allFuncInfo);
 
 #if _WIN32
     const float elapsed = duration_cast<milliseconds>(high_resolution_clock::now() - timeForPass).count() / 1000.;
@@ -2203,6 +2218,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case REMOVE_DVM_INTERVALS:
     case SET_TO_ALL_DECL_INIT_ZERO:
     case CREATE_CHECKPOINTS:
+    case PURE_INTENT_INSERT:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
     case INLINE_PROCEDURES:
@@ -2227,6 +2243,9 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case DUPLICATE_FUNCTIONS:
     case LOOPS_COMBINER:
     case CONVERT_STRUCTURES_TO_SIMPLE:
+    case PURE_COMMON_TO_PARAMS:
+    case PURE_SAVE_TO_PARAMS:
+    case PURE_MODULE_TO_PARAMS:
         runAnalysis(*project, curr_regime, false);
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)

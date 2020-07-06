@@ -21,7 +21,7 @@
 #include "../Utils/SgUtils.h"
 #include "../Sapfor.h"
 #include "../GraphLoop/graph_loops_func.h"
-#include "../LoopConverter/loop_transform.h"
+#include "../Transformations/loop_transform.h"
 #include "../ExpressionTransform/expr_transform.h"
 #include "../GraphCall/graph_calls_func.h"
 

@@ -45,7 +45,7 @@ extern int passDone;
 #include "../VisualizerCalls/get_information.h"
 #include "../VisualizerCalls/SendMessage.h"
 
-#include "../LoopConverter/enddo_loop_converter.h"
+#include "../Transformations/enddo_loop_converter.h"
 
 using std::vector;
 using std::pair;

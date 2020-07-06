@@ -153,25 +153,38 @@ set(PARALLEL_REG _src/ParallelizationRegions/ParRegions.cpp
 		_src/ParallelizationRegions/expand_extract_reg.h
 		_src/ParallelizationRegions/resolve_par_reg_conflicts.cpp
 		_src/ParallelizationRegions/resolve_par_reg_conflicts.h)
-		
-set(LOOP_CONV _src/LoopConverter/array_assign_to_loop.cpp
-		_src/LoopConverter/array_assign_to_loop.h
-        _src/LoopConverter/enddo_loop_converter.cpp
-		_src/LoopConverter/enddo_loop_converter.h
-        _src/LoopConverter/loop_transform.cpp
-		_src/LoopConverter/loop_transform.h
-		_src/LoopConverter/loops_combiner.cpp
-		_src/LoopConverter/loops_combiner.h
-		_src/LoopConverter/loops_splitter.cpp
-		_src/LoopConverter/loops_splitter.h
-        _src/LoopConverter/private_arrays_breeder.cpp
-        _src/LoopConverter/private_arrays_breeder.h		
-        _src/LoopConverter/swap_array_dims.cpp
-		_src/LoopConverter/swap_array_dims.h
-		_src/LoopConverter/uniq_call_chain_dup.cpp
-		_src/LoopConverter/uniq_call_chain_dup.h
-		_src/LoopConverter/checkpoints.cpp
-		_src/LoopConverter/checkpoints.h)
+	
+set(TR_CP _src/Transformations/checkpoints.cpp
+		_src/Transformations/checkpoints.h)
+set(TR_VECTOR _src/Transformations/array_assign_to_loop.cpp
+		_src/Transformations/array_assign_to_loop.h)
+set(TR_ENDDO_LOOP _src/Transformations/enddo_loop_converter.cpp
+		_src/Transformations/enddo_loop_converter.h)
+set(TR_LOOP_NEST _src/Transformations/loop_transform.cpp
+		_src/Transformations/loop_transform.h)
+set(TR_LOOP_COMB _src/Transformations/loops_combiner.cpp
+		_src/Transformations/loops_combiner.h)
+set(TR_LOOP_SPLIT _src/Transformations/loops_splitter.cpp
+		_src/Transformations/loops_splitter.h)
+set(TR_PRIV_BR _src/Transformations/private_arrays_breeder.cpp
+        _src/Transformations/private_arrays_breeder.h)
+set(TR_SWAP_ARR_DIMS _src/Transformations/swap_array_dims.cpp
+		_src/Transformations/swap_array_dims.h)
+set(TR_FUNC_DUP _src/Transformations/uniq_call_chain_dup.cpp
+		_src/Transformations/uniq_call_chain_dup.h)
+set(TR_FUNC_PURE _src/Transformations/function_purifying.cpp
+		_src/Transformations/function_purifying.h)		
+set(TRANSFORMS 
+        ${TR_CP} 
+		${TR_VECTOR}
+		${TR_ENDDO_LOOP}
+		${TR_LOOP_NEST}
+		${TR_LOOP_COMB} 
+		${TR_LOOP_SPLIT}
+		${TR_PRIV_BR}
+		${TR_SWAP_ARR_DIMS} 
+		${TR_FUNC_DUP} 
+		${TR_FUNC_PURE})
 		
 set(CFG _src/CFGraph/CFG_BasicBlock.cpp
 		_src/CFGraph/CFG_BasicBlock.h
@@ -325,7 +338,7 @@ set(SOURCE_EXE
 	${GR_LOOP}
 	${INLINER}
 	${LOOP_ANALYZER}
-	${LOOP_CONV}
+	${TRANSFORMS}
 	${PARALLEL_REG}
 	${PRIV}
 	${OMEGA}
@@ -339,18 +352,28 @@ set(SOURCE_EXE
 	${ZLIB})
 
 add_executable(Sapfor_F ${SOURCE_EXE})
-
 source_group (CFGraph FILES ${CFG})
-source_group (CodeConverter FILES ${LOOP_CONV})
+#source_group (Transformations FILES ${TRANSFORMS})
+source_group (Transformations\\ExpressionSubstitution FILES ${EXPR_TRANSFORM})
+source_group (Transformations\\CheckPoints FILES ${TR_CP})
+source_group (Transformations\\LoopEndDoConverter FILES ${TR_ENDDO_LOOP})
+source_group (Transformations\\LoopNesting FILES ${TR_LOOP_NEST})
+source_group (Transformations\\LoopCombining FILES ${TR_LOOP_COMB})
+source_group (Transformations\\LoopSplitting FILES ${TR_LOOP_SPLIT})
+source_group (Transformations\\FunctionDuplication FILES ${TR_FUNC_DUP})
+source_group (Transformations\\FunctionInlining FILES ${INLINER})
+source_group (Transformations\\FunctionPurifying FILES ${TR_FUNC_PURE})
+source_group (Transformations\\ArrayDimsSwapping FILES ${TR_SWAP_ARR_DIMS})
+source_group (Transformations\\PrivateArrayBreeding FILES ${TR_PRIV_BR})
+source_group (Transformations\\VectorAssignedToLoop FILES ${TR_VECTOR})
+
 source_group (CreateIntervals FILES ${CREATE_INTER_T})
 source_group (DirectiveAnalyzer FILES ${DIRA})
 source_group (Distribution FILES ${DISTR})
 source_group (DvmhRegions FILES ${DVMH_REG})
 source_group (DynamicAnalysis FILES ${DYNA})
-source_group (ExpressionTransform FILES ${EXPR_TRANSFORM})
 source_group (CallGraph FILES ${GR_CALL})
 source_group (LoopGraph FILES ${GR_LOOP})
-source_group (Inliner FILES ${INLINER})
 source_group (LoopAnalyzer FILES ${LOOP_ANALYZER})
 source_group (ParallelizationRegions FILES ${PARALLEL_REG})
 source_group (PrivateAnalyzer FILES ${PRIV})	  

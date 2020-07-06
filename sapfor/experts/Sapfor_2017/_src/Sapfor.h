@@ -132,6 +132,11 @@ enum passes {
     PROCESS_IO,
     CONVERT_STRUCTURES_TO_SIMPLE,
 
+    PURE_INTENT_INSERT,
+    PURE_COMMON_TO_PARAMS,
+    PURE_SAVE_TO_PARAMS,
+    PURE_MODULE_TO_PARAMS,
+
     EMPTY_PASS
 };
 
@@ -267,6 +272,11 @@ static void setPassValues()
     passNames[CONVERT_SAVE_TO_MODULE] = "CONVERT_SAVE_TO_MODULE";
     passNames[PROCESS_IO] = "PROCESS_IO";
     passNames[CONVERT_STRUCTURES_TO_SIMPLE] = "CONVERT_STRUCTURES_TO_SIMPLE";
+
+    passNames[PURE_INTENT_INSERT] = "PURE_INTENT_INSERT";
+    passNames[PURE_COMMON_TO_PARAMS] = "PURE_COMMON_TO_PARAMS";
+    passNames[PURE_SAVE_TO_PARAMS] = "PURE_SAVE_TO_PARAMS";
+    passNames[PURE_MODULE_TO_PARAMS] = "PURE_MODULE_TO_PARAMS";
 }
 
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

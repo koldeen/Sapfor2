@@ -10,7 +10,7 @@
 
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../Distribution/Arrays.h"
-#include "../LoopConverter/loop_transform.h"
+#include "../Transformations/loop_transform.h"
 //#include "../Distribution/DvmhDirective_func.h"
 
 #include "../Utils/errors.h"
