@@ -617,3 +617,4 @@
 #define SPF_ITER_OP                      967     /* SAPFOR */
 #define SPF_FLEXIBLE_OP                  968     /* SAPFOR */
 #define SPF_PARAMETER_OP                 969     /* SAPFOR */
+#define SPF_CODE_COVERAGE_OP             970     /* SAPFOR */

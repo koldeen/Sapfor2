@@ -764,6 +764,14 @@ void LoopGraph::clearUserDirectives()
         ch->clearUserDirectives();
 }
 
+bool LoopGraph::hasParallelLoopsInChList()
+{
+    bool result = (directive != NULL);
+    for (auto& ch : children)
+        result |= ch->hasParallelLoopsInChList();
+    return result;
+}
+
 extern int PASSES_DONE[EMPTY_PASS];
 static void printToBuffer(const LoopGraph *currLoop, const int childSize, char buf[512])
 {

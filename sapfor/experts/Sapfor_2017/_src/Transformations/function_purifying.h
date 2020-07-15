@@ -1,5 +1,6 @@
 #pragma once
 
+bool checkOutCalls(const std::set<std::string>& outCalls);
 void intentInsert(const std::vector<FuncInfo*>& allFuncInfo);
 void intentInsert(FuncInfo* func);
 void setPureStatus(const std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo);

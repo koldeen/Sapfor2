@@ -96,11 +96,10 @@ VarUsages ReadWriteAnalyzer::findUsagesInExpr(SgExpression* exp) const
         buf.push(cur->lhs());
         buf.push(cur->rhs());
     }
-
     return usages;
 }
 
-VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* params_tree, const string func_key) const
+VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* params_tree, const string& func_key) const
 {
     VarUsages usages;
 

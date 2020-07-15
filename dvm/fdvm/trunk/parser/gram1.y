@@ -346,6 +346,9 @@
 %token SPF_TIME 346
 %token SPF_ITER 347
 %token SPF_FLEXIBLE 348
+%token SPF_APPLY_REGION 349
+%token SPF_APPLY_FRAGMENT 350
+%token SPF_CODE_COVERAGE 351
 
 %{
 #include <string.h>
@@ -631,6 +634,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <ll_node> analysis_spec_list analysis_spec analysis_reduction_spec analysis_private_spec analysis_parameter_spec
 %type <ll_node> parallel_spec_list parallel_spec parallel_shadow_spec parallel_across_spec parallel_remote_access_spec
 %type <ll_node> transform_spec_list transform_spec array_element_list
+%type <ll_node> characteristic characteristic_list opt_clause_apply_region opt_clause_apply_fragment 
 %type <ll_node> checkpoint_spec checkpoint_spec_list spf_type_list spf_type interval_spec
 %type <symbol>  region_name 
 
@@ -7964,9 +7968,35 @@ spf_transform: SPF_TRANSFORM  LEFTPAR transform_spec_list RIGHTPAR
              {  $$ = get_bfnd(fi,SPF_TRANSFORM_DIR,SMNULL,$3,LLNULL,LLNULL);}
              ;
 
-spf_parallel_reg: SPF_PARALLEL_REG region_name
-                { $$ = get_bfnd(fi,SPF_PARALLEL_REG_DIR,$2,LLNULL,LLNULL,LLNULL);}
+spf_parallel_reg: SPF_PARALLEL_REG region_name 
+                  { $$ = get_bfnd(fi,SPF_PARALLEL_REG_DIR,$2,LLNULL,LLNULL,LLNULL);}
+                | SPF_PARALLEL_REG region_name COMMA needkeyword  SPF_APPLY_REGION  LEFTPAR characteristic_list RIGHTPAR opt_clause_apply_fragment
+                  { $$ = get_bfnd(fi,SPF_PARALLEL_REG_DIR,$2,$7,$9,LLNULL);}
+                | SPF_PARALLEL_REG region_name COMMA needkeyword SPF_APPLY_FRAGMENT LEFTPAR characteristic_list RIGHTPAR opt_clause_apply_region
+                  { $$ = get_bfnd(fi,SPF_PARALLEL_REG_DIR,$2,$9,$7,LLNULL);}
                 ;
+
+characteristic_list:  characteristic
+	       { $$ = set_ll_list($1,LLNULL,EXPR_LIST); }
+             |  characteristic_list COMMA characteristic
+	       { $$ = set_ll_list($1,$3,EXPR_LIST); }	
+             ;
+
+characteristic: needkeyword SPF_CODE_COVERAGE
+               { $$ = make_llnd(fi,SPF_CODE_COVERAGE_OP,LLNULL,LLNULL,SMNULL);}
+              ;
+
+opt_clause_apply_fragment: 
+                           { $$ = LLNULL;}
+                         | COMMA needkeyword SPF_APPLY_FRAGMENT LEFTPAR characteristic_list RIGHTPAR
+                           { $$ = $5;}
+                         ;
+
+opt_clause_apply_region: 
+                           { $$ = LLNULL;}
+                         | COMMA needkeyword SPF_APPLY_REGION LEFTPAR characteristic_list RIGHTPAR
+                           { $$ = $5;}
+                         ;
 
 spf_end_parallel_reg: SPF_END_PARALLEL_REG
                 { $$ = get_bfnd(fi,SPF_END_PARALLEL_REG_DIR,SMNULL,LLNULL,LLNULL,LLNULL);}

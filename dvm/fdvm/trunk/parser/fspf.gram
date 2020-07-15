@@ -18,9 +18,35 @@ spf_transform: SPF_TRANSFORM  LEFTPAR transform_spec_list RIGHTPAR
              {  $$ = get_bfnd(fi,SPF_TRANSFORM_DIR,SMNULL,$3,LLNULL,LLNULL);}
              ;
 
-spf_parallel_reg: SPF_PARALLEL_REG region_name
-                { $$ = get_bfnd(fi,SPF_PARALLEL_REG_DIR,$2,LLNULL,LLNULL,LLNULL);}
+spf_parallel_reg: SPF_PARALLEL_REG region_name 
+                  { $$ = get_bfnd(fi,SPF_PARALLEL_REG_DIR,$2,LLNULL,LLNULL,LLNULL);}
+                | SPF_PARALLEL_REG region_name COMMA needkeyword  SPF_APPLY_REGION  LEFTPAR characteristic_list RIGHTPAR opt_clause_apply_fragment
+                  { $$ = get_bfnd(fi,SPF_PARALLEL_REG_DIR,$2,$7,$9,LLNULL);}
+                | SPF_PARALLEL_REG region_name COMMA needkeyword SPF_APPLY_FRAGMENT LEFTPAR characteristic_list RIGHTPAR opt_clause_apply_region
+                  { $$ = get_bfnd(fi,SPF_PARALLEL_REG_DIR,$2,$9,$7,LLNULL);}
                 ;
+
+characteristic_list:  characteristic
+	       { $$ = set_ll_list($1,LLNULL,EXPR_LIST); }
+             |  characteristic_list COMMA characteristic
+	       { $$ = set_ll_list($1,$3,EXPR_LIST); }	
+             ;
+
+characteristic: needkeyword SPF_CODE_COVERAGE
+               { $$ = make_llnd(fi,SPF_CODE_COVERAGE_OP,LLNULL,LLNULL,SMNULL);}
+              ;
+
+opt_clause_apply_fragment: 
+                           { $$ = LLNULL;}
+                         | COMMA needkeyword SPF_APPLY_FRAGMENT LEFTPAR characteristic_list RIGHTPAR
+                           { $$ = $5;}
+                         ;
+
+opt_clause_apply_region: 
+                           { $$ = LLNULL;}
+                         | COMMA needkeyword SPF_APPLY_REGION LEFTPAR characteristic_list RIGHTPAR
+                           { $$ = $5;}
+                         ;
 
 spf_end_parallel_reg: SPF_END_PARALLEL_REG
                 { $$ = get_bfnd(fi,SPF_END_PARALLEL_REG_DIR,SMNULL,LLNULL,LLNULL,LLNULL);}

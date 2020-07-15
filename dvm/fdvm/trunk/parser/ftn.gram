@@ -283,6 +283,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <ll_node> analysis_spec_list analysis_spec analysis_reduction_spec analysis_private_spec analysis_parameter_spec
 %type <ll_node> parallel_spec_list parallel_spec parallel_shadow_spec parallel_across_spec parallel_remote_access_spec
 %type <ll_node> transform_spec_list transform_spec array_element_list
+%type <ll_node> characteristic characteristic_list opt_clause_apply_region opt_clause_apply_fragment 
 %type <ll_node> checkpoint_spec checkpoint_spec_list spf_type_list spf_type interval_spec
 %type <symbol>  region_name 
 

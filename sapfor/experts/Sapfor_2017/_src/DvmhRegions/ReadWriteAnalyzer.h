@@ -35,7 +35,7 @@ public:
     VarUsages get_usages(std::vector<SgStatement*>&);
 
     VarUsages findUsagesInExpr(SgExpression* exp) const;
-    VarUsages findUsagesInFuncCall(SgExpression*, const std::string) const;
+    VarUsages findUsagesInFuncCall(SgExpression*, const std::string&) const;
 
     void print() const;
 

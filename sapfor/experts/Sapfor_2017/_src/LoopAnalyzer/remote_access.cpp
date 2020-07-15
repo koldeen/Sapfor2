@@ -336,6 +336,11 @@ static bool ifRange(SgExpression* spec)
     return false;
 }
 
+static bool isAlloc(SgStatement* st)
+{
+    return st->variant() == ALLOCATE_STMT || st->variant() == DEALLOCATE_STMT;
+}
+
 template<int NUM>
 bool createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
                      const DataDirective &data, const vector<int> &currVar, const int regionID, vector<Messages> &currMessages,
@@ -344,9 +349,13 @@ bool createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
     //for parallel loops after vector assign convertion
     if (st->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
         return false;
-    if (st->variant() == PROC_STAT)
-        if (st->symbol()->identifier() == "allocate" || st->symbol()->identifier() == "deallocate")
-            return false;
+
+    if (isAlloc(st))
+        return false;
+    if (st->variant() == LOGIF_NODE)
+        if (((SgLogIfStmt*)st)->body())
+            if (isAlloc(((SgLogIfStmt*)st)->body()))
+                return false;
 
     vector<SgExpression*> remotes;
     string leftPartOfAssign = "";

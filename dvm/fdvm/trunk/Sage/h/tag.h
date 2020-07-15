@@ -619,3 +619,4 @@ script using "tag".  Run make tag.h to regenerate this file */
   tag [ SPF_ITER_OP ] = "SPF_ITER_OP";
   tag [ SPF_FLEXIBLE_OP ] = "SPF_FLEXIBLE_OP";
   tag [ SPF_PARAMETER_OP ] = "SPF_PARAMETER_OP";
+  tag [ SPF_CODE_COVERAGE_OP ] = "SPF_CODE_COVERAGE_OP";

@@ -30,7 +30,7 @@ using std::wstring;
 using std::make_pair;
 using std::to_string;
 
-static bool checkOutCalls(const set<string>& outCalls)
+bool checkOutCalls(const set<string>& outCalls)
 {
     for (auto& elem : outCalls)
         if (isIntrinsicFunctionName(elem.c_str()) == 0)

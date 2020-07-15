@@ -3,7 +3,7 @@
 #include "DvmhRegionInserter.h"
 #include "../VerificationCode/verifications.h"
 #include "DvmhRegions/RegionsMerger.h"
-
+#include "../Transformations/function_purifying.h"
 
 using namespace std;
 
@@ -335,9 +335,44 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
     if (st->variant() == ACC_REGION_DIR)
         return skipDvmhRegionInterval(st);
 
-    // Actualization before remote dir and parallel loops blocks
-    if (st->variant() == DVM_REMOTE_ACCESS_DIR || st->variant() == DVM_PARALLEL_ON_DIR || st->variant() == LOGIF_NODE)
+    bool forBlock = false;
+    if (st->variant() == FOR_NODE && st->lineNumber() > 0)
     {
+        auto it = loopGraphMap.find(st->lineNumber());
+        if (it != loopGraphMap.end())
+        {
+            LoopGraph* loop = it->second;
+            if (loop->hasLimitsToParallel())
+            {
+                set<string> outCalls;
+                for (auto& elem : loop->calls)
+                    outCalls.insert(elem.first);
+
+                if (loop->hasParallelLoopsInChList() == false)
+                {
+                    if (checkOutCalls(outCalls) == false)
+                        forBlock = true;
+
+                    else //TODO
+                        ;
+                }
+            }
+        }
+    }
+
+    // Actualization before remote dir, parallel loops blocks, loops blocks
+    if (st->variant() == DVM_REMOTE_ACCESS_DIR || 
+        st->variant() == DVM_PARALLEL_ON_DIR || 
+        st->variant() == LOGIF_NODE ||
+        forBlock)
+    {
+        if (st->variant() == LOGIF_NODE && ((SgLogIfStmt*)st)->body() &&
+            (((SgLogIfStmt*)st)->body()->variant() == DEALLOCATE_STMT ||
+             ((SgLogIfStmt*)st)->body()->variant() == ALLOCATABLE_STMT))
+        {
+            return st->lexNext();
+        }
+
         SgStatement* block_dir = st;
         while (isDVM_stat(st))
             st = st->lexNext();
@@ -360,7 +395,6 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
 
     // Skip useless
     const int var = st->variant();
-
 
     if (!isSgExecutableStatement(st) || isDVM_stat(st) ||
         var == ALLOCATE_STMT || var == DEALLOCATE_STMT || 

@@ -298,6 +298,8 @@ public:
         }
         return true;
     }
+
+    bool hasParallelLoopsInChList();
 public:
     int lineNum;
     int altLineNum;

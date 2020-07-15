@@ -387,8 +387,11 @@
      SPF_TIME = 346,
      SPF_ITER = 347,
      SPF_FLEXIBLE = 348,
-     BINARY_OP = 351,
-     UNARY_OP = 352
+     SPF_APPLY_REGION = 349,
+     SPF_APPLY_FRAGMENT = 350,
+     SPF_CODE_COVERAGE = 351,
+     BINARY_OP = 354,
+     UNARY_OP = 355
    };
 #endif
 /* Tokens.  */
@@ -740,15 +743,18 @@
 #define SPF_TIME 346
 #define SPF_ITER 347
 #define SPF_FLEXIBLE 348
-#define BINARY_OP 351
-#define UNARY_OP 352
+#define SPF_APPLY_REGION 349
+#define SPF_APPLY_FRAGMENT 350
+#define SPF_CODE_COVERAGE 351
+#define BINARY_OP 354
+#define UNARY_OP 355
 
 
 
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 431 "gram1.y"
+#line 434 "gram1.y"
 {
     int token;
     char charv;
@@ -761,7 +767,7 @@ typedef union YYSTYPE
     PTR_LABEL label;
 }
 /* Line 1489 of yacc.c.  */
-#line 765 "gram1.tab.h"
+#line 771 "gram1.tab.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1

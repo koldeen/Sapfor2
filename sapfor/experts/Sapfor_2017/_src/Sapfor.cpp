@@ -1336,18 +1336,23 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         detectCopies(allFuncInfo);
         fillInterfaceBlock(allFuncInfo);
+
+        //this call is only for testing
         //setPureStatus(allFuncInfo);
 
+        //add conflict messages for all loops
         for (auto byFile : loopGraph)
         {
             map<int, LoopGraph*> allLoops;
             createMapLoopGraph(byFile.second, allLoops);
             for (auto& loop : allLoops)
+            {
                 if (loop.second->hasLimitsToParallel())
                 {
                     loop.second->addConflictMessages(&SPF_messages[loop.second->fileName]);
                     __spf_print(1, "added conflict messages to loop on line %d\n", loop.second->lineNum);
                 }
+            }
         }
 
         if (keepFiles)

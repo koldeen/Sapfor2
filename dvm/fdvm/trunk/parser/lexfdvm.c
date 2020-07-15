@@ -329,6 +329,8 @@ struct Keylist keys[] = {
         {"allocatable", ALLOCATABLE},
         {"allocate", ALLOCATE},
         {"and", AND},
+        {"apply_fragment", SPF_APPLY_FRAGMENT},
+        {"apply_region", SPF_APPLY_REGION},
 	{"assignment", ASSIGNMENT},
 	{"assign", ASSIGN},
 	{"async", ACC_ASYNC},   /*ACC*/
@@ -348,6 +350,7 @@ struct Keylist keys[] = {
 /*        {"clear", CLEAR},*/
         {"close", CLOSE},
 	{"cluster", CLUSTER},
+        {"code_coverage", SPF_CODE_COVERAGE},
 	{"common", COMMON},
 	{"complex", COMPLEX},
 /*	{"concurrent", CONCURRENT},*/

@@ -35,6 +35,7 @@ class DvmhRegionInserter
 {
     // input data
     SgFile *file;
+    std::map<int, LoopGraph*> loopGraphMap;
     const std::vector<LoopGraph*> &loopGraph;
     const std::map<std::string, FuncInfo*>& allFunctions;
 
@@ -70,7 +71,11 @@ public:
         ReadWriteAnalyzer& rws,
         std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls,
         const std::map<std::string, FuncInfo*>& allFunctions
-    ) : file(curFile), loopGraph(curLoopGraph), rw_analyzer(rws), arrayLinksByFuncCalls(arrayLinksByFuncCalls), allFunctions(allFunctions) { }
+    ) : file(curFile), loopGraph(curLoopGraph), rw_analyzer(rws), arrayLinksByFuncCalls(arrayLinksByFuncCalls), allFunctions(allFunctions) 
+    {
+        if (loopGraph.size())
+            createMapLoopGraph(loopGraph, loopGraphMap);
+    }
 
     void insertDirectives(const std::vector<ParallelRegion*>* regs = NULL);
     void updateParallelFunctions(const std::map<std::string, std::vector<LoopGraph*>>& loopGraphs);
