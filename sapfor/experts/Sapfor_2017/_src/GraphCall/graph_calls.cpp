@@ -713,10 +713,17 @@ static void fillInOut(FuncInfo *currF, SgStatement *start, SgStatement *last)
             fillIn(currF, left->lhs(), parNames);
             fillIn(currF, left->rhs(), parNames);
             fillIn(currF, st->expr(1), parNames);
-            
+
+            string symb = "";
             if (left->symbol())
+                symb = left->symbol()->identifier();
+            else if (left->variant() == ARRAY_OP)
+                if (left->lhs()->symbol())
+                    symb = left->lhs()->symbol()->identifier();
+
+            if (symb != "")
             {
-                auto it = parNames.find(left->symbol()->identifier());
+                auto it = parNames.find(symb);
                 if (it != parNames.end())
                     currF->funcParams.inout_types[it->second] |= OUT_BIT;
             }
@@ -2166,4 +2173,5 @@ void removeDistrStateFromDeadFunctions(const map<string, vector<FuncInfo*>>& all
         }
     }
 }
+
 #undef DEBUG

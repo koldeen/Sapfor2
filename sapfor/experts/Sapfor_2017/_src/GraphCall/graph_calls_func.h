@@ -19,7 +19,7 @@ int CreateFuncInfo(const char *fileName, const std::map<std::string, std::vector
 std::string removeString(const std::string &toRemove, const std::string &inStr);
 FuncInfo* isUserFunctionInProject(const std::string &func);
 std::string convertToString(const FuncInfo *currFunc);
-void findDeadFunctionsAndFillCallTo(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &allMessages, bool noPrint = false);
+void findDeadFunctionsAndFillCalls(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &allMessages, bool noPrint = false);
 void createLinksBetweenFormalAndActualParams(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
                                              const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaredArrays, 
                                              std::map<std::string, std::vector<Messages>> &SPF_messages, bool keepFiles = false);

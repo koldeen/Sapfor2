@@ -1862,7 +1862,10 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                     {
                         bool cond = true;
                         if (st->expr(1)->variant() == FUNC_CALL)
-                            cond = isIntrinsic(((SgFunctionCallExp*)st->expr(1))->funName()->identifier());
+                        {
+                            string fName = ((SgFunctionCallExp*)st->expr(1))->funName()->identifier();
+                            cond = isIntrinsic(fName.c_str()) && (fName != "allocated");
+                        }
 
                         // detect copy operator: A(:, :, :) = B(:, :, :)
                         if (st->expr(1)->variant() == ARRAY_REF && st->expr(0)->variant() == ARRAY_REF)

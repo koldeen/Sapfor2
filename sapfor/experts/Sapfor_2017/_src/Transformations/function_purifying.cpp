@@ -17,6 +17,7 @@
 #include "../Utils/DefUseList.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "../VerificationCode/verifications.h"
+#include "../DvmhRegions/DvmhRegionInserter.h"
 #include "function_purifying.h"
 
 using std::vector;
@@ -29,15 +30,46 @@ using std::wstring;
 using std::make_pair;
 using std::to_string;
 
-//TODO: need to add interface blocks for all calls from this
+static bool checkOutCalls(const set<string>& outCalls)
+{
+    for (auto& elem : outCalls)
+        if (isIntrinsicFunctionName(elem.c_str()) == 0)
+            return true;
+
+    return false;
+}
+
 static void setPureStatus(FuncInfo* func)
 {
-    if (func->isPure)
+    if (func->isPure && !func->isMain)
     {
         SgStatement* header = func->funcPointer->GetOriginal();
-        if (header->expr(2) == NULL)
+        if (header->switchToFile() == false)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        bool isFunc = (header->variant() == FUNC_HEDR);
+        bool hasOut = false;
+        for (int z = 0; z < func->funcParams.countOfPars; ++z)
+            hasOut |= func->funcParams.isArgOut(z);
+        bool hasPure = (header->expr(2) != NULL) || ((header->symbol()->attributes() & PURE_BIT) != 0);
+        bool hasOutCalls = checkOutCalls(func->callsFrom);
+        bool hasIO = func->linesOfIO.size() || func->linesOfStop.size();
+
+        //TODO: with hasOutCalls 
+        if (!hasPure && !hasIO && !hasOutCalls && ((isFunc == false) || (isFunc && hasOut == false)))
+        {
+            DvmhRegionInserter::createInterfaceBlockForOutCalls(func);
             header->setExpression(2, new SgExpression(PURE_OP));
+            header->symbol()->setAttribute(header->symbol()->attributes() | PURE_BIT);
+        }
     }
+}
+
+void setPureStatus(const map<string, vector<FuncInfo*>>& allFuncInfo)
+{
+    for (auto& funcByFile : allFuncInfo)
+        for (auto& func : funcByFile.second)
+            setPureStatus(func);
 }
 
 static void insertIntents(vector<string> identificators, SgStatement* header, map <string, SgSymbol*> parSym, int intentVariant, int intentBit)
@@ -108,8 +140,12 @@ static void insertIntents(vector<string> identificators, SgStatement* header, ma
             args = tempArgs;
             parSym[par]->setAttribute(parSym[par]->attributes() | intentBit);
         }
-        SgIntentStmt* intent = new SgIntentStmt(args ? *args : NULL, *attr);
-        lastDecl->insertStmtAfter(*intent, (header == lastDecl) ? *header : *lastDecl->controlParent());
+
+        if (args)
+        {
+            SgIntentStmt* intent = new SgIntentStmt(*args, *attr);
+            lastDecl->insertStmtAfter(*intent, (header == lastDecl) ? *header : *lastDecl->controlParent());
+        }
     }
 }
 
@@ -140,9 +176,7 @@ void intentInsert(FuncInfo* func)
 
     insertIntents(InOutIdentificators, headerSt, parSym, INOUT_OP, INOUT_BIT);
     insertIntents(InIdentificators, headerSt, parSym, IN_OP, IN_BIT);
-    insertIntents(OutIdentificators, headerSt, parSym, OUT_OP, OUT_BIT);
-
-    setPureStatus(func);
+    insertIntents(OutIdentificators, headerSt, parSym, OUT_OP, OUT_BIT);        
 }
 
 void intentInsert(const vector<FuncInfo*>& allFuncInfo) 
@@ -236,7 +270,7 @@ static void transferVarToArg(const map<string, vector<int>>& commonVarsUsed, con
             else
                 name = var.getName();
             SgSymbol* s = new SgSymbol(var.getSymbol()->variant(), name.c_str());
-            callExp->addArg(SgVarRefExp(*s));
+            callExp->addArg(*new SgVarRefExp(*s));
         }
     }
 }
@@ -338,7 +372,7 @@ void transferCommons(set<FuncInfo*>& allForChange, map <FuncInfo*, map<string, v
         {
             SgExprListExp* res = NULL;
             vector <SgSymbol*> varsToDeclare = vector <SgSymbol*>();
-            for (auto& it = groupedVars.rbegin(); it != groupedVars.rend(); it++)
+            for (auto it = groupedVars.rbegin(); it != groupedVars.rend(); it++)
             {
                 string name;
                 if ((int)(string(it->second[0].getName()).find("c_" + common.first + "_")) < 0)
@@ -610,14 +644,14 @@ static void transferSave(map<FuncInfo*, set<FuncInfo*>>& funcAddedVarsFuncs, vec
                 SgFunctionCallExp* callExp = (SgFunctionCallExp*)call.first;
                 if (callExp->funName()->identifier() == precFunc->funcName)
                     for (auto& var : varsToTransfer)
-                        callExp->addArg(SgVarRefExp(*var));
+                        callExp->addArg(*new SgVarRefExp(*var));
             }
             else if (isSgProcHedrStmt(precFunc->funcPointer->GetOriginal()) && call.second == PROC_STAT)
             {
                 SgCallStmt* callSt = (SgCallStmt*)call.first;
                 if (callSt->name()->identifier() == precFunc->funcName)                
                     for (auto& var : varsToTransfer)
-                        callSt->addArg(SgVarRefExp(*var));
+                        callSt->addArg(*new SgVarRefExp(*var));
             }
         }
     }
@@ -633,7 +667,7 @@ static void transferSave(map<FuncInfo*, set<FuncInfo*>>& funcAddedVarsFuncs, vec
         SgStatement* st = curFunc->funcPointer->GetOriginal();
         for (auto& var : varsToTransfer)
         {
-            ((SgProcHedrStmt*)(st))->AddArg(SgVarRefExp(var->copy()));
+            ((SgProcHedrStmt*)(st))->AddArg(*new SgVarRefExp(var->copy()));
             st->lexNext()->deleteStmt();
             if (curFunc != startFunc)
             {
@@ -916,12 +950,12 @@ static void transferModule(map<FuncInfo*, set<SgSymbol*>>& funcAddedVarsMods, se
                     for (auto& var : varsToTransfer)
                     {
                         if (allForChange.count(curFunc))
-                            callExp->addArg(SgVarRefExp(*var));
+                            callExp->addArg(*new SgVarRefExp(*var));
                         else
                         {
                             string name = makeName(var, modVarsToAdd, useMod, modByUse, modByUseOnly);
                             SgSymbol* s = new SgSymbol(VARIABLE_NAME, name.c_str());
-                            callExp->addArg(SgVarRefExp(*s));
+                            callExp->addArg(*new SgVarRefExp(*s));
                         }
                     }
                 }
@@ -934,12 +968,12 @@ static void transferModule(map<FuncInfo*, set<SgSymbol*>>& funcAddedVarsMods, se
                     for (auto& var : varsToTransfer)
                     {
                         if (allForChange.count(curFunc))
-                            callSt->addArg(SgVarRefExp(*var));
+                            callSt->addArg(*new SgVarRefExp(*var));
                         else
                         {
                             string name = makeName(var, modVarsToAdd, useMod, modByUse, modByUseOnly);
                             SgSymbol* s = new SgSymbol(VARIABLE_NAME, name.c_str());
-                            callSt->addArg(SgVarRefExp(*s));
+                            callSt->addArg(*new SgVarRefExp(*s));
                         }
                     }
                 }
@@ -972,7 +1006,7 @@ static void transferModule(map<FuncInfo*, set<SgSymbol*>>& funcAddedVarsMods, se
     {
         for (auto& var : nextVarsToTransfer)
         {
-            ((SgProcHedrStmt*)(st))->AddArg(SgVarRefExp(var->copy()));
+            ((SgProcHedrStmt*)(st))->AddArg(*new SgVarRefExp(var->copy()));
             st->lexNext()->deleteStmt();
             vector<SgSymbol*> varVec = vector<SgSymbol*>();
             varVec.push_back(var);

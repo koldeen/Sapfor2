@@ -75,6 +75,7 @@ public:
     void insertDirectives(const std::vector<ParallelRegion*>* regs = NULL);
     void updateParallelFunctions(const std::map<std::string, std::vector<LoopGraph*>>& loopGraphs);
     void createInterfaceBlock();
+    static void createInterfaceBlockForOutCalls(FuncInfo* func);
 
     ~DvmhRegionInserter()
     {

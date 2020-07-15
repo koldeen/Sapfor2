@@ -367,8 +367,8 @@ string convertToString(const FuncInfo *currFunc)
     return result;
 }
 
-// Find dead functions and fill callTo information
-void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &allMessages, bool noPrint)
+// Find dead functions and fill callTo / callFrom information
+void findDeadFunctionsAndFillCalls(map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &allMessages, bool noPrint)
 {
     map<string, FuncInfo*> mapFuncInfo;
     createMapOfFunc(allFuncInfo, mapFuncInfo);
@@ -413,6 +413,7 @@ void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo,
             {
                 FuncInfo *callFrom = itFound->second;
                 callFrom->callsTo.push_back(currInfo);
+                currInfo->callsFromV.insert(callFrom);
             }
         }
     }

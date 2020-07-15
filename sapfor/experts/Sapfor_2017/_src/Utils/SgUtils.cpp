@@ -271,13 +271,24 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
     set<string> foundForIncludes;
     map<int, int> stIdByLine;
 
+    for (SgStatement* st = file->firstStatement(); st; st = st->lexNext())
+    {
+        if (st->variant() > 0 && st->lineNumber() > 0)
+        {
+            stIdByLine[st->lineNumber()] = st->id();
+            vector<SgStatement*> attr = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR, SPF_NOINLINE_OP});
+            for (auto& elem : attr)
+                if (stIdByLine.find(elem->lineNumber()) == stIdByLine.end())
+                    stIdByLine[elem->lineNumber()] = st->id();
+        }
+    }
+
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
     {
         removeOmpDir(st);
         if (st->lineNumber() <= 0 || st->variant() < 0)
             continue;
 
-        stIdByLine[st->lineNumber()] = st->id();
         string currFileName = st->fileName();
         if (currFileName != fileN)
         {

@@ -59,6 +59,7 @@ void initIntrinsicFunctionNames()
 #ifdef __SPF
     intrinsicF.insert(string("any"));
     intrinsicF.insert(string("associated"));
+    intrinsicF.insert(string("allocated"));
 #endif
     intrinsicF.insert(string("amod"));
     intrinsicF.insert(string("aimax0"));

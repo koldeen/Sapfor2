@@ -107,6 +107,8 @@ struct FuncInfo
     bool isInterface;
 
     std::set<std::string> callsFrom; //calls from this function
+    std::set<FuncInfo*> callsFromV;
+
     std::vector<std::pair<std::string, int>> detailCallsFrom; // <name, line>
     std::vector<std::pair<void*, int>> pointerDetailCallsFrom; // <pointer, SG_VAR> SgStatement for PROC_STAT and SgExpression for FUNC_CALL
     std::vector<void*> parentForPointer; // parent SgStatement* of FUNC_CALL

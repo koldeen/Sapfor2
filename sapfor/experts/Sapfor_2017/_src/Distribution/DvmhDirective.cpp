@@ -56,13 +56,13 @@ static bool findArrayRefAndCheck(SgExpression *ex, const string &arrayName, cons
                             if (it->second != 0)
                                 countOfShadows++;
                     }
-                    else if (coefs.size() == 0)
+                    else if (coefs.size() == 0) // may be appier after expression substitution
                     {
-                        if (!currArray->IsDimDepracated(i))
+                        /*if (!currArray->IsDimDepracated(i))
                         {
-                            __spf_print(1, "error in ARRAY_REF coeffs: %s at line %d at %d subscript\n", arrayName.c_str(), line, i);
+                            __spf_print(1, "error in ARRAY_REF coeffs: array '%s' at line %d at %d subscript\n", arrayName.c_str(), line, i);
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                        }
+                        }*/
                     }
                 }
 

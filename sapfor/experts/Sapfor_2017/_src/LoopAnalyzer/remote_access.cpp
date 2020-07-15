@@ -344,6 +344,9 @@ bool createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
     //for parallel loops after vector assign convertion
     if (st->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
         return false;
+    if (st->variant() == PROC_STAT)
+        if (st->symbol()->identifier() == "allocate" || st->symbol()->identifier() == "deallocate")
+            return false;
 
     vector<SgExpression*> remotes;
     string leftPartOfAssign = "";

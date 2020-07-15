@@ -1289,7 +1289,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             vector<string> E;
             CreateCallGraphViz("_callGraph.txt", allFuncInfo, V, E);
         }
-        findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
+        findDeadFunctionsAndFillCalls(allFuncInfo, SPF_messages);
         bool detected = detectMpiCalls(allFuncInfo, SPF_messages);
         if (detected)
         {
@@ -1336,6 +1336,19 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         detectCopies(allFuncInfo);
         fillInterfaceBlock(allFuncInfo);
+        //setPureStatus(allFuncInfo);
+
+        for (auto byFile : loopGraph)
+        {
+            map<int, LoopGraph*> allLoops;
+            createMapLoopGraph(byFile.second, allLoops);
+            for (auto& loop : allLoops)
+                if (loop.second->hasLimitsToParallel())
+                {
+                    loop.second->addConflictMessages(&SPF_messages[loop.second->fileName]);
+                    __spf_print(1, "added conflict messages to loop on line %d\n", loop.second->lineNum);
+                }
+        }
 
         if (keepFiles)
             printArrayInfo("_arrayInfo.txt", declaredArrays);
@@ -1654,7 +1667,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
     {
-        findDeadFunctionsAndFillCallTo(subs_allFuncInfo, SPF_messages, true);
+        findDeadFunctionsAndFillCalls(subs_allFuncInfo, SPF_messages, true);
         fillRegionLinesStep2(subs_parallelRegions, subs_allFuncInfo);
         clearRegionStaticData();
     }
@@ -1837,6 +1850,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         saveTransfer(allFuncInfo);
     else if (curr_regime == PURE_MODULE_TO_PARAMS)
         moduleTransfer(allFuncInfo);
+    else if (curr_regime == PURE_INTENT_INSERT)
+        setPureStatus(allFuncInfo);
 
 #if _WIN32
     const float elapsed = duration_cast<milliseconds>(high_resolution_clock::now() - timeForPass).count() / 1000.;

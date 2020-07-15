@@ -771,7 +771,6 @@ static void insertInterface(SgStatement* func, const string& iface)
 
     if (SgFile::switchToFile(oldFile) == -1)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
 }
 
 static void insertRoutine(SgStatement* func)
@@ -835,6 +834,23 @@ void DvmhRegionInserter::createInterfaceBlock()
                     insertInterface(callTo->funcPointer, getInterfaceBlock(parF->funcPointer->GetOriginal(), parF->funcParams));
                 }
             }
+        }
+    }
+}
+
+void DvmhRegionInserter::createInterfaceBlockForOutCalls(FuncInfo* func)
+{
+    for (auto& callFrom : func->callsFromV)
+    {
+        if (func->interfaceBlocks.find(callFrom->funcName) == func->interfaceBlocks.end()
+            && callFrom->funcParams.countOfPars > 0
+            && isPure(callFrom->funcPointer->GetOriginal()))
+        {
+            if (callFrom->fileName != func->fileName)
+                insertRoutine(func->funcPointer->GetOriginal());
+
+            func->interfaceBlocks[callFrom->funcName] = callFrom;
+            insertInterface(func->funcPointer, getInterfaceBlock(callFrom->funcPointer->GetOriginal(), callFrom->funcParams));            
         }
     }
 }
