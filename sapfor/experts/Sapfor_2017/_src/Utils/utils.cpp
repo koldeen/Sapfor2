@@ -357,7 +357,7 @@ const string& getGlobalBuffer() { return globalOutputBuffer; }
 
 set<short*> allocated;
 set<int*> allocatedInt;
-void convertGlobalBuffer(short *&result, int *&resultSize)
+static void convertGlobalBuffer(short *&result, int *&resultSize)
 {
     const unsigned len = (unsigned)globalOutputBuffer.size(); 
     result = new short[len + 1];
@@ -385,9 +385,41 @@ void clearGlobalMessagesBuffer()
     SPF_messages.clear();  
 }
 
-void convertGlobalMessagesBuffer(short *&result, int *&resultSize)
+static map<string, vector<Messages>> removeCopies(map<string, vector<Messages>> in)
 {
-    auto copySPF_messages = SPF_messages;
+    map<string, vector<Messages>> out;
+    for (auto& byFile : in)
+    {
+        map<tuple<typeMessage, int, int, wstring>, const Messages*> uniq;
+        for (auto& message : byFile.second)
+        {
+            auto key = make_tuple(message.type, message.group, message.line, message.value);
+            /*string tmp = "";
+            for (auto& s : message.toString())
+                tmp += (char)s;
+            __spf_print(1, "%s\n", tmp.c_str());*/
+            uniq[key] = &message;
+        }
+        __spf_print(1, "messages filtering for file '%s': count before %d, count after %d\n", byFile.first.c_str(), byFile.second.size(), uniq.size());
+        vector<Messages> uniqV;
+        for (auto& elem : uniq)
+        {
+            /*string tmp = "";
+            for (auto& s : elem.second->toString())
+                tmp += (char)s;
+            __spf_print(1, "%s\n", tmp.c_str());*/
+            uniqV.push_back(*elem.second);
+        }
+
+        out[byFile.first] = uniqV;
+    }
+
+    return out;
+}
+
+static void convertGlobalMessagesBuffer(short *&result, int *&resultSize)
+{
+    auto copySPF_messages = removeCopies(SPF_messages);
     for (auto &byFile : copySPF_messages)
     {
         vector<Messages> newVal;
@@ -423,6 +455,13 @@ void convertGlobalMessagesBuffer(short *&result, int *&resultSize)
 
     resultSize = new int[1];
     resultSize[0] = (int)len;
+}
+
+
+void convertBuffers(short*& resultM, int*& resultSizeM, short*& result, int*& resultSize)
+{
+    convertGlobalMessagesBuffer(resultM, resultSizeM);
+    convertGlobalBuffer(result, resultSize);
 }
 
 bool isSPF_comment(const string &bufStr)

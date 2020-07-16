@@ -29,9 +29,8 @@ void addToGlobalBufferAndPrint(const std::string &toPrint);
 void clearGlobalBuffer();
 const std::string& getGlobalBuffer();
 std::wstring to_wstring(const std::string);
-void convertGlobalBuffer(short *&result, int *&resultSize);
+void convertBuffers(short*& resultM, int*& resultSizeM, short*& result, int*& resultSize);
 void clearGlobalMessagesBuffer();
-void convertGlobalMessagesBuffer(short *&result, int *&resultSize);
 void copyIncludes(const std::set<std::string> &allIncludeFiles, const std::map<std::string, std::map<int, std::set<std::string>>> &commentsToInclude, const char *folderName, bool keepSpfDirs, int removeDvmDirs = 0);
 
 std::string splitDirective(const std::string &in);

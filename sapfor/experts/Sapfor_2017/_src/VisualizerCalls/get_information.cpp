@@ -355,8 +355,9 @@ int SPF_StatisticAnalyzer(void*& context, int winHandler, short* options, short*
     {
         retSize = -1;
     }
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
+
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
@@ -391,8 +392,9 @@ int SPF_ParseFiles(void*& context, int winHandler, short *options, short* projNa
     {
         retSize = -1;
     }
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
+
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
@@ -438,8 +440,9 @@ int SPF_ParseFilesWithOrder(void*& context, int winHandler, short* options, shor
     {
         retSize = -1;
     }
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
+
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
@@ -495,9 +498,9 @@ int SPF_GetGraphLoops(void*& context, int winHandler, short *options, short *pro
     {
         retSize = -1;
     }
+        
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
 
@@ -543,9 +546,9 @@ int SPF_GetGraphFunctions(void*& context, int winHandler, short *options, short 
     {
         retSize = -1;
     }
+        
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
 
@@ -596,8 +599,8 @@ int SPF_GetGraphVizOfFunctions(void*& context, short *options, short *projName, 
         retSize = -1;
     }
 
-    //convertGlobalBuffer(output, outputSize);
-    //convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    //convertBuffers(outputMessage, outputMessageSize, output, outputSize);
+
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
 
@@ -699,8 +702,8 @@ int SPF_GetArrayDistribution(void*& context, int winHandler, short *options, sho
         retSize = -1;
     }
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
+
     if (showDebug)
         printf("SAPFOR: return from DLL with code %d\n", retSize);
     MessageManager::setWinHandler(-1);
@@ -875,8 +878,8 @@ int SPF_ModifyArrayDistribution(void*& context, int winHandler, short *options, 
         retSize = -1;
     }
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
+
     if (showDebug)
         printf("SAPFOR: return from DLL with code %d\n", retSize);
     MessageManager::setWinHandler(-1);
@@ -1042,8 +1045,7 @@ int SPF_CreateParallelVariant(void*& context, int winHandler, short *options, sh
         retSize = -1;
     }
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
 
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
@@ -1171,8 +1173,7 @@ int SPF_SetFunctionsToInclude(void*& context, int winHandler, short *options, sh
         retSize = -1;
     }
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
 
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
@@ -1218,8 +1219,7 @@ int SPF_GetAllDeclaratedArrays(void*& context, int winHandler, short *options, s
         retSize = -1;
     }
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
 
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
@@ -1271,8 +1271,7 @@ int SPF_GetFileLineInfo(void*& context, int winHandler, short *options, short *p
         retSize = -1;
     }
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
 
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
@@ -1410,8 +1409,7 @@ static int simpleTransformPass(const passes PASS_NAME, short *options, short *pr
         retCode = -1;
     }
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
 
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
@@ -1607,8 +1605,7 @@ int SPF_ChangeSpfIntervals(void*& context, int winHandler, short *options, short
         retCode = -1;
     }
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
 
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
@@ -1651,8 +1648,7 @@ int SPF_InlineProcedure(void*& context, int winHandler, short *options, short* p
         retCode = -1;
     }
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
 
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
@@ -1696,8 +1692,7 @@ int SPF_LoopUnionCurrent(void*& context, int winHandler, short* options, short* 
         retCode = -1;
     }
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
 
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
@@ -1749,8 +1744,7 @@ int SPF_InlineProcedures(void*& context, int winHandler, short* options, short* 
         retCode = -1;
     }
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
 
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
@@ -1837,8 +1831,7 @@ int SPF_GetGCovInfo(void*& context, int winHandler, short *options, short *projN
         retSize = -1;
     }
 
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+    convertBuffers(outputMessage, outputMessageSize, output, outputSize);
 
     if (showDebug)
         printf("SAPFOR: return from DLL\n");
@@ -2053,8 +2046,7 @@ const wstring Sapfor_RunAnalysis(const char* analysisName_c, const char* options
     catch (...)
     {
         printf("SAPFOR: wrong exit from main DLL block for JAVA\n");
-        convertGlobalBuffer(output, outputSize);
-        convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+        convertBuffers(outputMessage, outputMessageSize, output, outputSize);
         retCode = -1004;
     }
 
@@ -2207,16 +2199,12 @@ const wstring Sapfor_RunModification(const char* modifyName_c, const char* optio
     {
         int flag = atoi(addOpt2_c);
         retCode = SPF_SetDistributionFlagToArray(context, (char*)addOpt1_c, flag);
-
-        convertGlobalBuffer(output, outputSize);
-        convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+        convertBuffers(outputMessage, outputMessageSize, output, outputSize);
     }
     else if (whichRun == "SPF_SetDistributionFlagToArrays")
     {
         retCode = SPF_SetDistributionFlagToArrays(context, addOpt1_c, addOpt2_c);
-
-        convertGlobalBuffer(output, outputSize);
-        convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+        convertBuffers(outputMessage, outputMessageSize, output, outputSize);
     }
     else
     {

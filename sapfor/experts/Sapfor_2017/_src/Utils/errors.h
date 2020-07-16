@@ -141,7 +141,7 @@ public:
     {
     }
 
-    std::wstring toString()
+    std::wstring toString() const
     {
         std::wstring retVal = L"|";
         retVal += std::to_wstring((int)type) + L" ";
