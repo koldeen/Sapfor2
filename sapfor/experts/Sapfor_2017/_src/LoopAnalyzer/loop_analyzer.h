@@ -147,7 +147,11 @@ void createRemoteInParallel(const std::tuple<SgForStmt*, const LoopGraph*, const
                             std::map<std::string, SgArrayRefExp*> &uniqRemotes,
                             std::vector<Messages> &messages,
                             const int regionId,
-                            const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+                            const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
+                            std::set<DIST::Array*>& doneInLoops);
+void createRemoteInParallel(const std::tuple<SgForStmt*, const LoopGraph*, const ParallelDirective*>& under_dvm_dir,
+                            const std::set<DIST::Array*>& doneInLoops,
+                            std::map<std::string, SgArrayRefExp*>& uniqRemotes, std::vector<Messages>& messages);
 
 template<int NUM> bool createRemoteDir(SgStatement *st, const std::map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
                                        const DataDirective &data, const std::vector<int> &currVar, const int redionID, std::vector<Messages> &currMessages,

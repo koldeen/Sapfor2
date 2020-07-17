@@ -231,6 +231,7 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
 
                     if (replaceByRemote)
                     {
+                        __spf_print(1, "RemoteAccess[devour]: replace shadow by remote for array '%s'\n", currArray->GetShortName().c_str());
                         currArray->RemoveShadowSpec(spec);
 
                         SgExpression *toAdd = new SgExpression(EXPR_LIST);

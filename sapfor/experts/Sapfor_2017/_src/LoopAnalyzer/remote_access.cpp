@@ -582,6 +582,45 @@ static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*
     }
 }
 
+static set<string> fillRemotesInParallel(const ParallelDirective* dvm_dir)
+{
+    set<string> remotesInParallel;
+    for (auto& elem : dvm_dir->remoteAccess)
+        remotesInParallel.insert(elem.first.first.first + "(" + elem.first.second + ")");
+    return remotesInParallel;
+}
+
+void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const ParallelDirective*>& under_dvm_dir,
+                            const set<DIST::Array*>& doneInLoops,
+                            map<string, SgArrayRefExp*>& uniqRemotes, vector<Messages>& messages)
+{
+    const set<DIST::Array*> usedArrays = SECOND(under_dvm_dir)->usedArrays;
+    const set<DIST::Array*> usedArraysWrite = SECOND(under_dvm_dir)->usedArraysWrite;
+    const set<string> remotesInParallel = fillRemotesInParallel(THIRD(under_dvm_dir));
+    set<SgArrayRefExp*> addedRemotes;
+
+    for (auto& usedArr : usedArrays)
+    {
+        if (doneInLoops.find(usedArr) == doneInLoops.end() && usedArraysWrite.find(usedArr) == usedArraysWrite.end())
+        {
+            SgExpression* ex = new SgExpression(EXPR_LIST);
+            SgExpression* p = ex;
+            for (int z = 0; z < usedArr->GetDimSize(); ++z)
+            {
+                p->setLhs(new SgExpression(DDOT));
+                if (z != usedArr->GetDimSize() - 1)
+                {
+                    p->setRhs(new SgExpression(EXPR_LIST));
+                    p = p->rhs();
+                }
+            }
+            SgArrayRefExp* newRem = new SgArrayRefExp(*findSymbolOrCreate(current_file, usedArr->GetShortName()), *ex);
+            addRemoteLink(newRem, uniqRemotes, remotesInParallel, addedRemotes, messages, -1, false);
+            __spf_print(DEB, "CRIP: %d, AFTER MAIN CHECK for arrray '%s'\n", __LINE__, usedArr->GetShortName().c_str());
+        }
+    }
+}
+
 void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const ParallelDirective*> &under_dvm_dir,
                             const DIST::Arrays<int> &allArrays,
                             const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo,
@@ -592,7 +631,8 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                             map<string, SgArrayRefExp*> &uniqRemotes,
                             vector<Messages> &messages,
                             const int regionId,
-                            const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+                            const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                            set<DIST::Array*>& doneInLoops)
 {
     if (!FIRST(under_dvm_dir) || !SECOND(under_dvm_dir) || !THIRD(under_dvm_dir))
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -605,13 +645,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
         const map<SgSymbol*, ArrayInfo> &currInfo = it->second;
         DIST::Array *arrayRefOnDir = THIRD(under_dvm_dir)->arrayRef;
         set<DIST::Array*> realRefArrayOnDir;
-
-        set<DIST::Array*> usedArrays = SECOND(under_dvm_dir)->usedArrays;
-        set<DIST::Array*> usedArraysWrite = SECOND(under_dvm_dir)->usedArraysWrite;
-
-        set<string> remotesInParallel;
-        for (auto& elem : THIRD(under_dvm_dir)->remoteAccess)
-            remotesInParallel.insert(elem.first.first.first + "(" + elem.first.second + ")");
+        const set<string> remotesInParallel = fillRemotesInParallel(THIRD(under_dvm_dir));
 
         if (!arrayRefOnDir->IsTemplate())
         {
@@ -655,8 +689,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                 }
             }
         }
-
-        set<DIST::Array*> doneInLoop;
+        
         // for all array accesses in loop
         for (auto it = currInfo.begin(); it != currInfo.end(); ++it)
         {
@@ -664,7 +697,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
             DIST::Array *arrayRef = GetArrayByShortName(allArrays, tmpS);
             if (!arrayRef)
                 continue;
-            doneInLoop.insert(arrayRef);
+            doneInLoops.insert(arrayRef);
 
             auto itInfo = currInfo.find(tmpS);
             if (itInfo == currInfo.end())
@@ -887,28 +920,6 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
             }
         }
 
-
-        for (auto& usedArr : usedArrays)
-        {
-            if (doneInLoop.find(usedArr) == doneInLoop.end() && usedArraysWrite.find(usedArr) == usedArraysWrite.end())
-            {
-                SgExpression* ex = new SgExpression(EXPR_LIST);
-                SgExpression* p = ex;
-                for (int z = 0; z < usedArr->GetDimSize(); ++z)
-                {
-                    p->setLhs(new SgExpression(DDOT));
-                    if (z != usedArr->GetDimSize() - 1)
-                    {
-                        p->setRhs(new SgExpression(EXPR_LIST));
-                        p = p->rhs();
-                    }
-                }
-                SgArrayRefExp* newRem = new SgArrayRefExp(*findSymbolOrCreate(current_file, usedArr->GetShortName()), *ex);
-                addRemoteLink(newRem, uniqRemotes, remotesInParallel, addedRemotes, messages, -1, false);
-                __spf_print(DEB, "CRIP: %d, AFTER MAIN CHECK\n", __LINE__);
-            }
-        }
-
         if (SECOND(under_dvm_dir)->perfectLoop > 1)
         {
             tuple<SgForStmt*, const LoopGraph*, const ParallelDirective*> nextDir = under_dvm_dir;
@@ -919,7 +930,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
             FIRST(nextDir) = it->second.first;
-            createRemoteInParallel(nextDir, allArrays, loopInfo, reducedG, data, currVar, allLoops, uniqRemotes, messages, regionId, arrayLinksByFuncCalls);
+            createRemoteInParallel(nextDir, allArrays, loopInfo, reducedG, data, currVar, allLoops, uniqRemotes, messages, regionId, arrayLinksByFuncCalls, doneInLoops);
         }
     }
 }

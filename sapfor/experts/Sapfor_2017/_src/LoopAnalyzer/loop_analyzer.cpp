@@ -153,7 +153,7 @@ static void addInfoToMaps(map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo, 
 
     it2->second.second[dimNum] |= value;
     if (value == REMOTE_TRUE)
-        __spf_print(DEB, "LA: %d, true for dim %d and array %s, loop line %d\n", __LINE__, dimNum, symb->identifier(), position->lineNumber());
+        __spf_print(DEB, "RemoteAccess[%d]: true for dim %d and array %s, loop line %d\n", __LINE__, dimNum, symb->identifier(), position->lineNumber());
 }
 
 enum { READ_OP, WRITE_OP, UNREC_OP };
@@ -542,15 +542,28 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                     }
 
-                    __spf_print(DEB, "LA: %d, check aligns\n", __LINE__);
+                    string debOutStr = "";
+                    char buf[256];
+                    sprintf(buf, "RemoteAccess[%d]: check aligns for '%s'\n", __LINE__, currArray->GetShortName().c_str());
+                    debOutStr += buf;
+
                     for (int z = 0; z < wasFound.size(); ++z)
-                        __spf_print(DEB, "LA: %d, check aligns %d == %d\n", __LINE__, z, wasFound[z]);
+                    {
+                        sprintf(buf, "RemoteAccess[%d]: check aligns %d == %d\n", __LINE__, z, wasFound[z]);
+                        debOutStr += buf;
+                    }
                     
                     for (int z = 0; z < matchedToDim.size(); ++z)
-                        __spf_print(DEB, "LA: %d, matchedToDim[%d] = %d\n", __LINE__, z, matchedToDim[z]);
+                    {
+                        sprintf(buf, "RemoteAccess[%d]: matchedToDim[%d] = %d\n", __LINE__, z, matchedToDim[z]);
+                        debOutStr += buf;
+                    }
 
                     for (int l = 0; l < alignCoefs.size(); ++l)
-                        __spf_print(DEB, "LA: %d, alignCoefs[%d] = %d\n", __LINE__, l, alignCoefs[l]);
+                    {
+                        sprintf(buf, "RemoteAccess[%d]: alignCoefs[%d] = %d\n", __LINE__, l, alignCoefs[l]);
+                        debOutStr += buf;
+                    }
 
                     //check array's alignment
                     for (int z = 0; z < wasFound.size() && ok; ++z)
@@ -585,22 +598,28 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                             if (!(loop->directiveForLoop))
                                 continue;
                             DIST::Array *loopT = loop->directiveForLoop->arrayRef;
-                            __spf_print(DEB, "LA: %d, z = %d, array %s\n", __LINE__, z, loopT->GetShortName().c_str());
+                            sprintf(buf, "RemoteAccess[%d]: z = %d, array '%s'\n", __LINE__, z, loopT->GetShortName().c_str());
+                            debOutStr += buf;
 
                             int dimToMap = -1;
                             for (int z1 = 0; z1 < loopT->GetDimSize(); ++z1)
                                 if (loop->directiveForLoop->on[z1].first != "*")
                                     dimToMap = z1;
 
-                            __spf_print(DEB, "LA: %d, z = %d, dimToMap = %d\n", __LINE__, z, dimToMap);
+                            sprintf(buf, "RemoteAccess[%d]: z = %d, dimToMap = %d\n", __LINE__, z, dimToMap);
+                            debOutStr += buf;
                             if (dimToMap != -1)
                             {
                                 if (loopT != templ)
                                 {
-                                    __spf_print(DEB, "LA: %d, z = %d, false check !=\n", __LINE__, z);
+                                    sprintf(buf, "RemoteAccess[%d]: z = %d, false check !=\n", __LINE__, z);
+                                    debOutStr += buf;
+
                                     DIST::Array *loopTempl = loopT->GetTemplateArray(reg->GetId());
 
-                                    __spf_print(DEB, "LA: %d, z = %d, array %s\n", __LINE__, z, loopTempl->GetShortName().c_str());
+                                    sprintf(buf, "RemoteAccess[%d]: z = %d, array '%s'\n", __LINE__, z, loopTempl->GetShortName().c_str());
+                                    debOutStr += buf;
+
                                     if (templ != loopTempl)
                                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
@@ -615,10 +634,14 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                                     else
                                         dimToMap = loopAlignCoefs[dimToMap];
                                 }
-                                __spf_print(DEB, "LA: %d, ** z = %d, dimToMap = %d\n", __LINE__, z, dimToMap);
+                                sprintf(buf, "RemoteAccess[%d]: ** z = %d, dimToMap = %d\n", __LINE__, z, dimToMap);
+                                debOutStr += buf;
 
                                 for (int z = 0; z < currentVar.second->distRule.size(); ++z)
-                                    __spf_print(DEB, "LA: %d, distRule[%d] = %d\n", __LINE__, z, currentVar.second->distRule[z]);
+                                {
+                                    sprintf(buf, "RemoteAccess[%d]: distRule[%d] = %d\n", __LINE__, z, currentVar.second->distRule[z]);
+                                    debOutStr += buf;
+                                }
 
                                 if (matchedToDim[z] != -1 && currentVar.second->distRule[alignCoefs[matchedToDim[z]]] == distType::BLOCK)
                                 {
@@ -633,9 +656,10 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
 
                                     if (!ok)
                                     {
-                                        __spf_print(DEB, "LA: %d, call addInfoMaps from aligns miss\n", __LINE__);
-                                        __spf_print(DEB, "LA: %d, z = %d\n", __LINE__, z);
-                                        __spf_print(DEB, "LA: %d, dimToMap = %d\n", __LINE__, dimToMap);                                        
+                                        __spf_print(DEB, "%s\n", debOutStr.c_str());
+                                        __spf_print(DEB, "RemoteAccess[%d]: call addInfoMaps from aligns miss\n", __LINE__);
+                                        __spf_print(DEB, "RemoteAccess[%d]: z = %d\n", __LINE__, z);
+                                        __spf_print(DEB, "RemoteAccess[%d]: dimToMap = %d\n", __LINE__, dimToMap);                                        
                                         addInfoToMaps(loopInfo, parentLoops[z], currOrigArrayS, arrayRef, matchedToDim[z], REMOTE_TRUE, currLine, numOfSubs);
                                     }
                                 }
@@ -656,7 +680,7 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
         {
             if (sumMatched != numOfSubs || 
                 maxMatched != 1 || 
-                sumMatched != parentLoops.size() // && sumMatched != numOfSubs
+                (sumMatched != parentLoops.size() && sumMatched != numOfSubs)
                 )
             {
                 int local = 0;
@@ -681,7 +705,7 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                         {
                             if (hasLimits)
                             {
-                                __spf_print(DEB, "LA: %d, call addInfoMaps from hasLimits\n", __LINE__);
+                                __spf_print(DEB, "RemoteAccess[%d]: call addInfoMaps from hasLimits\n", __LINE__);
                                 addInfoToMaps(loopInfo, parentLoops[i], currOrigArrayS, arrayRef, k, REMOTE_TRUE, currLine, numOfSubs);
                             }
                         }
@@ -1830,7 +1854,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                                         tuple<SgForStmt*, const LoopGraph*, const ParallelDirective*> currDir
                                             = make_tuple(under_dvm_dir->first, under_dvm_dir->second, under_dvm_dir->second->directive);
 
-                                        createRemoteInParallel(currDir, allArrays, loopInfo, reducedG, data, currVar, allLoops, uniqRemotes, messagesForFile, currReg->GetId(), arrayLinksByFuncCalls);
+                                        set<DIST::Array*> doneInLoops;
+                                        createRemoteInParallel(currDir, allArrays, loopInfo, reducedG, data, currVar, allLoops, uniqRemotes, messagesForFile, currReg->GetId(), arrayLinksByFuncCalls, doneInLoops);
+                                        createRemoteInParallel(currDir, doneInLoops, uniqRemotes, messagesForFile);
                                         addRemotesToDir(under_dvm_dir, uniqRemotes);
                                     }
 
