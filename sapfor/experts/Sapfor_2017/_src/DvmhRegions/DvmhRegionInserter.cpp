@@ -212,7 +212,7 @@ static string getNameByUse(SgStatement *place, const string &varName, const stri
 
         fillInfo(func, useMod, modByUse, modByUseOnly);
         SgStatement* cp = func->controlParent();
-        if (isSgProgHedrStmt(cp)) // if function in contains region
+        if (isSgProgHedrStmt(cp) || cp->variant() == MODULE_STMT) // if function in contains region
             fillInfo(cp, useMod, modByUse, modByUseOnly);
 
         set<string> useModDone;
@@ -325,6 +325,14 @@ ArraySet DvmhRegionInserter::applyUseFilter(const ArraySet& block, const set<DIS
     return newReadArrays;
 }
 
+static bool hasLoopsWithDir(LoopGraph* loop)
+{
+    bool retVal = loop->directive;
+    for (auto& ch : loop->children)
+        retVal |= hasLoopsWithDir(ch);
+    return retVal;
+}
+
 //TODO:
 SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<ParallelRegion*>* regs)
 {
@@ -342,20 +350,16 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
         if (it != loopGraphMap.end())
         {
             LoopGraph* loop = it->second;
-            if (loop->hasLimitsToParallel())
+            if (hasLoopsWithDir(loop) == false)
             {
                 set<string> outCalls;
                 for (auto& elem : loop->calls)
                     outCalls.insert(elem.first);
 
-                if (loop->hasParallelLoopsInChList() == false)
-                {
-                    if (checkOutCalls(outCalls) == false)
-                        forBlock = true;
-
-                    else //TODO
-                        ;
-                }
+                if (checkOutCalls(outCalls) == false)
+                    forBlock = true;
+                else //TODO
+                    ;
             }
         }
     }

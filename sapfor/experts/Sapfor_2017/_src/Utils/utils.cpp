@@ -129,7 +129,7 @@ void printHelp(const char **passNames, const int lastPass)
 {
     printf("Help info for passes.\n\n");
     printf(" -f90      free form\n");
-    //printf(" -sh      turn on static shadow analysis\n");
+    printf(" -sh       turn on static shadow analysis\n");
     printf(" -ver/-Ver version of SAPFOR\n");
     printf(" -priv     turn on static private analysis\n");
     printf(" -keep     keep temporary files\n");

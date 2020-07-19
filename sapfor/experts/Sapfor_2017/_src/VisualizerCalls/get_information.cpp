@@ -141,7 +141,7 @@ static void setOptions(const short *options)
             intOptions[z] = -1;
     }
 
-    //staticShadowAnalysis = intOptions[STATIC_SHADOW_ANALYSIS];
+    staticShadowAnalysis = intOptions[STATIC_SHADOW_ANALYSIS];
     staticPrivateAnalysis = intOptions[STATIC_PRIVATE_ANALYSIS];
     out_free_form = intOptions[FREE_FORM];
     keepDvmDirectives = intOptions[KEEP_DVM_DIRECTIVES];

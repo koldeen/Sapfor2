@@ -916,17 +916,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             restoreConvertedLoopForParallelLoops(file);
         else if (curr_regime == RESTORE_LOOP_FROM_ASSIGN_BACK)
             restoreConvertedLoopForParallelLoops(file, true);
-        else if (curr_regime == SHADOW_GROUPING)
-        {        
-#if 0
-            //TODO for all parallel regions
-            if (parallelRegions.size() == 1 && parallelRegions[0]->GetName() == "DEFAULT")
-            {
-                for (int z = 0; z < parallelRegions.size(); ++z)
-                    GroupShadowStep1(file, getObjectForFileFromMap(file_name, allFuncInfo), getObjectForFileFromMap(file_name, loopGraph), parallelRegions[z]->GetAllArraysToModify(), arrayLinksByFuncCalls);
-            }
-#endif
-        }
         else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
         {
             auto it = subs_allFuncInfo.find(file_name);
@@ -1857,6 +1846,18 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         moduleTransfer(allFuncInfo);
     else if (curr_regime == PURE_INTENT_INSERT)
         setPureStatus(allFuncInfo);
+    else if (curr_regime == SHADOW_GROUPING)
+    {
+        if (staticShadowAnalysis)
+        {
+            //TODO for all parallel regions
+            if (parallelRegions.size() == 1 && parallelRegions[0]->GetName() == "DEFAULT")
+            {
+                for (int z = 0; z < parallelRegions.size(); ++z)
+                    GroupShadow(allFuncInfo, loopGraph, parallelRegions[z]->GetAllArraysToModify(), arrayLinksByFuncCalls);
+            }
+        }
+    }
 
 #if _WIN32
     const float elapsed = duration_cast<milliseconds>(high_resolution_clock::now() - timeForPass).count() / 1000.;
@@ -2436,8 +2437,8 @@ int main(int argc, char **argv)
                     out_free_form = 1;
                     out_line_unlimit = 1;
                 }
-                /*else if (string(curr_arg) == "-sh")
-                    staticShadowAnalysis = 1;*/
+                else if (string(curr_arg) == "-sh")
+                    staticShadowAnalysis = 1;
                 else if (string(curr_arg) == "-priv")
                     staticPrivateAnalysis = 1;
                 else if (string(curr_arg) == "-keep")
