@@ -1088,9 +1088,9 @@ int open_proj_toolbox(char* proj_name, char* proj_file)
     t = tmp;
     while ((c = getc(fd)) != EOF) 
     {
-#ifndef __SPF
-        if (c != ' ') /* assum no blanks in filename */
-#endif
+        
+        //if (c != ' ') /* assum no blanks in filename */
+
         {
             if (c == '\n') 
             {
@@ -4929,10 +4929,10 @@ PTR_BFND Redo_Bif_Next_Chain_Internal(start)
 
     if (!start)
         return NULL;
-#ifndef __SPF
-  BIF_ID(start) = idfirst;
-  idfirst++;
-#endif
+
+//  BIF_ID(start) = idfirst;   /*podd 29.06.20 */
+//  idfirst++;
+
     if (BIF_BLOB1(start))
     {
         BIF_NEXT(start) = BLOB_VALUE(BIF_BLOB1(start));
