@@ -471,7 +471,7 @@ static bool checkReduction(SgStatement *st,
         retVal = checkReduction(st, attributeStatement, reductionVar, messagesForFile) && checkReduction(st, attributeStatement, reductionArr, messagesForFile);
     }
 
-    return true;
+    return retVal;
 }
 
 static bool checkParameter(SgStatement *st, SgStatement *attributeStatement, const vector<pair<Symbol*, Expression*>> &identExprs)
