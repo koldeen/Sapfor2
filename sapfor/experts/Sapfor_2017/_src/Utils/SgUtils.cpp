@@ -578,7 +578,7 @@ static string getValue(SgExpression *exp)
             ret = "(" + string(exp->symbol()->identifier());
             auto sc = isSgConstantSymb(exp->symbol());
             if (sc && sc->constantValue())
-                ret += sc->constantValue()->unparse();
+                ret += string("=") + sc->constantValue()->unparse();
             ret += ")";
         }
     }
