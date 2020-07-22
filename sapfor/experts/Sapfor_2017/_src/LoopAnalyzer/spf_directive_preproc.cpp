@@ -474,6 +474,20 @@ static bool checkReduction(SgStatement *st,
     return true;
 }
 
+static bool checkParameter(SgStatement *st, SgStatement *attributeStatement, const vector<pair<Symbol*, Expression*>> &identExprs)
+{
+    bool retVal = true;
+
+    for (auto &identExpr : identExprs)
+    {
+        auto ident = identExpr.first->GetOriginal();
+        auto expr = identExpr.second->GetOriginal();
+
+    }
+
+    return retVal;
+}
+
 static bool checkShadowAcross(SgStatement *st,
                               SgStatement *attributeStatement,
                               const vector<pair<pair<Symbol*, string>, vector<pair<int, int>>>> &data,
@@ -1578,6 +1592,15 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                 bool result = checkReduction(st, attributeStatement, reduction, messagesForFile);
                 bool resultLoc = checkReduction(st, attributeStatement, reductionLoc, messagesForFile);
                 retVal = retVal && result && resultLoc;
+            }
+
+            // PARAMETER(ident=expr)
+            vector<pair<Symbol*, Expression*>> identExprs;
+            fillParameterFromComment(new Statement(attributeStatement), identExprs);
+            if (identExprs.size())
+            {
+                bool result = checkParameter(st, attributeStatement, identExprs);
+                retVal = retVal && result;
             }
         }
         else if (type == SPF_PARALLEL_DIR)

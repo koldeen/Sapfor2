@@ -216,6 +216,46 @@ template void fillReductionsFromComment(Statement *st, map<string, set<tuple<str
 template void fillReductionsFromComment(Statement *st, map<string, set<tuple<Symbol*, Symbol*, int>>> &reduction, bool);
 
 template<typename fillType>
+void fillParameterFromComment(Statement *stIn, vector<pair<fillType, Expression*>> &identExprs)
+{
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        if (st->variant() == SPF_ANALYSIS_DIR)
+        {
+            SgExpression *exprList = st->expr(0);
+            while (exprList)
+            {
+                if (exprList->lhs() && exprList->lhs()->variant() == SPF_PARAMETER_OP)
+                {
+                    st->unparsestdout(); // DEBUG
+                    st->expr(0)->unparsestdout();
+                    recExpressionPrint(st->expr(0));
+                    auto paramList = exprList->lhs()->lhs();
+                    while (paramList)
+                    {
+                        recExpressionPrint(paramList); // DEBUG
+                        paramList->unparsestdout(); // DEBUG
+                        fillType ident, *dummy = NULL;
+                        ident = getData(paramList->lhs(), dummy);
+                        auto val = paramList->lhs()->valueInteger();
+                        __spf_print(1, "%s %d\n", paramList->lhs()->symbol()->identifier(), val); // DEBUG
+                        //SgExpression *expr = NULL;
+                        //identExprs.push_back(make_pair(ident, new Expression(expr)));
+                        identExprs.push_back(make_pair(ident, (Expression*)NULL));
+                        paramList = paramList->rhs();
+                    }
+                }
+                exprList = exprList->rhs();
+            }
+        }
+    }
+}
+
+template void fillParameterFromComment(Statement *st, vector<pair<string, Expression*>> &identExprs);
+template void fillParameterFromComment(Statement *st, vector<pair<Symbol*, Expression*>> &identExprs);
+
+template<typename fillType>
 static void fillShadowAcross(const int type, Statement *stIn, vector<pair<pair<fillType, string>, vector<pair<int, int>>>> &data, set<fillType> *corner = NULL)
 {
     if (stIn)
