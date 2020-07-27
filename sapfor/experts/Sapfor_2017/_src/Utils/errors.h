@@ -70,6 +70,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   54 "length of mask for array '%s' must be %d, but you enter only %d dimenions in file '%s' on line %d"
 //   55 "wrong mask value in %d position: it can be only 0 or 1 in file '%s' on line %d"
 //   56 "array '%s' in shrink clause must be also declared in private clause in file '%s' on line %d"
+//   57 "Variable '%s' in %s clause must be used in next statement in file '%s' on line %d.\n."
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -252,7 +253,7 @@ static void printStackTrace() { };
     } \
 } while (0)
 
-// Сводобный - R175
+// Сводобный - R176
 // Гайд по русификации сообщений: При добавлении нового сообщения, меняется последний сводобный идентификатор.
 // В этом файле остаются только спецификаторы, для которых будет заполнен текст. Полный текст пишется в файле
 // russian_errors_text.txt. Специикаторы там тоже сохраняются, по ним в визуализаторе будет восстановлен 
@@ -435,6 +436,8 @@ static const wchar_t *R155 = L"R155:%s#%d#%d#%s";
 static const wchar_t *R156 = L"R156:%d#%s#%s";
 //1056
 static const wchar_t *R157 = L"R157:%s#%s";
+//1057
+static const wchar_t *R175 = L"R175:%s";
 
 //2001
 static const wchar_t *R94 = L"R94:";
@@ -540,7 +543,7 @@ static const wchar_t *R143 = L"R143:";
 //5001
 static const wchar_t *R165 = L"R165:";
 //5002
-static const wchar_t *R166 = L"R166:%s";
+static const wchar_t *R166 = L"R166:%s#%s";
 //5003
 static const wchar_t *R167 = L"R167:";
 //5004
