@@ -3274,7 +3274,7 @@ static void recFillUsedVars(SgExpression *exp, map<string, SgSymbol*> &vars)
 {
     if (exp)
     {
-        if (exp->symbol() && (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF) 
+        if (exp->symbol() && (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF || exp->variant() == CONST_REF)
             && !(exp->symbol()->attributes() & PRIVATE_BIT))
         {
             const auto key = exp->symbol()->identifier();
@@ -3286,7 +3286,7 @@ static void recFillUsedVars(SgExpression *exp, map<string, SgSymbol*> &vars)
     }
 }
 
-static void fillUsedVars(SgStatement *st, map<string, SgSymbol*> &vars)
+static inline void fillUsedVars(SgStatement *st, map<string, SgSymbol*> &vars)
 {
     if (st)
     {
@@ -3298,7 +3298,7 @@ static void fillUsedVars(SgStatement *st, map<string, SgSymbol*> &vars)
     }
 }
 
-static void joinMaps(map<string, SgSymbol*> &map1, const map<string, SgSymbol*> &map2, const map<string, SgSymbol*> &exept = map<string, SgSymbol*>())
+static inline void joinMaps(map<string, SgSymbol*> &map1, const map<string, SgSymbol*> &map2, const map<string, SgSymbol*> &exept = map<string, SgSymbol*>())
 {
     for (auto &pair : map2)
         if (exept.find(pair.first) == exept.end() && map1.find(pair.first) == map1.end())

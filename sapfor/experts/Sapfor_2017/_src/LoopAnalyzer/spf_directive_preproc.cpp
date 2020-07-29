@@ -508,9 +508,21 @@ static bool checkParametersExpressionRec(SgStatement *st, SgStatement *attribute
     {
         if (exp->symbol())
         {
-            auto declStatement = declaratedInStmt(exp->symbol());
+            auto declStatement = declaratedInStmt(exp->symbol(), NULL, false);
 
-            if (!declStatement)
+            // check all used modules in function
+            auto moduleVar = false;
+            vector<SgStatement*> useStats;
+            fillUsedModulesInFunction(st, useStats);
+            for (auto &useSt : useStats)
+            {
+                map<string, SgSymbol*> visibleVars;
+                fillVisibleInUseVariables(useSt, visibleVars);
+                if (visibleVars.find(exp->symbol()->identifier()) != visibleVars.end())
+                    moduleVar = true;
+            }
+
+            if (!declStatement && !moduleVar)
             {
                 __spf_print(1, "Variable '%s' in %s clause must be declared at the same module in file '%s' on line %d.\n",
                             exp->symbol()->identifier(), "PARAMETER", st->fileName(), attributeStatement->lineNumber());

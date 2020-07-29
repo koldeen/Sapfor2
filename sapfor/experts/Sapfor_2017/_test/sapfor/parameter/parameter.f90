@@ -2,8 +2,23 @@ program PARAMTER
   call check
 end
 
+module constants
+implicit none
+   real, parameter::pi = 3.1415926536
+   real, parameter::e = 2.7182818285
+contains 
+  subroutine show_consts()
+    print*, "Pi = ", pi
+  contains
+    subroutine show_e()
+	  print*, "e = ", e
+	end subroutine show_e
+  end subroutine show_consts
+end module constants
+
 subroutine check
 implicit none
+use constants!, only: pi, p=>pi
   integer n,m,k,l,pn,nl,i,j,ii,jj,nnl
   parameter(N=6,M=8,K=8,L=6,PN=2,NL=1000)
   integer  A(N,M,K,L)
