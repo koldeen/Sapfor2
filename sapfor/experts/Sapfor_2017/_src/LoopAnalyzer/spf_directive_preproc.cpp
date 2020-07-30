@@ -500,6 +500,13 @@ static bool findSymbolInStatement(SgStatement *st, SgSymbol *s)
     return found;
 }
 
+static bool isOp(SgExpression *exp)
+{
+    if (!exp)
+        return true;
+    return exp->variant() >= DDOT && exp->variant() <= NOT_OP;
+}
+
 static bool checkParametersExpressionRec(SgStatement *st, SgStatement *attributeStatement, SgExpression *exp, vector<Messages> &messagesForFile)
 {
     bool retVal = true;
@@ -551,6 +558,19 @@ static bool checkParametersExpressionRec(SgStatement *st, SgStatement *attribute
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1057));
                 retVal = false;
             }
+        }
+        else if (!isOp(exp))
+        {
+            __spf_print(1, "In PARAMETER clause can be used only variables in file '%s' on line %d.\n",
+                            st->fileName(), attributeStatement->lineNumber());
+
+            wstring messageE, messageR;
+            __spf_printToLongBuf(messageE, L"In PARAMETER clause can be used only variables.");
+
+            __spf_printToLongBuf(messageR, R176);
+
+            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1058));
+            retVal = false;
         }
 
         auto leftResult = checkParametersExpressionRec(st, attributeStatement, exp->lhs(), messagesForFile);
