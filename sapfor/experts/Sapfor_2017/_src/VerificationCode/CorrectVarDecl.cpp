@@ -543,7 +543,8 @@ void correctModuleProcNames(SgFile *file, const set<string> &globalF)
             if (isSgExecutableStatement(st))
             {
                 SgStatement *cp = st->controlParent();
-                while (cp->variant() != MODULE_STMT && cp->variant() != PROG_HEDR && cp->variant() != GLOBAL)
+                while (cp->variant() != MODULE_STMT && cp->variant() != PROG_HEDR &&
+                       cp->variant() != PROC_HEDR && cp->variant() != FUNC_HEDR && cp->variant() != GLOBAL)
                     cp = cp->controlParent();
 
                 if (st->variant() == PROC_STAT)
