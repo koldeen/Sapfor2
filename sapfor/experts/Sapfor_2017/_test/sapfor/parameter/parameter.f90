@@ -30,6 +30,7 @@ use constants!, only: pi, p=>pi
 !$SPF ANALYSIS(PARAMETER(N=6))
 !$SPF ANALYSIS(PARAMETER(N=6,M=8))
 !$SPF ANALYSIS(PARAMETER(N=M-2))
+!$SPF ANALYSIS(PARAMETER(A(i,j,ii,jj)=M-2, i=1))
   do i=1,N
 !$SPF ANALYSIS(PARAMETER(M=8))
     do j=1,M

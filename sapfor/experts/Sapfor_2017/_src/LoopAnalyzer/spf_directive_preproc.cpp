@@ -500,13 +500,6 @@ static bool findSymbolInStatement(SgStatement *st, SgSymbol *s)
     return found;
 }
 
-static bool isOp(SgExpression *exp)
-{
-    if (!exp)
-        return true;
-    return exp->variant() >= DDOT && exp->variant() <= NOT_OP;
-}
-
 static bool checkParametersExpressionRec(SgStatement *st, SgStatement *attributeStatement, SgExpression *exp, vector<Messages> &messagesForFile)
 {
     bool retVal = true;
@@ -559,19 +552,6 @@ static bool checkParametersExpressionRec(SgStatement *st, SgStatement *attribute
                 retVal = false;
             }
         }
-        else if (!isOp(exp))
-        {
-            __spf_print(1, "In PARAMETER clause can be used only variables in file '%s' on line %d.\n",
-                            st->fileName(), attributeStatement->lineNumber());
-
-            wstring messageE, messageR;
-            __spf_printToLongBuf(messageE, L"In PARAMETER clause can be used only variables.");
-
-            __spf_printToLongBuf(messageR, R176);
-
-            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1058));
-            retVal = false;
-        }
 
         auto leftResult = checkParametersExpressionRec(st, attributeStatement, exp->lhs(), messagesForFile);
         auto rightResult = checkParametersExpressionRec(st, attributeStatement, exp->rhs(), messagesForFile);
@@ -582,7 +562,7 @@ static bool checkParametersExpressionRec(SgStatement *st, SgStatement *attribute
     return retVal;
 }
 
-static bool checkParameter(SgStatement *st, SgStatement *attributeStatement, const vector<Symbol*> &idents, vector<Messages> &messagesForFile)
+static bool checkParameter(SgStatement *st, SgStatement *attributeStatement, const vector<Expression*> &assigns, vector<Messages> &messagesForFile)
 {
     bool retVal = true;
 
@@ -600,16 +580,26 @@ static bool checkParameter(SgStatement *st, SgStatement *attributeStatement, con
         retVal = false;
     }
 
-    for (auto &ident : idents)
+    for (auto &assign : assigns)
     {
-        auto s = ident->GetOriginal();
-        auto sc = isSgConstantSymb(s);
-        if (sc && sc->constantValue())
+        auto assignExp = assign->GetOriginal();
+        auto var = assignExp->lhs()->variant();
+
+        if (var != VAR_REF)
         {
-            auto exp = sc->constantValue();
-            auto result = checkParametersExpressionRec(st, attributeStatement, exp, messagesForFile);
-            retVal = retVal && result;
+            __spf_print(1, "Left part of PARAMETER clause must be a variable in file '%s' on line %d.\n",
+                        st->fileName(), attributeStatement->lineNumber());
+
+            wstring messageE, messageR;
+            __spf_printToLongBuf(messageE, L"Left part of PARAMETER clause must be a variable.");
+            __spf_printToLongBuf(messageR, R176);
+
+            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1058));
+            retVal = false;
         }
+
+        auto result = checkParametersExpressionRec(st, attributeStatement, assignExp->rhs(), messagesForFile);
+        retVal = retVal && result;
     }
 
     return retVal;
@@ -1722,11 +1712,11 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             }
 
             // PARAMETER(ident=expr)
-            vector<Symbol*> idents;
-            fillParameterFromComment(new Statement(attributeStatement), idents);
-            if (idents.size())
+            vector<Expression*> assigns;
+            fillParameterFromComment(new Statement(attributeStatement), assigns);
+            if (assigns.size())
             {
-                bool result = checkParameter(st, attributeStatement, idents, messagesForFile);
+                bool result = checkParameter(st, attributeStatement, assigns, messagesForFile);
                 retVal = retVal && result;
             }
         }

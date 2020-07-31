@@ -71,7 +71,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   55 "wrong mask value in %d position: it can be only 0 or 1 in file '%s' on line %d"
 //   56 "array '%s' in shrink clause must be also declared in private clause in file '%s' on line %d"
 //   57 "Variable '%s' in %s clause must be used in next statement in file '%s' on line %d.\n."
-//   58 "In PARAMETER clause can be used only variables in file '%s' on line %d."
+//   58 "Left part of PARAMETER clause must be a variable in file '%s' on line %d.\n"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"

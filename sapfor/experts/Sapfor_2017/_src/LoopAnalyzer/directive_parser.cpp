@@ -215,8 +215,7 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<tuple<fillType, 
 template void fillReductionsFromComment(Statement *st, map<string, set<tuple<string, string, int>>> &reduction, bool);
 template void fillReductionsFromComment(Statement *st, map<string, set<tuple<Symbol*, Symbol*, int>>> &reduction, bool);
 
-template<typename fillType>
-void fillParameterFromComment(Statement *stIn, vector<fillType> &idents)
+void fillParameterFromComment(Statement *stIn, vector<Expression*> &assigns)
 {
     if (stIn)
     {
@@ -231,9 +230,7 @@ void fillParameterFromComment(Statement *stIn, vector<fillType> &idents)
                     auto paramList = exprList->lhs()->lhs();
                     while (paramList)
                     {
-                        fillType ident, *dummy = NULL;
-                        ident = getData(paramList->lhs(), dummy);
-                        idents.push_back(ident);
+                        assigns.push_back(new Expression(paramList->lhs()));
                         paramList = paramList->rhs();
                     }
                 }
@@ -242,9 +239,6 @@ void fillParameterFromComment(Statement *stIn, vector<fillType> &idents)
         }
     }
 }
-
-template void fillParameterFromComment(Statement *st, vector<Expression*> &idents);
-template void fillParameterFromComment(Statement *st, vector<Symbol*> &idents);
 
 template<typename fillType>
 static void fillShadowAcross(const int type, Statement *stIn, vector<pair<pair<fillType, string>, vector<pair<int, int>>>> &data, set<fillType> *corner = NULL)
