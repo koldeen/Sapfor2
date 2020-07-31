@@ -410,6 +410,7 @@ static void addRealArraysRef(set<DIST::Array*>& writesTo, const set<DIST::Array*
     }
 }
 
+//TODO: may be remove
 static void fillFromFunction(const string& s, set<DIST::Array*>& writesTo,
                              const map<string, FuncInfo*>& mapFuncs, 
                              const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls)
@@ -418,29 +419,29 @@ static void fillFromFunction(const string& s, set<DIST::Array*>& writesTo,
     {
         auto it = mapFuncs.find(s);
         if (it != mapFuncs.end())
-            addRealArraysRef(writesTo, it->second->usedArraysWrite, arrayLinksByFuncCalls);
-        else // TODO: fill all used arrays for writes in common and in modules 
-        {
-
-        }
+            addRealArraysRef(writesTo, it->second->usedArraysWrite, arrayLinksByFuncCalls);        
     }
 }
 
-static void findFuncCalls(SgExpression* ex, set<DIST::Array*>& writesTo,
-                          const map<string, FuncInfo*>& mapFuncs, 
-                          const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls)
+static void findFuncCalls(SgExpression* ex, vector<NextNode>& next, 
+                          const map<void*, ShadowNode*>& allShadowNodes,
+                          const set<DIST::Array*>& writesTo)
 {
     if (ex)
     {
         if (ex->variant() == FUNC_CALL)
-            fillFromFunction(ex->symbol()->identifier(), writesTo, mapFuncs, arrayLinksByFuncCalls);
+        {
+            if (isIntrinsicFunctionName(ex->symbol()->identifier()) == false)
+                if (allShadowNodes.find(ex) != allShadowNodes.end())
+                    next.push_back(NextNode(allShadowNodes.find(ex)->second, writesTo));
+        }
 
-        findFuncCalls(ex->lhs(), writesTo, mapFuncs, arrayLinksByFuncCalls);
-        findFuncCalls(ex->rhs(), writesTo, mapFuncs, arrayLinksByFuncCalls);
+        findFuncCalls(ex->lhs(), next, allShadowNodes, writesTo);
+        findFuncCalls(ex->rhs(), next, allShadowNodes, writesTo);
     }
 }
 
-static void findNext(SgStatement* st, SgStatement* end, vector<pair<ShadowNode*, set<DIST::Array*>>>& next, const map<void*, ShadowNode*>& allShadowNodes,
+static void findNext(SgStatement* st, SgStatement* end, vector<NextNode>& next, const map<void*, ShadowNode*>& allShadowNodes,
                      const ShadowNode* currDir, map<int, SgStatement*>& labeledStmts, set<DIST::Array*> writesTo,
                      const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls,
                      const map<string, FuncInfo*>& mapFuncs)
@@ -450,7 +451,7 @@ static void findNext(SgStatement* st, SgStatement* end, vector<pair<ShadowNode*,
         const int var = st->variant();
         if (var == DVM_PARALLEL_ON_DIR)
         {
-            next.push_back(make_pair(allShadowNodes.find(st)->second, writesTo));
+            next.push_back(NextNode(allShadowNodes.find(st)->second, writesTo));
             break;
         }
         else
@@ -541,10 +542,18 @@ static void findNext(SgStatement* st, SgStatement* end, vector<pair<ShadowNode*,
             else if (var == CONTROL_END)
             {
                 auto cp = st->controlParent();
-                if (((SgStatement*)currDir->dir)->controlParent() == cp)
+                if (cp->variant() == FOR_NODE || cp->variant() == WHILE_NODE)
                 {
-                    if (cp->variant() == FOR_NODE || cp->variant() == WHILE_NODE)
+                    SgStatement* tmpSt = NULL;
+                    if (currDir->type != FUNCTION_CALL)
+                        tmpSt = ((SgStatement*)currDir->info);
+                    else
+                        tmpSt = SgStatement::getStatementByFileAndLine(currDir->location.first->fileName, currDir->location.second);
+                    checkNull(tmpSt, convertFileName(__FILE__).c_str(), __LINE__);
+                    if (tmpSt->controlParent() == cp)
+                    {
                         findNext(cp->lexNext(), st, next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs);
+                    }
                 }
             }
             else if (var == ASSIGN_STAT)
@@ -553,7 +562,8 @@ static void findNext(SgStatement* st, SgStatement* end, vector<pair<ShadowNode*,
                 {
                     auto s = st->expr(0)->symbol();
                     DIST::Array* inPar = getArrayFromDeclarated(declaratedInStmt(s), s->identifier());
-                    addRealArraysRef(writesTo, { inPar }, arrayLinksByFuncCalls);
+                    if (inPar)
+                        addRealArraysRef(writesTo, { inPar }, arrayLinksByFuncCalls);
                 }
             }
             else if (var == LOGIF_NODE)
@@ -577,13 +587,46 @@ static void findNext(SgStatement* st, SgStatement* end, vector<pair<ShadowNode*,
 
             }
             else if (var == PROC_STAT)
-                fillFromFunction(st->symbol()->identifier(), writesTo, mapFuncs, arrayLinksByFuncCalls);
+            {
+                if (isIntrinsicFunctionName(st->symbol()->identifier()) == false)
+                {
+                    if (allShadowNodes.find(st) != allShadowNodes.end())
+                    {
+                        next.push_back(NextNode(allShadowNodes.find(st)->second, writesTo));
+                        break;
+                    }                    
+                }
+            }
+            else if (var == STOP_STAT || var == RETURN_STAT)
+            {
+                if (allShadowNodes.find(st) != allShadowNodes.end())
+                {
+                    next.push_back(NextNode(allShadowNodes.find(st)->second, writesTo));
+                    break;
+                }
+            }
+            else if (var == CONTAINS_STMT)
+            {
+                st = st->controlParent()->lastNodeOfStmt();
+                break;
+            }
+            else
+            {
+            //TODO: 
+                int lastSize = next.size();
+                //find func calls
+                for (int z = 0; z < 3; ++z)
+                    findFuncCalls(st->expr(z), next, allShadowNodes, writesTo);
 
-            //find func calls
-            for (int z = 0; z < 3; ++z)
-                findFuncCalls(st->expr(z), writesTo, mapFuncs, arrayLinksByFuncCalls);
+                if (lastSize != next.size())
+                    break;
+            }
         }
     }
+
+    if (st->variant() == CONTROL_END)
+        if (allShadowNodes.find(st) != allShadowNodes.end())
+            next.push_back(NextNode(allShadowNodes.find(st)->second, writesTo));
 }
 
 static void viewGraph(CBasicBlock *first)
@@ -611,36 +654,9 @@ static void viewGraph(CBasicBlock *first)
     }
 }
 
-static int getLine(void *dir)
-{
-    return ((SgStatement*)dir)->lexNext()->lineNumber();
-}
-
-static string getNodeName(ShadowNode* node)
-{
-    return std::to_string(getLine(node->dir)) + ":" + std::to_string(node->newShadows.size()) + ":" + std::to_string(node->newCorners.size());
-}
-
-static void buildGraphViz(const map<void*, ShadowNode*>& nodes, ShadowNode* start)
-{
-    string graph = "digraph G{\n";
-    set<string> lines;
-    for (auto& elem : nodes)
-    {
-        string curr = getNodeName(elem.second);
-        for (auto& next : elem.second->next)
-            lines.insert("\"" + curr + "\"->\"" + getNodeName(next.first) + "\"\n");
-    }
-    lines.insert(string("\"START") + "\"->\"" + getNodeName(start) + "\"\n");
-    for (auto& line : lines)
-        graph += line;
-    graph += "}\n";
-    printf("%s\n", graph.c_str());
-}
-
-static int groupingShadowNodes(map<void*, ShadowNode*>& allShadowNodes)
-{
-    //buildGraphViz(currF->allShadowNodes, currF->shadowTree);
+extern int keepFiles;
+static int groupingShadowNodes(set<ShadowNode*>& allShadowNodes)
+{    
     int moveCount = 0;
     bool changes = true;
     while (changes)
@@ -648,68 +664,106 @@ static int groupingShadowNodes(map<void*, ShadowNode*>& allShadowNodes)
         changes = false;
         for (auto& shadow : allShadowNodes)
         {
-            for (auto& next : shadow.second->next)
+            ShadowNode* currNode = shadow;
+            if (currNode->type != PARALLEL_DIR)
+                continue;
+
+            vector<set<DIST::Array*>> writes;
+            for (auto& prev : currNode->prev)
             {
-                //dont move back
-                if (shadow.second->IsBackDirection(next.first->location))
-                    continue;
-
-                ShadowNode* nextNode = next.first;
-                vector<set<DIST::Array*>> writes;
-                for (auto& prev : next.first->prev)
+                for (int i = 0; i < prev.shNode->next.size(); ++i)
                 {
-                    for (int i = 0; i < prev->next.size(); ++i)
+                    if (prev.shNode->next[i].shNode == currNode)
                     {
-                        if (prev->next[i].first == nextNode)
-                        {
-                            writes.push_back(prev->next[i].second);
-                            break;
-                        }
+                        writes.push_back(prev.shNode->next[i].writeTo);
+                        break;
                     }
                 }
-                if (writes.size() != next.first->prev.size())
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                vector<pair<DIST::Array*, vector<pair<int, int>>>> rewriteSh;
-                for (auto& sh : next.first->newShadows)
-                {
-                    bool checkOK = true;
-                    for (auto& wr : writes)
-                        for (auto& array : wr)
-                            if (array == sh.first)
-                                checkOK = false;
-
-                    if (checkOK)
-                    {
-                        for (int i = 0; i < next.first->prev.size(); ++i)
-                        {
-                            if (i != next.first->prev.size() - 1)
-                            {
-                                auto tmpCopy = next.first->newCorners;
-                                shadow.second->MoveShadow(sh, tmpCopy);
-                            }
-                            else
-                                shadow.second->MoveShadow(sh, next.first->newCorners);
-
-                            changes = true;
-                            ++moveCount;
-                        }
-                    }
-                    else
-                        rewriteSh.push_back(sh);
-                }
-                next.first->newShadows = rewriteSh;
             }
+            if (writes.size() != currNode->prev.size())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            map<DIST::Array*, vector<ShadowElement>> rewriteSh;
+            for (auto& sh : currNode->newShadows)
+            {
+                bool checkOK = true;
+                for (auto& wr : writes)
+                    for (auto& array : wr)
+                        if (array == sh.first)
+                            checkOK = false;
+
+                if (checkOK)
+                {
+                    for (auto& prev : currNode->prev)
+                    {
+                        //dont move back
+                        if (prev.isBackWard && *prev.isBackWard)
+                            continue;
+                        prev.shNode->MoveShadow(sh);
+
+                        changes = true;
+                        ++moveCount;
+                    }                    
+                }
+                else
+                    rewriteSh[sh.first] = sh.second;
+            }
+            currNode->newShadows = rewriteSh;
         }
     }
+
+    if (moveCount)
+        for (auto& shadow : allShadowNodes)
+            shadow->MergeNewShadowElements();
+
     return moveCount;
 }
 
-static void replacingShadowNodes(map<void*, ShadowNode*>& allShadowNodes)
-{
-    for (auto& shadow : allShadowNodes)
+static void detectBackWard(ShadowNode* node, set<ShadowNode*> visited, set<ShadowNode*>& allVisited)
+{    
+    while (node)
     {
-        if (shadow.second->newShadows != shadow.second->shadows || shadow.second->newCorners != shadow.second->corners)
+        allVisited.insert(node);
+        visited.insert(node);
+        if (node->next.size() == 0)
+            break;
+
+        if (node->next.size() == 1)
+        {
+            if (visited.find(node->next[0].shNode) != visited.end())
+            {
+                node->next[0].isBackWard = true;
+                break;
+            }
+            else
+                node = node->next[0].shNode;
+        }
+        else
+        {
+            for (auto& nodesNext : node->next)
+            {
+                ShadowNode* next = nodesNext.shNode;
+                if (visited.find(next) != visited.end())
+                    nodesNext.isBackWard = true;
+                else
+                {
+                    auto visNext = visited;
+                    visNext.insert(next);
+                    detectBackWard(next, visNext, allVisited);
+                }
+            }
+            break;
+        }
+    }
+}
+
+static void replacingShadowNodes(FuncInfo* currF)
+{
+    for (auto& shadow : currF->allShadowNodes)
+    {
+        SgStatement* parallelDir = (SgStatement*)shadow.first;
+        if (shadow.second->newShadows != shadow.second->shadows &&
+            parallelDir->variant() == DVM_PARALLEL_ON_DIR)
         {
             int inserted = 0;
             auto expr = new SgExpression(EXPR_LIST);
@@ -717,6 +771,10 @@ static void replacingShadowNodes(map<void*, ShadowNode*>& allShadowNodes)
             for (auto& currSh : shadow.second->newShadows)
             {
                 DIST::Array* currArray = currSh.first;
+                if (currSh.second.size() == 0)
+                    continue;
+
+                const ShadowElement& currElement = currSh.second[0];
 
                 if (inserted != 0)
                     p = createAndSetNext(RIGHT, EXPR_LIST, p);
@@ -726,16 +784,27 @@ static void replacingShadowNodes(map<void*, ShadowNode*>& allShadowNodes)
                     p = createAndSetNext(LEFT, EXPR_LIST, p);
                 }
 
-                SgArrayRefExp* newArrayRef = new SgArrayRefExp(*currArray->GetDeclSymbol());
+                SgSymbol* s = currArray->GetDeclSymbol()->GetOriginal();
+
+                auto itTmp = currElement.origNameByProc.find(currF);
+                if (itTmp == currElement.origNameByProc.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                const string nameInProc = itTmp->second;
+
+                SgArrayRefExp* newArrayRef = NULL;
+                if (nameInProc == s->identifier())
+                    newArrayRef = new SgArrayRefExp(*s);
+                else
+                    newArrayRef = new SgArrayRefExp(*findSymbolOrCreate(current_file, nameInProc));
                 newArrayRef->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
 
-                auto zeroShifts = currSh.second;
+                auto zeroShifts = currElement.bounds;
                 std::fill(zeroShifts.begin(), zeroShifts.end(), make_pair(0, 0));
 
-                for (auto& elem : genSubscripts(currSh.second, zeroShifts))
+                for (auto& elem : genSubscripts(currElement.bounds, zeroShifts))
                     newArrayRef->addSubscript(*elem);
 
-                if (shadow.second->newCorners.find(currArray) != shadow.second->newCorners.end())
+                if (currElement.corner)
                 {
                     SgExpression* tmp = new SgExpression(ARRAY_OP, newArrayRef, NULL, NULL);
                     p->setLhs(*tmp);
@@ -749,7 +818,7 @@ static void replacingShadowNodes(map<void*, ShadowNode*>& allShadowNodes)
                 inserted++;
             }
 
-            SgExpression* dirExp = ((SgStatement*)shadow.first)->expr(1);
+            SgExpression* dirExp = parallelDir->expr(1);
             if (inserted)
             {
                 bool changed = false;
@@ -766,13 +835,13 @@ static void replacingShadowNodes(map<void*, ShadowNode*>& allShadowNodes)
 
                 if (!changed)
                 {
-                    SgExpression* dirExp = ((SgStatement*)shadow.first)->expr(1);
+                    SgExpression* dirExp = parallelDir->expr(1);
                     SgExpression* tmp = new SgExpression(EXPR_LIST);
                     tmp->setLhs(expr->lhs());
                     tmp->setRhs(dirExp);
                     dirExp = tmp;
 
-                    ((SgStatement*)shadow.first)->setExpression(1, *dirExp);
+                    parallelDir->setExpression(1, *dirExp);
                 }
             }
             else
@@ -784,28 +853,13 @@ static void replacingShadowNodes(map<void*, ShadowNode*>& allShadowNodes)
                         newList.push_back(dirExp->lhs());
                     dirExp = dirExp->rhs();
                 }
-
-                SgExpression* list = new SgExpression(EXPR_LIST);
-                SgExpression* tmp = list;
-                for (int z = 0; z < newList.size(); ++z)
-                {
-                    tmp->setLhs(newList[z]);
-                    if (z != newList.size() - 1)
-                    {
-                        tmp->setRhs(new SgExpression(EXPR_LIST));
-                        tmp = tmp->rhs();
-                    }
-                    else
-                        tmp->setRhs(NULL);
-                }
-
-                ((SgStatement*)shadow.first)->setExpression(1, *list);
+                parallelDir->setExpression(1, *makeExprList(newList));
             }
         }
     }
 }
 
-static void fillShadowAcrossFromParallel(ShadowNode* newShNode, SgStatement* st, const DIST::Arrays<int>& allArrays)
+static void fillShadowAcrossFromParallel(FuncInfo* currF, ShadowNode* newShNode, SgStatement* st, const DIST::Arrays<int>& allArrays)
 {
     vector<pair<pair<string, string>, vector<pair<int, int>>>> shadows;
     set<string> corners;
@@ -814,16 +868,447 @@ static void fillShadowAcrossFromParallel(ShadowNode* newShNode, SgStatement* st,
 
     for (auto& shadow : shadows)
     {
-        DIST::Array* array = allArrays.GetArrayByName(shadow.first.second);        
-        newShNode->shadows.push_back(make_pair(array, shadow.second));
+        DIST::Array* array = allArrays.GetArrayByName(shadow.first.second);
+        
+        string nameInFunc = shadow.first.first;
+        auto isCorner = (corners.find(nameInFunc) != corners.end());
+        newShNode->shadows[array].push_back(ShadowElement(shadow.second, make_pair(currF, nameInFunc), isCorner));
+    }
+}
 
-        auto itCorner = corners.find(shadow.first.first);
-        if (itCorner != corners.end())
-            newShNode->corners.insert(array);
+static string getNodeName(ShadowNode* node, const map<FuncInfo*, int>& keyOfFunc)
+{
+    auto st = ((SgStatement*)node->info);
+    if (st->switchToFile() == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    int var = st->variant();
+    string ret = "F" + std::to_string(keyOfFunc.find(node->location.first)->second);
+    if (node->type == START)
+        ret += "_START";
+    else if (node->type == PROCEDURE_CALL)
+        ret += string("_call_") + st->symbol()->identifier();
+    else if (node->type == STOP)
+        ret += "_STOP";
+    else if (node->type == RETURN)
+        ret += "_RETURN";
+    else if (node->type != PARALLEL_DIR)
+        ret += "_END";
+
+    ret += "_" + std::to_string(node->location.second);
+    return ret;
+}
+
+static string getArrays(const NextNode& next)
+{
+    string ret = "(";
+    for (auto& elem : next.writeTo)
+        ret += elem->GetShortName() + ",";
+    if (ret[ret.size() - 1] == ',')
+        ret[ret.size() - 1] = ')';
+    else
+        ret += ")";
+    return ret == "()" ? "" : ret;
+}
+
+static string buildGraphVizNext(FuncInfo* currF, const map<FuncInfo*, int>& keyOfFunc, set<string>& nodes)
+{
+    string graph = "";
+
+    vector<string> lines;
+    for (auto& elem : currF->allShadowNodes)
+    {
+        string curr = getNodeName(elem.second, keyOfFunc);
+        nodes.insert(curr);
+        for (auto& next : elem.second->next)
+        {
+            string nextNode = getNodeName(next.shNode, keyOfFunc);
+            if (next.shNode->location.first == elem.second->location.first)
+                nodes.insert(nextNode);
+            string line = "\"" + curr + "\"->\"" + getNodeName(next.shNode, keyOfFunc) + "\"";
+            string label = getArrays(next);
+
+            if (next.isBackWard)
+                line += "[color=red,penwidth=3.0,label=\"" + label + "\"]";
+            else
+                line += "[label=\"" + label + "\"]";
+
+            line += "\n";
+            lines.push_back(line);
+        }
     }
 
-    newShNode->newShadows = newShNode->shadows;
-    newShNode->newCorners = newShNode->corners;
+    for (auto& line : lines)
+        graph += line;
+    return graph;
+}
+
+static string buildGraphVizPrev(FuncInfo* currF, const map<FuncInfo*, int>& keyOfFunc)
+{
+    string graph = "";
+
+    vector<string> lines;
+    for (auto& elem : currF->allShadowNodes)
+    {
+        string curr = getNodeName(elem.second, keyOfFunc);
+        for (auto& prev : elem.second->prev)
+        {
+            string nextPrev = getNodeName(prev.shNode, keyOfFunc);            
+            string line = "\"" + curr + "\"->" + "\"" + getNodeName(prev.shNode, keyOfFunc) + "\"";
+            line += "[color=green,penwidth=0.5]\n";
+            lines.push_back(line);
+        }
+    }
+
+    for (auto& line : lines)
+        graph += line;
+    return graph;
+}
+
+static void buildGraphViz(const map<string, vector<FuncInfo*>>& allFuncs, string fileOut = "", bool withPrev = false)
+{
+    string graph = "digraph G{\n";
+    map<FuncInfo*, int> keyOfFunc;
+    int key = 0;
+    for (auto& funcByFile : allFuncs)
+        for (auto& currF : funcByFile.second)
+            keyOfFunc[currF] = key++;
+
+    for (auto& funcByFile : allFuncs)
+    {
+        for (auto& currF : funcByFile.second)
+        {
+            set<string> nodes;
+            string lines = buildGraphVizNext(currF, keyOfFunc, nodes);
+            if (nodes.size())
+            {
+                graph += lines;
+                graph += "subgraph \"cluster_" + currF->funcName + ":" + currF->fileName + "\"{\n";
+                for (auto& node : nodes)
+                    graph += "\"" + node + "\"\n";
+                graph += "label=\"" + currF->funcName + ":" + currF->fileName + "\"\n";
+                graph += "}\n";
+            }
+            if (withPrev)
+                graph += buildGraphVizPrev(currF, keyOfFunc);
+
+        }
+    }
+    graph += "}\n";
+
+    FILE* f = NULL;
+    
+    if (fileOut == "") 
+        f = fopen("_shadowNodes.txt", "w");
+    else
+        f = fopen(fileOut.c_str(), "w");
+
+    if (f == NULL)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    fwrite(graph.c_str(), sizeof(char), graph.size(), f);
+    fclose(f);
+}
+
+static void removeNode(ShadowNode* node)
+{
+    for (auto& prev : node->prev)
+    {
+        for (auto& needed : prev.shNode->next)
+        {
+            if (needed.shNode == node)
+            {
+                vector<NextNode> newEdges;
+                for (auto& next : node->next)
+                {
+                    NextNode tmp = needed;
+                    tmp.isBackWard |= next.isBackWard;
+                    tmp.writeTo.insert(next.writeTo.begin(), next.writeTo.end());
+                    tmp.shNode = next.shNode;
+
+                    newEdges.push_back(tmp);
+                }
+
+                if (newEdges.size())
+                {
+                    needed = newEdges[0];
+                    for (int z = 1; z < newEdges.size(); ++z)
+                        prev.shNode->next.push_back(newEdges[z]);
+                }
+                break;
+            }
+        }
+    }
+
+    for (auto& next : node->next)
+    {
+        for (auto& needed : next.shNode->prev)
+        {
+            if (needed.shNode == node)
+            {
+                vector<PrevNode> newEdges = node->prev;
+                if (newEdges.size())
+                {
+                    needed = newEdges[0];
+                    for (int z = 1; z < newEdges.size(); ++z)
+                        next.shNode->prev.push_back(newEdges[z]);
+                }
+                break;
+            }
+        }
+    }
+}
+
+static void removeStartEnd(ShadowNode* node, FuncInfo* currF)
+{
+    removeNode(node);
+    for (auto& elem : currF->allShadowNodes)
+    {
+        if (elem.second == node)
+        {
+            currF->allShadowNodes.erase(elem.first);
+            break;
+        }
+    }
+}
+
+static void removeStartEnd(const map<string, vector<FuncInfo*>>& allFuncs)
+{
+    set<ShadowNode*> toDel;
+    for (auto& funcByFile : allFuncs)
+    {
+        for (auto& currF : funcByFile.second)
+        {
+            auto nodeS = currF->shadowTreeStart;
+            auto nodeE = currF->shadowTreeEnd;
+
+            if (nodeS && nodeS->prev.size())
+            {
+                removeStartEnd(nodeS, currF);
+                toDel.insert(currF->shadowTreeStart);
+                currF->shadowTreeStart = NULL;
+            }
+
+            if (nodeE && nodeE->next.size())
+            {
+                removeStartEnd(nodeE, currF);
+                toDel.insert(currF->shadowTreeEnd);
+                currF->shadowTreeEnd = NULL;
+            }
+        }
+    }
+
+    for (auto& del : toDel)
+        delete del;
+}
+
+static void removeStopStats(const map<string, vector<FuncInfo*>>& allFuncs)
+{
+    for (auto& funcByFile : allFuncs)
+    {
+        for (auto& currF : funcByFile.second)
+        {
+            map<void*, ShadowNode*> newNodes;
+            set<ShadowNode*> toDel;
+            for (auto& elem : currF->allShadowNodes)
+            {
+                ShadowNode* node = elem.second;
+                if (node->type == STOP || node->type == RETURN)
+                {
+                    toDel.insert(node);
+                    removeNode(node);
+                }
+                else
+                    newNodes[elem.first] = elem.second;
+            }
+
+            if (toDel.size())
+                currF->allShadowNodes = newNodes;
+            for (auto& del : toDel)
+                delete del;
+        }
+    }
+}
+
+static void setPrevNodes(FuncInfo* currF)
+{
+    for (auto& elem : currF->allShadowNodes)
+        for (auto& next : elem.second->next)
+            next.shNode->prev.push_back(PrevNode(elem.second, &next.isBackWard));
+}
+
+static void removeUnusedEdges(const map<string, vector<FuncInfo*>>& allFuncs)
+{
+    //remove loops
+    for (auto& funcByFile : allFuncs)
+    {
+        for (auto& currF : funcByFile.second)
+        {
+            for (auto& elem : currF->allShadowNodes)
+            {
+                ShadowNode* node = elem.second;
+                vector<NextNode> newNext;
+                set<DIST::Array*> writesToTheSame;
+                bool hasTheSame = false;
+                for (auto& next : node->next)
+                {
+                    if (next.shNode == node)
+                    {
+                        hasTheSame = true;
+                        writesToTheSame.insert(next.writeTo.begin(), next.writeTo.end());
+                    }
+                }
+
+                for (auto& next : node->next)
+                {
+                    if (next.shNode != node)
+                    {
+                        newNext.push_back(next);
+                        newNext.back().writeTo.insert(writesToTheSame.begin(), writesToTheSame.end());
+                    }
+                }
+
+                if (hasTheSame)
+                {
+                    node->next = newNext;
+                    vector<PrevNode> newPrev;
+                    for (auto& prev : node->prev)
+                        if (prev.shNode != node)
+                            newPrev.push_back(prev);
+
+                    if (node->prev.size() == newPrev.size())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    node->prev = newPrev;
+                }
+            }
+        }
+    }
+
+    //remove same edges
+    bool changed = false;
+    for (auto& funcByFile : allFuncs)
+    {
+        for (auto& currF : funcByFile.second)
+        {
+            for (auto& elem : currF->allShadowNodes)
+            {
+                ShadowNode* node = elem.second;
+                
+                map<ShadowNode*, NextNode> newNext;
+                for (auto& next : node->next)
+                {
+                    auto it = newNext.find(next.shNode);
+                    if (it == newNext.end())
+                        newNext[next.shNode] = next;
+                    else
+                        it->second.writeTo.insert(next.writeTo.begin(), next.writeTo.end());
+                }
+
+                if (newNext.size() != node->next.size())
+                {
+                    changed = true;
+                    node->next.clear();
+                    for (auto& elem : newNext)
+                        node->next.push_back(elem.second);
+                }
+            }
+        }
+    }
+
+    if (changed)
+    {
+        for (auto& funcByFile : allFuncs)
+            for (auto& currF : funcByFile.second)
+                for (auto& node : currF->allShadowNodes)
+                    node.second->prev.clear();
+
+        for (auto& funcByFile : allFuncs)
+            for (auto& currF : funcByFile.second)
+                setPrevNodes(currF);
+    }
+}
+
+static bool isFunctionEmpty(FuncInfo* func)
+{
+    if (func->shadowTreeStart->next.size() == 1 && 
+        func->shadowTreeStart->next[0].shNode == func->shadowTreeEnd)
+        return true;
+    else
+        return false;
+}
+
+static void replaceCalls(const map<string, vector<FuncInfo*>>& allFuncs, const map<string, FuncInfo*>& mapF)
+{
+    for (auto& funcByFile : allFuncs)
+    {
+        if (SgFile::switchToFile(funcByFile.first) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        for (auto& currF : funcByFile.second)
+        {
+            map<void*, ShadowNode*> newNodes;
+            set<ShadowNode*> toDel;
+            for (auto& node : currF->allShadowNodes)
+            {
+                if (node.second->type == PROCEDURE_CALL)
+                {
+                    string callName = ((SgStatement*)node.second->info)->symbol()->identifier();
+                    auto it = mapF.find(callName);
+                    if (it != mapF.end() && it->second->shadowTreeStart && it->second->shadowTreeEnd)
+                    {
+                        if (!isFunctionEmpty(it->second))
+                        {
+                            for (auto& prev : node.second->prev)
+                                it->second->shadowTreeStart->prev.push_back(prev);
+                            for (auto& prev : node.second->prev)
+                                for (auto& next : prev.shNode->next)
+                                    if (next.shNode == node.second)
+                                        next.shNode = it->second->shadowTreeStart;
+                            node.second->prev.clear();
+
+                            for (auto& realNext : node.second->next)
+                                it->second->shadowTreeEnd->next.push_back(realNext);
+                            for (auto& realNext : node.second->next)
+                                for (auto& prev : realNext.shNode->prev)
+                                    if (prev.shNode == node.second)
+                                        prev.shNode = it->second->shadowTreeEnd;
+                            node.second->next.clear();
+                        }
+                        else
+                        {
+                            for (auto& elem : node.second->next)
+                                elem.writeTo.insert(it->second->shadowTreeStart->next[0].writeTo.begin(), it->second->shadowTreeStart->next[0].writeTo.end());
+                            removeNode(node.second);
+                        }
+                        toDel.insert(node.second);
+                    }
+                    else
+                        newNodes.insert(node);
+                }
+                else
+                    newNodes.insert(node);
+            }
+            currF->allShadowNodes = newNodes;
+            for (auto& del : toDel)
+                delete del;
+        }
+    }
+}
+
+static void findFuncCalls(SgExpression* ex, FuncInfo* currF, const map<string, FuncInfo*>& mapF, const int line)
+{
+    if (ex)
+    {
+        if (ex->variant() == FUNC_CALL)
+        {
+            if (isIntrinsicFunctionName(ex->symbol()->identifier()) == false)
+                if (mapF.find(ex->symbol()->identifier()) != mapF.end())
+                    currF->allShadowNodes[ex] = new ShadowNode(ex, FUNCTION_CALL, currF, line);
+        }
+
+        findFuncCalls(ex->lhs(), currF, mapF, line);
+        findFuncCalls(ex->rhs(), currF, mapF, line);
+    }
 }
 
 static GraphsKeeper *graphsKeeper;
@@ -839,8 +1324,6 @@ void GroupShadow(const map<string, vector<FuncInfo*>> &allFuncs,
         for (auto &elem : byFile.second)
                 mapF[elem->funcName] = elem;
 
-    map<FuncInfo*, int> moveCounts;
-
     //building shadow graph
     for (auto& funcByFile : allFuncs)    
     {
@@ -849,11 +1332,13 @@ void GroupShadow(const map<string, vector<FuncInfo*>> &allFuncs,
         if (itL != loops.end())
             createMapLoopGraph(itL->second, mapLoops);
 
+        if (SgFile::switchToFile(funcByFile.first) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
         for (auto& currF : funcByFile.second)
         {
             SgStatement* func = currF->funcPointer->GetOriginal();
-            if (func->switchToFile() == false)
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+               
             //ControlFlowGraph* CGraph = gk->buildGraph(func)->CGraph;
             //viewGraph(CGraph->getFirst());
 
@@ -863,15 +1348,18 @@ void GroupShadow(const map<string, vector<FuncInfo*>> &allFuncs,
                 if (st->label())
                     labeledStmts[st->label()->thelabel->stateno] = st;
 
-            //find all PARALLEL dirs
+            //start node
+            currF->shadowTreeStart = currF->allShadowNodes[func] = new ShadowNode(func, START, currF, func->lineNumber());
+
+            //find all NODES
             for (SgStatement* st = func; st != func->lastNodeOfStmt(); st = st->lexNext())
             {
                 if (st->variant() == DVM_PARALLEL_ON_DIR)
                 {
-                    auto newShNode = new ShadowNode(st, currF, st->lexNext()->lineNumber());
+                    auto newShNode = new ShadowNode(st, PARALLEL_DIR, currF, st->lexNext()->lineNumber());
                     currF->allShadowNodes[st] = newShNode;
 
-                    fillShadowAcrossFromParallel(newShNode, st, allArrays);
+                    fillShadowAcrossFromParallel(currF, newShNode, st, allArrays);
 
                     st = st->lexNext();
                     if (st->variant() != FOR_NODE)
@@ -880,89 +1368,151 @@ void GroupShadow(const map<string, vector<FuncInfo*>> &allFuncs,
                 }
                 else if (st->variant() == CONTAINS_STMT)
                     break;
-            }
-
-            if (currF->allShadowNodes.size() == 0)
-                continue;
-
-            if (currF->allShadowNodes.size() != 1)
-            {
-                //find first
-                for (SgStatement* st = func; st != func->lastNodeOfStmt(); st = st->lexNext())
+                else if (st->variant() == STOP_STAT || st->variant() == RETURN_STAT) // end nodes
+                    currF->allShadowNodes[st] = new ShadowNode(st, st->variant() == STOP_STAT ? STOP : RETURN, currF, st->lineNumber());
+                else if (st->variant() == PROC_STAT)
                 {
-                    if (st->variant() == DVM_PARALLEL_ON_DIR)
-                    {
-                        currF->shadowTree = currF->allShadowNodes[st];
-                        break;
-                    }
-                    else if (st->variant() == CONTAINS_STMT)
-                        break;
+                    if (isIntrinsicFunctionName(st->symbol()->identifier()) == false)
+                        if (mapF.find(st->symbol()->identifier()) != mapF.end())
+                            currF->allShadowNodes[st] = new ShadowNode(st, PROCEDURE_CALL, currF, st->lineNumber());
                 }
+                else
+                {
+                    for (int z = 0; z < 3; ++z)
+                        findFuncCalls(st->expr(z), currF, mapF, st->lineNumber());
+                }
+            }
 
-                if (currF->shadowTree == NULL)
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-            }
-            else
-            {
-                currF->shadowTree = currF->allShadowNodes.begin()->second;
+            auto lastNode = func->lastNodeOfStmt(); // end node
+            auto natureLast = currF->allShadowNodes[lastNode] = new ShadowNode(lastNode, END, currF, lastNode->lineNumber());
+            currF->shadowTreeEnd = natureLast;
+
+            if (currF->allShadowNodes.size() <= 1)
                 continue;
-            }
 
             // set next
-            for (auto& elem : currF->allShadowNodes)
+            for (auto& node : currF->allShadowNodes)
             {
-                SgForStmt* start = (SgForStmt*)((SgStatement*)elem.first)->lexNext();
-
-                auto itLoop = mapLoops.find(start->lineNumber());
-                if (itLoop == mapLoops.end())
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
                 set<DIST::Array*> writesTo;
-                addRealArraysRef(writesTo, itLoop->second->usedArraysWrite, arrayLinksByFuncCalls);
+                auto dir = (SgStatement*)node.first;
+                auto type = node.second->type;
+                if (type == PARALLEL_DIR)
+                {
+                    dir = dir->lexNext();
+                    SgForStmt* start = isSgForStmt(dir);
+                    checkNull(start, convertFileName(__FILE__).c_str(), __LINE__);
+                    auto itLoop = mapLoops.find(start->lineNumber());
+                    if (itLoop == mapLoops.end())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    addRealArraysRef(writesTo, itLoop->second->usedArraysWrite, arrayLinksByFuncCalls);
+                    dir = start->lastNodeOfStmt();
+                }
+                else if (type == STOP || type == RETURN || type == END)
+                {
+                    if (type == STOP || type == RETURN)
+                        node.second->next.push_back(NextNode(natureLast, writesTo));
+                    continue;
+                }
+                else if (type == FUNCTION_CALL)
+                {
+                    dir = SgStatement::getStatementByFileAndLine(currF->fileName, node.second->location.second);
+                    checkNull(dir, convertFileName(__FILE__).c_str(), __LINE__);
+                }
 
                 //TODO: may be replace to GraphKeeper
-                findNext(start, func->lastNodeOfStmt(), elem.second->next, currF->allShadowNodes, elem.second, labeledStmts, writesTo, arrayLinksByFuncCalls, mapF);
+                findNext(dir->lexNext(), func->lastNodeOfStmt(), node.second->next, currF->allShadowNodes, node.second, labeledStmts, writesTo, arrayLinksByFuncCalls, mapF);
             }
 
-            //check for internal error
+            //remove the same nodes
             for (auto& elem : currF->allShadowNodes)
             {
                 set<pair<ShadowNode*, set<DIST::Array*>>> tmpl;
                 for (auto& listElem : elem.second->next)
-                    tmpl.insert(listElem);
+                    tmpl.insert(make_pair(listElem.shNode, listElem.writeTo));
                 if (tmpl.size() != elem.second->next.size())
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                {
+                    elem.second->next.clear();
+                    for (auto& uniq : tmpl)
+                        elem.second->next.push_back(NextNode(uniq.first, uniq.second));
+                }
             }
 
-            // set prev
-            for (auto& elem : currF->allShadowNodes)
-                for (auto& next : elem.second->next)
-                    next.first->prev.push_back(elem.second);
+            setPrevNodes(currF);
         }
     }
 
-    //TODO: do it interprocess!
-    // grouping
+    bool deb = false;
+    bool withPrev = false;
+    if (deb)
+        buildGraphViz(allFuncs, "_sh0.txt", withPrev);
+
+    removeStopStats(allFuncs);
+    removeUnusedEdges(allFuncs);
+    if (deb)
+        buildGraphViz(allFuncs, "_sh1.txt", withPrev);
+
+    replaceCalls(allFuncs, mapF);
+    removeUnusedEdges(allFuncs);
+    if (deb)
+        buildGraphViz(allFuncs, "_sh2.txt", withPrev);
+
+    removeStartEnd(allFuncs);
+    removeUnusedEdges(allFuncs);
+    if (deb)
+        buildGraphViz(allFuncs, "_sh3.txt", withPrev);
+
+    //detect backward
+    set<ShadowNode*> allNodes;
     for (auto& funcByFile : allFuncs)
-    {
         for (auto& currF : funcByFile.second)
+            for (auto& elem : currF->allShadowNodes)
+                allNodes.insert(elem.second);
+
+    set<ShadowNode*> visited;
+    while (visited.size() != allNodes.size())
+    {
+        ShadowNode* next = NULL;
+        for (auto& elem : allNodes)
         {
-            moveCounts[currF] = groupingShadowNodes(currF->allShadowNodes);
-            __spf_print(1, "  shadow moveCount %d for function '%s'\n", moveCounts[currF], currF->funcName.c_str());
+            if (visited.find(elem) == visited.end())
+            {
+                if (elem->prev.size() == 0)
+                {
+                    next = elem;
+                    break;
+                }
+            }
         }
+        if (next)
+            detectBackWard(next, { }, visited);
     }
+    if (deb)
+        buildGraphViz(allFuncs, "_sh4.txt", withPrev);
+
+    if (keepFiles)
+        buildGraphViz(allFuncs);
+
+    // grouping
+    allNodes.clear();
+    for (auto& funcByFile : allFuncs)
+        for (auto& currF : funcByFile.second)
+            for (auto& elem : currF->allShadowNodes)
+                allNodes.insert(elem.second);
+
+    map<FuncInfo*, int> moveCounts;
+    for (auto& shadow : allNodes)
+        shadow->newShadows = shadow->shadows;
+    int moves = groupingShadowNodes(allNodes);
+    __spf_print(1, "  shadow total moveCount %d\n", moves);
 
     //replacing
     for (auto& funcByFile : allFuncs)
     {
         for (auto& currF : funcByFile.second)
         {
-            if (moveCounts[currF] != 0)
-            {
-                if (currF->funcPointer->GetOriginal()->switchToFile() == false)
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                replacingShadowNodes(currF->allShadowNodes);
-            }
+            if (currF->funcPointer->GetOriginal()->switchToFile() == false)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            replacingShadowNodes(currF);
         }
     }
 }

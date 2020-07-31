@@ -1857,6 +1857,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     GroupShadow(allFuncInfo, loopGraph, parallelRegions[z]->GetAllArraysToModify(), arrayLinksByFuncCalls);
             }
         }
+        else
+            __spf_print(1, "skip\n");
     }
 
 #if _WIN32
@@ -2192,7 +2194,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             {
                 for (auto &func : funcbyFile.second)
                 {
-                    func->shadowTree = NULL;
+                    func->shadowTreeStart = NULL;
+                    func->shadowTreeEnd = NULL;
                     for (auto &sh : func->allShadowNodes)
                         delete sh.second;
                     func->allShadowNodes.clear();

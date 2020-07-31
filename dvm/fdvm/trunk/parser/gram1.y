@@ -633,7 +633,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <bf_node> spf_checkpoint
 %type <ll_node> analysis_spec_list analysis_spec analysis_reduction_spec analysis_private_spec analysis_parameter_spec
 %type <ll_node> parallel_spec_list parallel_spec parallel_shadow_spec parallel_across_spec parallel_remote_access_spec
-%type <ll_node> transform_spec_list transform_spec array_element_list
+%type <ll_node> transform_spec_list transform_spec array_element_list spf_parameter_list spf_parameter
 %type <ll_node> characteristic characteristic_list opt_clause_apply_region opt_clause_apply_fragment 
 %type <ll_node> checkpoint_spec checkpoint_spec_list spf_type_list spf_type interval_spec
 %type <symbol>  region_name 
@@ -8021,9 +8021,18 @@ analysis_private_spec:   needkeyword PRIVATE LEFTPAR variable_list RIGHTPAR
                { $$ = make_llnd(fi,ACC_PRIVATE_OP,$4,LLNULL,SMNULL);} 
                      ;
 
-analysis_parameter_spec: needkeyword PARAMETER LEFTPAR paramlist RIGHTPAR
+analysis_parameter_spec: needkeyword PARAMETER LEFTPAR spf_parameter_list RIGHTPAR
                { $$ = make_llnd(fi,SPF_PARAMETER_OP,$4,LLNULL,SMNULL);}
                      ;   
+spf_parameter_list: spf_parameter
+	       { $$ = set_ll_list($1, LLNULL, EXPR_LIST); }
+	     | spf_parameter_list COMMA spf_parameter
+               { $$ = set_ll_list($1, $3, EXPR_LIST); }
+             ;
+
+spf_parameter: array_element EQUAL expr
+	     { $$ = make_llnd(fi, ASSGN_OP, $1, $3, SMNULL); }
+	     ;
 
 parallel_spec_list:  parallel_spec
 	       { $$ = set_ll_list($1,LLNULL,EXPR_LIST); }
@@ -8035,7 +8044,6 @@ parallel_spec: parallel_shadow_spec
              | parallel_across_spec
              | parallel_remote_access_spec     
              ;
-
 
 parallel_shadow_spec:  needkeyword SHADOW LEFTPAR shadow_list RIGHTPAR
                 { $$ = make_llnd(fi,SHADOW_OP,$4,LLNULL,SMNULL);}

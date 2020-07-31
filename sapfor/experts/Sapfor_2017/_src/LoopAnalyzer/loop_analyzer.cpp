@@ -616,6 +616,25 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                                     debOutStr += buf;
 
                                     DIST::Array *loopTempl = loopT->GetTemplateArray(reg->GetId());
+                                    vector<int> loopAlignCoefs = loopT->GetLinksWithTemplate(reg->GetId());
+
+                                    if (loopTempl == NULL)
+                                    {
+                                        set<DIST::Array*> tmpSet;
+                                        getRealArrayRefs(loopT, loopT, tmpSet, arrayLinksByFuncCalls);
+
+                                        set<DIST::Array*> templates;
+                                        for (auto& elem : tmpSet)
+                                        {
+                                            loopTempl = elem->GetTemplateArray(reg->GetId());
+                                            loopAlignCoefs = elem->GetLinksWithTemplate(reg->GetId());
+                                            templates.insert(loopTempl);
+                                        }
+
+                                        if (templates.size() != 1)
+                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                    }
 
                                     sprintf(buf, "RemoteAccess[%d]: z = %d, array '%s'\n", __LINE__, z, loopTempl->GetShortName().c_str());
                                     debOutStr += buf;
@@ -623,7 +642,12 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                                     if (templ != loopTempl)
                                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                                    auto loopAlignCoefs = loopT->GetLinksWithTemplate(reg->GetId());
+                                    if (loopAlignCoefs.size() == 0)
+                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                    
+                                    if (loopAlignCoefs.size() <= dimToMap)
+                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
                                     if (loopAlignCoefs[dimToMap] == -1)
                                     {
                                         if (loop->loop->GetOriginal()->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)

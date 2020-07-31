@@ -123,7 +123,8 @@ struct FuncInfo
                                                      // if (FuncsCalledFromThis[func_call_idx].
                                                     // NoOfParamUsedForCall.size() == 0) - no params of cur func used
 
-    ShadowNode *shadowTree;
+    ShadowNode* shadowTreeStart;
+    ShadowNode* shadowTreeEnd;
     std::map<void*, ShadowNode*> allShadowNodes;
     std::set<DIST::Array*> allUsedArrays; // real array refs
     std::set<DIST::Array*> usedArraysWrite; // real array refs
@@ -152,18 +153,18 @@ struct FuncInfo
 
     FuncInfo() :
         doNotInline(false), funcPointer(NULL), doNotAnalyze(false), needToInline(false), 
-        deadFunction(false), inRegion(0), isPure(false), isMain(false), shadowTree(NULL),
+        deadFunction(false), inRegion(0), isPure(false), isMain(false), shadowTreeStart(NULL), shadowTreeEnd(NULL),
         isInterface(false) { }
 
     FuncInfo(const std::string &funcName, const std::pair<int, int> &lineNum) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(NULL),
         doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false), 
-        isPure(false), shadowTree(NULL), isInterface(false) { }
+        isPure(false), shadowTreeStart(NULL), shadowTreeEnd(NULL), isInterface(false) { }
 
     FuncInfo(const std::string &funcName, const std::pair<int, int> &lineNum, Statement *pointer) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(pointer),
         doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false), 
-        isPure(false), shadowTree(NULL), isInterface(false) { fileName = pointer->fileName(); }
+        isPure(false), shadowTreeStart(NULL), shadowTreeEnd(NULL), isInterface(false) { fileName = pointer->fileName(); }
 
     std::vector<std::pair<void*, int>> GetDetailedCallInfo(const std::string &funcName)
     {

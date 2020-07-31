@@ -151,6 +151,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("dflotk"));
 #ifdef __SPF
     intrinsicF.insert(string("dint"));
+    intrinsicF.insert(string("dvtime"));
 #endif
     intrinsicF.insert(string("dmax1"));
     intrinsicF.insert(string("dmin1"));
@@ -199,6 +200,9 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("erf"));
     intrinsicF.insert(string("erfc"));
     intrinsicF.insert(string("erfc_scaled"));
+#ifdef __SPF
+    intrinsicF.insert(string("etime"));
+#endif
     intrinsicF.insert(string("float"));    
     intrinsicF.insert(string("floati"));
     intrinsicF.insert(string("floatj"));
