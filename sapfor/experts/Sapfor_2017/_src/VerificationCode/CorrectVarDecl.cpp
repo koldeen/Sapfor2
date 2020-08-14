@@ -263,6 +263,8 @@ static void changeNameOfModuleFunc(string funcName, SgSymbol *curr, const map<st
         }
     }
 
+    string newName = "";
+
     if (callInMod == "")
     {
         set<pair<string, string>> filter;
@@ -297,7 +299,7 @@ static void changeNameOfModuleFunc(string funcName, SgSymbol *curr, const map<st
         {
             //XXX
             if (funcName.find("::") != string::npos)
-                return;
+                newName = funcName;
             else
             {
                 //extern function call, TODO: check this
@@ -309,7 +311,8 @@ static void changeNameOfModuleFunc(string funcName, SgSymbol *curr, const map<st
         }
     }
 
-    string newName = (byUseName == "" ? callInMod + "::" + string(curr->identifier()) : byUseName);
+    if (newName == "")
+        newName = (byUseName == "" ? callInMod + "::" + string(curr->identifier()) : byUseName);
 
     if (currModuleRename->find(curr) == currModuleRename->end())
     {
@@ -408,7 +411,6 @@ static void correctModuleProcNamesEx(SgExpression *ex, SgStatement *st, SgStatem
                     if (toSwap != procS)
                     {
                         //printf(":: var %d, line %d, change %s -> %s\n", st->variant(), st->lineNumber(), toSwap->identifier(), procS->identifier());
-                        //ex->addAttribute(VARIABLE_NAME, toSwap, sizeof(SgSymbol));
                         ex->setSymbol(*procS);
                         byUseMapping[procS] = toSwap;
                     }
@@ -510,7 +512,7 @@ void correctModuleProcNames(SgFile *file, const set<string> &globalF)
             }
         }
     }
-    
+
     if (modules.size() == 0)
         return;
 
@@ -543,8 +545,7 @@ void correctModuleProcNames(SgFile *file, const set<string> &globalF)
             if (isSgExecutableStatement(st))
             {
                 SgStatement *cp = st->controlParent();
-                while (cp->variant() != MODULE_STMT && cp->variant() != PROG_HEDR &&
-                       cp->variant() != PROC_HEDR && cp->variant() != FUNC_HEDR && cp->variant() != GLOBAL)
+                while (cp->variant() != MODULE_STMT && cp->variant() != PROG_HEDR && cp->variant() != GLOBAL)
                     cp = cp->controlParent();
 
                 if (st->variant() == PROC_STAT)

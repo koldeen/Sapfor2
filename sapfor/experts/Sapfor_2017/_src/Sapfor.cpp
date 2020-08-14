@@ -2302,11 +2302,8 @@ bool runAsClient = false;
 int main(int argc, char **argv)
 {
     int leakMemDump = 0;
-#if _WIN32
-    bool withDel = true;
-#else
     bool withDel = false;
-#endif
+
     try
     {
         setPassValues();

@@ -36,10 +36,11 @@ struct NextNode
     ShadowNode* shNode;
     std::set<DIST::Array*> writeTo;
     bool isBackWard;
+    bool hasRealigns;
 
     NextNode() { }
-    NextNode(ShadowNode* shNode, const std::set<DIST::Array*>& writeTo, bool isBackWard = false)
-        : shNode(shNode), writeTo(writeTo), isBackWard(isBackWard)
+    NextNode(ShadowNode* shNode, const std::set<DIST::Array*>& writeTo, bool hasRealigns = false)
+        : shNode(shNode), writeTo(writeTo), isBackWard(false), hasRealigns(hasRealigns)
     { }
 
     bool operator==(const NextNode& left) const
@@ -57,10 +58,11 @@ struct PrevNode
 {
     ShadowNode* shNode;
     bool* isBackWard;
+    bool* hasRealigns;
 
     PrevNode() { }
-    PrevNode(ShadowNode* shNode, bool* isBackWard = NULL)
-        : shNode(shNode), isBackWard(isBackWard)
+    PrevNode(ShadowNode* shNode, bool* isBackWard = NULL, bool* hasRealigns = NULL)
+        : shNode(shNode), isBackWard(isBackWard), hasRealigns(hasRealigns)
     { }
 
     bool operator==(const PrevNode& left) const
