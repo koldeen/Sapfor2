@@ -215,6 +215,31 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<tuple<fillType, 
 template void fillReductionsFromComment(Statement *st, map<string, set<tuple<string, string, int>>> &reduction, bool);
 template void fillReductionsFromComment(Statement *st, map<string, set<tuple<Symbol*, Symbol*, int>>> &reduction, bool);
 
+void fillParameterFromComment(Statement *stIn, vector<Expression*> &assigns)
+{
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        if (st->variant() == SPF_ANALYSIS_DIR)
+        {
+            SgExpression *exprList = st->expr(0);
+            while (exprList)
+            {
+                if (exprList->lhs() && exprList->lhs()->variant() == SPF_PARAMETER_OP)
+                {
+                    auto paramList = exprList->lhs()->lhs();
+                    while (paramList)
+                    {
+                        assigns.push_back(new Expression(paramList->lhs()));
+                        paramList = paramList->rhs();
+                    }
+                }
+                exprList = exprList->rhs();
+            }
+        }
+    }
+}
+
 template<typename fillType>
 static void fillShadowAcross(const int type, Statement *stIn, vector<pair<pair<fillType, string>, vector<pair<int, int>>>> &data, set<fillType> *corner = NULL)
 {

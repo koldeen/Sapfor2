@@ -471,7 +471,138 @@ static bool checkReduction(SgStatement *st,
         retVal = checkReduction(st, attributeStatement, reductionVar, messagesForFile) && checkReduction(st, attributeStatement, reductionArr, messagesForFile);
     }
 
-    return true;
+    return retVal;
+}
+
+static bool findSymbolInExpressionRec(SgExpression *exp, SgSymbol *s)
+{
+    if (exp)
+    {
+        //if (exp->symbol() && string(exp->symbol()->identifier()) == s->identifier())
+        if (exp->symbol() && exp->symbol() == s)
+            return true;
+
+        return findSymbolInExpressionRec(exp->lhs(), s) || findSymbolInExpressionRec(exp->rhs(), s);
+    }
+
+    return false;
+}
+
+static bool findSymbolInStatement(SgStatement *st, SgSymbol *s)
+{
+    if (!st || !s)
+        return false;
+    
+    bool found = false;
+    for (int i = 0; !found && i < 3; ++i)
+        found = found || findSymbolInExpressionRec(st->expr(i), s);
+
+    return found;
+}
+
+static bool checkParametersExpressionRec(SgStatement *st, SgStatement *attributeStatement, SgExpression *exp, vector<Messages> &messagesForFile)
+{
+    bool retVal = true;
+
+    if (exp)
+    {
+        if (exp->symbol())
+        {
+            auto declStatement = declaratedInStmt(exp->symbol(), NULL, false);
+
+            // check all used modules in function
+            auto moduleVar = false;
+            vector<SgStatement*> useStats;
+            fillUsedModulesInFunction(st, useStats);
+            for (auto &useSt : useStats)
+            {
+                map<string, SgSymbol*> visibleVars;
+                fillVisibleInUseVariables(useSt, visibleVars);
+                if (visibleVars.find(exp->symbol()->identifier()) != visibleVars.end())
+                    moduleVar = true;
+            }
+
+            if (!declStatement && !moduleVar)
+            {
+                __spf_print(1, "Variable '%s' in %s clause must be declared at the same module in file '%s' on line %d.\n",
+                            exp->symbol()->identifier(), "PARAMETER", st->fileName(), attributeStatement->lineNumber());
+
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"Variable '%s' in %s clause must be declared at the same module.",
+                                               to_wstring(exp->symbol()->identifier()).c_str(), to_wstring("PARAMETER").c_str());
+
+                __spf_printToLongBuf(messageR, R168, to_wstring(exp->symbol()->identifier()).c_str(), to_wstring("PARAMETER").c_str());
+
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5004));
+                retVal = false;
+            }
+        }
+
+        auto leftResult = checkParametersExpressionRec(st, attributeStatement, exp->lhs(), messagesForFile);
+        auto rightResult = checkParametersExpressionRec(st, attributeStatement, exp->rhs(), messagesForFile);
+
+        retVal = retVal && leftResult && rightResult;
+    }
+
+    return retVal;
+}
+
+static bool checkParameter(SgStatement *st, SgStatement *attributeStatement, const vector<Expression*> &assigns, vector<Messages> &messagesForFile)
+{
+    bool retVal = true;
+
+    if (!isSgExecutableStatement(st))
+    {
+        wstring messageE, messageR;
+
+        __spf_print(1, "ANALYSIS directive with PARAMETER clause can be only at executable code section in file '%s' on line %d.\n",
+                    st->fileName(), attributeStatement->lineNumber());
+                
+        __spf_printToLongBuf(messageE, L"ANALYSIS directive with FILES clause can be only at executable code section.");
+        __spf_printToLongBuf(messageR, R166, L"ANALYSIS", L"FILES");
+
+        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5002));
+        retVal = false;
+    }
+
+    for (auto &assign : assigns)
+    {
+        auto assignExp = assign->GetOriginal();
+        auto var = assignExp->lhs()->variant();
+
+        if (!findSymbolInStatement(st, assignExp->lhs()->symbol()))
+        {
+            __spf_print(1, "Variable '%s' in %s clause must be used in next statement in file '%s' on line %d.\n",
+                        assignExp->lhs()->symbol()->identifier(), "PARAMETER", st->fileName(), attributeStatement->lineNumber());
+
+            wstring messageE, messageR;
+            __spf_printToLongBuf(messageE, L"Variable '%s' in %s clause must be used in next statement.",
+                                            to_wstring(assignExp->lhs()->symbol()->identifier()).c_str(), to_wstring("PARAMETER").c_str());
+
+            __spf_printToLongBuf(messageR, R175, to_wstring(assignExp->lhs()->symbol()->identifier()).c_str());
+
+            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1057));
+            retVal = false;
+        }
+
+        if (var != VAR_REF)
+        {
+            __spf_print(1, "Left part of PARAMETER clause must be a variable in file '%s' on line %d.\n",
+                        st->fileName(), attributeStatement->lineNumber());
+
+            wstring messageE, messageR;
+            __spf_printToLongBuf(messageE, L"Left part of PARAMETER clause must be a variable.");
+            __spf_printToLongBuf(messageR, R176);
+
+            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1058));
+            retVal = false;
+        }
+
+        auto result = checkParametersExpressionRec(st, attributeStatement, assignExp, messagesForFile);
+        retVal = retVal && result;
+    }
+
+    return retVal;
 }
 
 static bool checkShadowAcross(SgStatement *st,
@@ -1395,7 +1526,7 @@ static bool checkCheckpoint(SgStatement *st,
                             st->fileName(), attributeStatement->lineNumber());
                 
                 __spf_printToLongBuf(messageE, L"CHECKPOINT directive with FILES clause can be only at executable code section.");
-                __spf_printToLongBuf(messageR, R166, L"FILES");
+                __spf_printToLongBuf(messageR, R166, L"CHECKPOINT", L"FILES");
 
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5002));
                 retVal = false;
@@ -1578,6 +1709,15 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                 bool result = checkReduction(st, attributeStatement, reduction, messagesForFile);
                 bool resultLoc = checkReduction(st, attributeStatement, reductionLoc, messagesForFile);
                 retVal = retVal && result && resultLoc;
+            }
+
+            // PARAMETER(ident=expr)
+            vector<Expression*> assigns;
+            fillParameterFromComment(new Statement(attributeStatement), assigns);
+            if (assigns.size())
+            {
+                bool result = checkParameter(st, attributeStatement, assigns, messagesForFile);
+                retVal = retVal && result;
             }
         }
         else if (type == SPF_PARALLEL_DIR)
