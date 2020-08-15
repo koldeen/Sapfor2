@@ -444,16 +444,18 @@ static void findFuncCalls(SgExpression* ex, vector<NextNode>& next,
 static void findNext(SgStatement* st, SgStatement* end, vector<NextNode>& next, const map<void*, ShadowNode*>& allShadowNodes,
                      const ShadowNode* currDir, map<int, SgStatement*>& labeledStmts, set<DIST::Array*> writesTo,
                      const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls,
-                     const map<string, FuncInfo*>& mapFuncs)
+                     const map<string, FuncInfo*>& mapFuncs, bool hasRealings)
 {
     for (; st != end; st = st->lexNext())
     {
         const int var = st->variant();
         if (var == DVM_PARALLEL_ON_DIR)
         {
-            next.push_back(NextNode(allShadowNodes.find(st)->second, writesTo));
+            next.push_back(NextNode(allShadowNodes.find(st)->second, writesTo, hasRealings));
             break;
         }
+        else if (var == DVM_REALIGN_DIR || var == DVM_REDISTRIBUTE_DIR)
+            hasRealings = true;
         else
         {
             if (var == IF_NODE)
@@ -471,7 +473,7 @@ static void findNext(SgStatement* st, SgStatement* end, vector<NextNode>& next, 
                 {
                     while (fb->variant() != CONTROL_END)
                     {
-                        if (tmp->variant() == IF_NODE)
+                        if (tmp->variant() == IF_NODE || tmp->variant() == ELSEIF_NODE)
                             bounds.push_back(make_pair(tmp->lexNext(), fb));
                         else
                             bounds.push_back(make_pair(tmp, fb));
@@ -498,14 +500,17 @@ static void findNext(SgStatement* st, SgStatement* end, vector<NextNode>& next, 
                 if (bounds.size() == 0)
                     bounds.push_back(make_pair(tmp->lexNext(), last));
 
+                int lastSize = next.size();
                 for (auto& elem : bounds)
-                    findNext(elem.first, elem.second, next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs);
+                    findNext(elem.first, elem.second, next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs, hasRealings);
 
+                if (lastSize != next.size())
+                    break;
                 st = st->lastNodeOfStmt();
             }
             else if (var == FOR_NODE || var == WHILE_NODE)
             {
-                findNext(st->lexNext(), st->lastNodeOfStmt(), next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs);
+                findNext(st->lexNext(), st->lastNodeOfStmt(), next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs, hasRealings);
                 st = st->lastNodeOfStmt();
             }
             else if (var == GOTO_NODE)
@@ -515,7 +520,7 @@ static void findNext(SgStatement* st, SgStatement* end, vector<NextNode>& next, 
                 auto nextStart = labeledStmts[labNum];
 
                 SgStatement* last = getLast(nextStart, st, end);
-                findNext(nextStart, last, next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs);
+                findNext(nextStart, last, next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs, hasRealings);
 
                 break;
             }
@@ -535,7 +540,7 @@ static void findNext(SgStatement* st, SgStatement* end, vector<NextNode>& next, 
                 {
                     auto nextStart = labeledStmts[lab];
                     SgStatement* last = getLast(nextStart, st, end);
-                    findNext(nextStart, last, next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs);
+                    findNext(nextStart, last, next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs, hasRealings);
                 }
                 break;
             }
@@ -551,9 +556,7 @@ static void findNext(SgStatement* st, SgStatement* end, vector<NextNode>& next, 
                         tmpSt = SgStatement::getStatementByFileAndLine(currDir->location.first->fileName, currDir->location.second);
                     checkNull(tmpSt, convertFileName(__FILE__).c_str(), __LINE__);
                     if (tmpSt->controlParent() == cp)
-                    {
-                        findNext(cp->lexNext(), st, next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs);
-                    }
+                        findNext(cp->lexNext(), st, next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs, hasRealings);
                 }
             }
             else if (var == ASSIGN_STAT)
@@ -568,7 +571,7 @@ static void findNext(SgStatement* st, SgStatement* end, vector<NextNode>& next, 
             }
             else if (var == LOGIF_NODE)
             {
-                findNext(st->lexNext(), st->lexNext()->lexNext(), next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs);
+                findNext(st->lexNext(), st->lexNext()->lexNext(), next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs, hasRealings);
                 st = st->lastNodeOfStmt();
             }
             else if (var == ARITHIF_NODE)
@@ -578,13 +581,27 @@ static void findNext(SgStatement* st, SgStatement* end, vector<NextNode>& next, 
                 {
                     auto nextStart = labeledStmts[((SgLabelRefExp*)(arith->label(i)))->label()->thelabel->stateno];
                     SgStatement* last = getLast(nextStart, st, end);
-                    findNext(nextStart, last, next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs);
+                    findNext(nextStart, last, next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs, hasRealings);
                 }
                 break;
             }            
-            else if (var == SWITCH_NODE) //TODO
+            else if (var == SWITCH_NODE)
             {
-
+                SgSwitchStmt *sw = (SgSwitchStmt*)st;
+                int tmp = sw->numberOfCaseOptions();
+                vector<SgStatement*> cases;
+                for (int z = 0; z < sw->numberOfCaseOptions(); ++z)
+                    cases.push_back(sw->caseOption(z));
+                auto defaultOp = sw->defOption();
+                if (defaultOp)
+                    cases.push_back(defaultOp);
+                st = st->lastNodeOfStmt();
+                cases.push_back(st);
+                int lastSize = next.size();
+                for (int z = 0; z < cases.size() - 1; ++z)
+                    findNext(cases[z]->lexNext(), cases[z + 1], next, allShadowNodes, currDir, labeledStmts, writesTo, arrayLinksByFuncCalls, mapFuncs, hasRealings);
+                if (lastSize != next.size())
+                    break;
             }
             else if (var == PROC_STAT)
             {
@@ -592,7 +609,7 @@ static void findNext(SgStatement* st, SgStatement* end, vector<NextNode>& next, 
                 {
                     if (allShadowNodes.find(st) != allShadowNodes.end())
                     {
-                        next.push_back(NextNode(allShadowNodes.find(st)->second, writesTo));
+                        next.push_back(NextNode(allShadowNodes.find(st)->second, writesTo, hasRealings));
                         break;
                     }                    
                 }
@@ -601,7 +618,7 @@ static void findNext(SgStatement* st, SgStatement* end, vector<NextNode>& next, 
             {
                 if (allShadowNodes.find(st) != allShadowNodes.end())
                 {
-                    next.push_back(NextNode(allShadowNodes.find(st)->second, writesTo));
+                    next.push_back(NextNode(allShadowNodes.find(st)->second, writesTo, hasRealings));
                     break;
                 }
             }
@@ -609,6 +626,18 @@ static void findNext(SgStatement* st, SgStatement* end, vector<NextNode>& next, 
             {
                 st = st->controlParent()->lastNodeOfStmt();
                 break;
+            }
+            else if (var == CASE_NODE || var == DEFAULT_NODE || var == ELSEIF_NODE)
+            {
+                if (var == ELSEIF_NODE)
+                {
+                    auto cp = st->controlParent();
+                    while (cp->variant() != CONTROL_END)
+                        cp = cp->lastNodeOfStmt();
+                    st = cp;
+                }
+                else
+                    st = st->controlParent()->lastNodeOfStmt();
             }
             else
             {
@@ -626,7 +655,7 @@ static void findNext(SgStatement* st, SgStatement* end, vector<NextNode>& next, 
 
     if (st->variant() == CONTROL_END)
         if (allShadowNodes.find(st) != allShadowNodes.end())
-            next.push_back(NextNode(allShadowNodes.find(st)->second, writesTo));
+            next.push_back(NextNode(allShadowNodes.find(st)->second, writesTo, hasRealings));
 }
 
 static void viewGraph(CBasicBlock *first)
@@ -697,8 +726,11 @@ static int groupingShadowNodes(set<ShadowNode*>& allShadowNodes)
                     for (auto& prev : currNode->prev)
                     {
                         //dont move back
-                        if (prev.isBackWard && *prev.isBackWard)
+                        if ((prev.isBackWard && *prev.isBackWard) ||
+                            (prev.hasRealigns && *prev.hasRealigns))
+                        {
                             continue;
+                        }
                         prev.shNode->MoveShadow(sh);
 
                         changes = true;
@@ -928,10 +960,12 @@ static string buildGraphVizNext(FuncInfo* currF, const map<FuncInfo*, int>& keyO
             string line = "\"" + curr + "\"->\"" + getNodeName(next.shNode, keyOfFunc) + "\"";
             string label = getArrays(next);
 
+            line += "[";
             if (next.isBackWard)
-                line += "[color=red,penwidth=3.0,label=\"" + label + "\"]";
-            else
-                line += "[label=\"" + label + "\"]";
+                line += "color=red,penwidth=3.0,";
+            if (next.hasRealigns)
+                line += "style=dotted,";            
+            line += "label=\"" + label + "\"]";
 
             line += "\n";
             lines.push_back(line);
@@ -1022,6 +1056,7 @@ static void removeNode(ShadowNode* node)
                 {
                     NextNode tmp = needed;
                     tmp.isBackWard |= next.isBackWard;
+                    tmp.hasRealigns |= next.hasRealigns;
                     tmp.writeTo.insert(next.writeTo.begin(), next.writeTo.end());
                     tmp.shNode = next.shNode;
 
@@ -1133,7 +1168,7 @@ static void setPrevNodes(FuncInfo* currF)
 {
     for (auto& elem : currF->allShadowNodes)
         for (auto& next : elem.second->next)
-            next.shNode->prev.push_back(PrevNode(elem.second, &next.isBackWard));
+            next.shNode->prev.push_back(PrevNode(elem.second, &next.isBackWard, &next.hasRealigns));
 }
 
 static void removeUnusedEdges(const map<string, vector<FuncInfo*>>& allFuncs)
@@ -1312,17 +1347,46 @@ static void findFuncCalls(SgExpression* ex, FuncInfo* currF, const map<string, F
 }
 
 static GraphsKeeper *graphsKeeper;
-void GroupShadow(const map<string, vector<FuncInfo*>> &allFuncs, 
+void GroupShadow(const map<string, vector<FuncInfo*>>& allFuncs, 
                  const map<string, vector<LoopGraph*>>& loops, 
-                 const DIST::Arrays<int> &allArrays,
+                 const DIST::Arrays<int>& allArrays,
                  const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls)
 {
-    //GraphsKeeper *gk = GraphsKeeper::getGraphsKeeper();
+    GraphsKeeper *gk = GraphsKeeper::getGraphsKeeper();
 
     map<string, FuncInfo*> mapF;
     for (auto& byFile : allFuncs)
         for (auto &elem : byFile.second)
                 mapF[elem->funcName] = elem;
+
+    bool deb = false;
+    bool withPrev = false;
+
+    /*for (auto& funcByFile : allFuncs)
+    {
+        if (SgFile::switchToFile(funcByFile.first) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        for (auto& currF : funcByFile.second)
+        {
+            if (currF->isMain && deb)
+            {
+                SgStatement* func = currF->funcPointer->GetOriginal();
+                
+                GraphItem* gItem = new GraphItem();
+                SetUpVars(&gItem->commons, &gItem->calls, gItem->calls.AddHeader(func, false, func->symbol(), current_file_id), &gItem->dldl);
+
+                gItem->CGraph = GetControlFlowGraphWithCalls(true, func, &gItem->calls, &gItem->commons);
+                gItem->calls.AssociateGraphWithHeader(func, gItem->CGraph);
+                gItem->commons.MarkEndOfCommon(GetCurrentProcedure());
+                gItem->file_id = current_file_id;
+
+                ControlFlowGraph* CGraph = gItem->CGraph;
+                printf("%s\n", CGraph->GetVisualGraph(&gItem->calls).c_str());
+                //viewGraph(CGraph->getFirst());
+            }
+        }
+    }*/
 
     //building shadow graph
     for (auto& funcByFile : allFuncs)    
@@ -1338,9 +1402,6 @@ void GroupShadow(const map<string, vector<FuncInfo*>> &allFuncs,
         for (auto& currF : funcByFile.second)
         {
             SgStatement* func = currF->funcPointer->GetOriginal();
-               
-            //ControlFlowGraph* CGraph = gk->buildGraph(func)->CGraph;
-            //viewGraph(CGraph->getFirst());
 
             //find all labled statements
             map<int, SgStatement*> labeledStmts;
@@ -1420,7 +1481,7 @@ void GroupShadow(const map<string, vector<FuncInfo*>> &allFuncs,
                 }
 
                 //TODO: may be replace to GraphKeeper
-                findNext(dir->lexNext(), func->lastNodeOfStmt(), node.second->next, currF->allShadowNodes, node.second, labeledStmts, writesTo, arrayLinksByFuncCalls, mapF);
+                findNext(dir->lexNext(), func->lastNodeOfStmt(), node.second->next, currF->allShadowNodes, node.second, labeledStmts, writesTo, arrayLinksByFuncCalls, mapF, false);
             }
 
             //remove the same nodes
@@ -1441,8 +1502,6 @@ void GroupShadow(const map<string, vector<FuncInfo*>> &allFuncs,
         }
     }
 
-    bool deb = false;
-    bool withPrev = false;
     if (deb)
         buildGraphViz(allFuncs, "_sh0.txt", withPrev);
 
@@ -1505,14 +1564,17 @@ void GroupShadow(const map<string, vector<FuncInfo*>> &allFuncs,
     int moves = groupingShadowNodes(allNodes);
     __spf_print(1, "  shadow total moveCount %d\n", moves);
 
-    //replacing
-    for (auto& funcByFile : allFuncs)
+    if (moves != 0)
     {
-        for (auto& currF : funcByFile.second)
+        //replacing
+        for (auto& funcByFile : allFuncs)
         {
-            if (currF->funcPointer->GetOriginal()->switchToFile() == false)
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-            replacingShadowNodes(currF);
+            for (auto& currF : funcByFile.second)
+            {
+                if (currF->funcPointer->GetOriginal()->switchToFile() == false)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                replacingShadowNodes(currF);
+            }
         }
     }
 }

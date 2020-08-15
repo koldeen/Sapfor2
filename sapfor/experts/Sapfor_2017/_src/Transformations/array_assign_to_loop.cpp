@@ -1183,15 +1183,15 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
             //move init assigns before the first statement
             if (firstExec && isSgDeclarationStatement(st))
             {
-                SgVarDeclStmt *declStat = (SgVarDeclStmt*)st;
+                SgVarDeclStmt* declStat = (SgVarDeclStmt*)st;
                 for (int k = 0; k < declStat->numberOfSymbols(); ++k)
                 {
-                    SgExpression *completeInit = declStat->completeInitialValue(k);
+                    SgExpression* completeInit = declStat->completeInitialValue(k);
                     if (completeInit)
                     {
                         auto copyLeft = completeInit->lhs()->copyPtr();
                         auto copyRight = completeInit->rhs()->copyPtr();
-                        SgStatement *toAdd = new SgStatement(ASSIGN_STAT, NULL, NULL, copyLeft, copyRight, NULL);
+                        SgStatement* toAdd = new SgStatement(ASSIGN_STAT, NULL, NULL, copyLeft, copyRight, NULL);
 
                         if (isDerivedAssign(toAdd))
                             replaceDerivedAssigns(file, toAdd, firstExec, derivedTypesDecl);
@@ -1210,6 +1210,41 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                 }
             }
 
+            //move SPF ANALYSIS PARAMETER before current statement
+            vector<SgStatement*> parameters;
+            for (auto& attr : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR }))
+            {
+                SgExpression* exprList = attr->expr(0);
+                while (exprList)
+                {
+                    if (exprList->lhs()->variant() == SPF_PARAMETER_OP)
+                    {
+                        SgExpression* list = exprList->lhs()->lhs();
+                        while (list)
+                        {
+                            if (list->lhs()->variant() != ASSGN_OP)
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                            parameters.push_back(new SgStatement(ASSIGN_STAT, NULL, NULL, list->lhs()->lhs()->copyPtr(), list->lhs()->rhs()->copyPtr(), NULL));
+
+                            parameters.back()->setFileId(controlParFristExec->getFileId());
+                            parameters.back()->setProject(controlParFristExec->getProject());
+
+                            parameters.back()->setlineNumber(getNextNegativeLineNumber());
+                            parameters.back()->setLocalLineNumber(attr->lineNumber());
+
+                            list = list->rhs();
+                        }
+                    }
+                    exprList = exprList->rhs();
+                }
+            }
+
+            for (auto& par : parameters)
+            {
+                st->insertStmtBefore(*par, *st->controlParent());
+                st->nodeBefore()->setUnparseIgnore(true);
+            }
+            
             if (firstExec && st->variant() == USE_STMT)
                 useMods.insert(st);
 
