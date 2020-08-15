@@ -19,6 +19,8 @@ end module constants
 subroutine check
 implicit none
 use constants!, only: pi, p=>pi
+common /global/ key
+  real key
   integer n,m,k,l,pn,nl,i,j,ii,jj,nnl
   parameter(N=6,M=8,K=8,L=6,PN=2,NL=1000)
   integer  A(N,M,K,L)
@@ -37,6 +39,8 @@ use constants!, only: pi, p=>pi
       do ii=1,K
         do jj=1,L
 !$SPF ANALYSIS(PARAMETER(NL=9*111+1))
+!$SPF ANALYSIS(PARAMETER(A(i,j,ii,jj)=M-2, i=1))
+!$SPF ANALYSIS(PARAMETER(A=(M-2)*key))
           A(i,j,ii,jj) = NL+i+j+ii+jj
         enddo
       enddo
