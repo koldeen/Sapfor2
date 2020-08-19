@@ -215,7 +215,7 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<tuple<fillType, 
 template void fillReductionsFromComment(Statement *st, map<string, set<tuple<string, string, int>>> &reduction, bool);
 template void fillReductionsFromComment(Statement *st, map<string, set<tuple<Symbol*, Symbol*, int>>> &reduction, bool);
 
-void fillParameterFromComment(Statement *stIn, vector<Expression*> &assigns)
+void fillParameterFromComment(Statement *stIn, vector<pair<Expression*, Expression*>> &assigns)
 {
     if (stIn)
     {
@@ -230,7 +230,7 @@ void fillParameterFromComment(Statement *stIn, vector<Expression*> &assigns)
                     auto paramList = exprList->lhs()->lhs();
                     while (paramList)
                     {
-                        assigns.push_back(new Expression(paramList->lhs()));
+                        assigns.push_back(make_pair(new Expression(paramList->lhs()->lhs()), new Expression(paramList->lhs()->rhs())));
                         paramList = paramList->rhs();
                     }
                 }

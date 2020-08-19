@@ -19,7 +19,7 @@ void fillReductionsFromComment(Statement *st, std::map<std::string, std::set<fil
 template<typename fillType>
 void fillReductionsFromComment(Statement *st, std::map<std::string, std::set<std::tuple<fillType, fillType, int>>> &reduction, bool moduleNameAdd = false);
 
-void fillParameterFromComment(Statement *st, std::vector<Expression*> &assigns);
+void fillParameterFromComment(Statement *st, std::vector<std::pair<Expression*, Expression*>> &assigns);
 
 template<typename fillType>
 void fillShadowAcrossFromComment(const int type, Statement *st, std::vector<std::pair<std::pair<fillType, std::string>, std::vector<std::pair<int, int>>>> &data);
