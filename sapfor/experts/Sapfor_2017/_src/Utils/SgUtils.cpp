@@ -3402,3 +3402,13 @@ Variable::Variable(SgFile* file, SgStatement* function, SgSymbol* symbol, const 
     declPace = declaratedInStmt(symbol);
     allUse.push_back(CommonVariableUse(file, function, symbol));
 }
+
+string nameWithContains(SgStatement* where, SgSymbol* s)
+{
+    std::string containsName = "";
+    SgStatement* st_cp = where->controlParent();
+    if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
+        containsName = st_cp->symbol()->identifier() + std::string(".");
+
+    return containsName + s->identifier();
+}

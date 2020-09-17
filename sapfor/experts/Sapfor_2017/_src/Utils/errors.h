@@ -496,9 +496,10 @@ static const wchar_t *R120 = L"R120:";
 static const wchar_t *R121 = L"R121:";
 static const wchar_t *R122 = L"R122:";
 static const wchar_t *R123 = L"R123:";
+static const wchar_t *R124 = L"R124:%s#%s#%d#%s#%d#%d";
+static const wchar_t* R125 = L"R124:%s#%s#%d#%s#%d";
 static const wchar_t *R144 = L"R144:";
 static const wchar_t *R145 = L"R145:";
-//--TODO R124 R125 про неопределенную длину зависимости 
 //3007
 static const wchar_t *R126 = L"R126:%s#%d#%d";
 static const wchar_t *R127 = L"R127:";

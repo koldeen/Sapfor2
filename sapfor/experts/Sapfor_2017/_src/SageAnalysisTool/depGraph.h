@@ -31,7 +31,7 @@ public:
   ~depNode();
   void displayDep() const;
   std::string displayDepToStr() const;
-  std::string createDepMessagebetweenArrays() const;
+  std::pair<std::string, std::string> createDepMessagebetweenArrays() const;
 };
 
 //////////////////////////////////////////////////////////////

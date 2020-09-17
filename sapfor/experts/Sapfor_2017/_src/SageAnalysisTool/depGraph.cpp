@@ -32,6 +32,7 @@ using std::vector;
 using std::set;
 using std::map;
 using std::string;
+using std::pair;
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // to link with the omega Test 
@@ -160,9 +161,10 @@ depNode::~depNode()
     //  Message("Delete depNode Not implemented yet",0);
 }
 
-string depNode::createDepMessagebetweenArrays() const
+pair<string, string> depNode::createDepMessagebetweenArrays() const
 {
-    string ret;
+    string retEng;
+    string retRus;
     char buf[1024];
     if (typedep == ARRAYDEP)
     {
@@ -171,28 +173,45 @@ string depNode::createDepMessagebetweenArrays() const
         switch (nature)
         {
         case ddflow:
-            ret += "FLOW dependence between ";
+            retEng += "Flow dependence between ";
+            retRus += "Flow#";
             break;
         case ddanti:
-            ret += "ANTI dependence between ";
+            retEng += "Anti dependence between ";
+            retRus += "Anti#";
             break;
         case ddoutput:
-            ret += "OUTPUT dependence between ";
+            retEng += "Output dependence between ";
+            retRus += "Output#";            
             break;
         case ddreduce:
-            ret += "REDUCE dependence between ";
+            retEng += "Reduce dependence between ";
+            retRus += "Reduce#";
             break;
         }
-        ret += varin->unparse();
-        sprintf(buf, " (line %d) and ", stmtin->lineNumber());
-        ret += buf;
+        retEng += varin->unparse();
+        retRus += varin->unparse();
 
-        ret += varout->unparse();
+        sprintf(buf, " (line %d)", stmtin->lineNumber());
+        retEng += buf;
+        
+        sprintf(buf, "#%d", stmtin->lineNumber());
+        retRus += buf;
+                
+        retEng += " and ";
+        retRus += "#";
+
+        retEng += varout->unparse();
+        retRus += varout->unparse();
+        
         sprintf(buf, " (line %d)", stmtout->lineNumber());
-        ret += buf;
+        retEng += buf;
+        
+        sprintf(buf, "#%d", stmtout->lineNumber());
+        retRus += buf;        
     }
 
-    return ret;
+    return std::make_pair(retEng, retRus);
 }
 
 void depNode::displayDep() const
@@ -289,35 +308,35 @@ std::string depNode::displayDepToStr() const
 
     if (typedep == ARRAYDEP)
     {
-        nature = (ddnature)kinddep;        
+        nature = (ddnature)kinddep;
         switch (nature)
         {
         case ddflow:
-            out += "FLOW dependence between ";
+            out += "Flow dependence between ";
             break;
         case ddanti:
-            out += "ANTI dependence between ";            
+            out += "Anti dependence between ";
             break;
         case ddoutput:
-            out += "OUTPUT dependence between ";
+            out += "Output dependence between ";
             break;
         case ddreduce:
-            out += "REDUCE dependence between ";
+            out += "Reduce dependence between ";
             break;
         }
         out += string(ex1->unparse());
         out += " (line (" + std::to_string(stmtin->lineNumber()) + ") and ";
-        out += string(ex2->unparse());        
+        out += string(ex2->unparse());
         out += " (line " + std::to_string(stmtout->lineNumber()) + ") with vector (";
 
         for (i = 1; i <= lenghtvect; i++)
         {
             if (knowndist[i])
-                out += std::to_string(distance[i]);                
+                out += std::to_string(distance[i]);
             else
             {
                 if (distance[i] & DEPZERO)
-                    out += "0";                
+                    out += "0";
                 if (distance[i] & DEPGREATER)
                     out += "+";
                 if (distance[i] & DEPLESS)

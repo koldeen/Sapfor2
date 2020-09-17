@@ -413,6 +413,7 @@ static void correctModuleProcNamesEx(SgExpression *ex, SgStatement *st, SgStatem
                         //printf(":: var %d, line %d, change %s -> %s\n", st->variant(), st->lineNumber(), toSwap->identifier(), procS->identifier());
                         ex->setSymbol(*procS);
                         byUseMapping[procS] = toSwap;
+                        byUseMapping[toSwap] = procS;
                     }
                     else if (changed.find(procS) == changed.end())
                         extendCheckAndFindProcName(containsFuncs, globalFuncs, moduleFuncs, st, procS, changed);
@@ -698,6 +699,7 @@ static void restoreInFunc(SgExpression *ex, set<SgSymbol*> &swaped, const map<Sg
 
 void restoreCorrectedModuleProcNames(SgFile *file)
 {
+    
     currModuleRename = &moduleRenameByFile[file->filename()];
     /*for (SgSymbol *elem = file->firstSymbol(); elem; elem = elem->next())
     {

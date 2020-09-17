@@ -79,3 +79,5 @@ int getNextFreeLabel();
 
 void fillUsedModulesInFunction(SgStatement *st, std::vector<SgStatement*> &useStats);
 void fillVisibleInUseVariables(SgStatement *useSt, std::map<std::string, SgSymbol*> &vars);
+
+std::string nameWithContains(SgStatement* where, SgSymbol* s);

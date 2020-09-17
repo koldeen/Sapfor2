@@ -39,6 +39,7 @@ struct NextNode
     bool hasRealigns;
 
     NextNode() { }
+
     NextNode(ShadowNode* shNode, const std::set<DIST::Array*>& writeTo, bool hasRealigns = false)
         : shNode(shNode), writeTo(writeTo), isBackWard(false), hasRealigns(hasRealigns)
     { }
@@ -83,7 +84,7 @@ struct ShadowNode
     std::map<DIST::Array*, std::vector<ShadowElement>> newShadows;
 
     std::vector<NextNode> next;
-    std::vector<PrevNode> prev;
+    //std::vector<PrevNode> prev;
 
     ShadowNode(void * info, nodeType type, FuncInfo* func, int line) : info(info), type(type), location(std::make_pair(func, line)) { }
 

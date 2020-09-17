@@ -258,10 +258,13 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                             {
                                 if (!findUnknownDepLen)
                                 {
-                                    //TODO
-                                    wstring depMessage = to_wstring(currNode->createDepMessagebetweenArrays());
-                                    depMessage += L" with unknown distance in loop on line " + std::to_wstring(currLoopRef->lineNumber()) + L" prevents parallelization";
-                                    currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage, depMessage, 3006));
+                                    auto message = currNode->createDepMessagebetweenArrays();
+                                    wstring depMessageEng = to_wstring(message.first), depMessageRus = to_wstring(message.second);
+                                    
+                                    depMessageEng += L" with unknown distance in loop on line " + std::to_wstring(currLoopRef->lineNumber()) + L" prevents parallelization";
+                                    depMessageRus += L"#" + std::to_wstring(currLoopRef->lineNumber());
+
+                                    currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), L"R124:" + depMessageRus, depMessageEng, 3006));
 
                                     // __spf_print only first unknown dep length
                                     findUnknownDepLen = true;
@@ -320,9 +323,10 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                             {
                                 if (!findUnknownDepLen)
                                 {
-                                    //TODO
-                                    wstring depMessage = to_wstring(currNode->createDepMessagebetweenArrays()) + L" prevents parallelization";
-                                    currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage, depMessage, 3006));
+                                    auto message = currNode->createDepMessagebetweenArrays();
+                                    wstring depMessageEng = to_wstring(message.first), depMessageRus = to_wstring(message.second);
+                                    depMessageEng += L" prevents parallelization";
+                                    currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), L"R124:" + depMessageRus, depMessageEng, 3006));
 
                                     // __spf_print only first unknown dep length
                                     findUnknownDepLen = true;

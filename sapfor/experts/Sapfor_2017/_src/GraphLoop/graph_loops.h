@@ -105,7 +105,7 @@ public:
             messages->push_back(Messages(NOTE, line, R114, L"unknown scalar dependency prevents parallelization of this loop", 3006));
 
         if (hasGoto)
-            messages->push_back(Messages(NOTE, line, R115, L"internal/external goto operations prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R115, L"internal/external moves via GOTO or EXIT operations prevent parallelization of this loop", 3006));
 
         if (hasPrints)
             messages->push_back(Messages(NOTE, line, R116, L"IO operations prevent parallelization of this loop", 3006));
