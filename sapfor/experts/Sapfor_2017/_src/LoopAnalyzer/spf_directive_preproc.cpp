@@ -552,7 +552,7 @@ static bool checkParametersExpressionRec(SgStatement *st, SgStatement *attribute
     return retVal;
 }
 
-static bool checkParameter(SgStatement *st, SgStatement *attributeStatement, const vector<Expression*> &assigns, vector<Messages> &messagesForFile)
+static bool checkParameter(SgStatement *st, SgStatement *attributeStatement, const vector<pair<Expression*, Expression*>> &assigns, vector<Messages> &messagesForFile)
 {
     bool retVal = true;
 
@@ -572,25 +572,25 @@ static bool checkParameter(SgStatement *st, SgStatement *attributeStatement, con
 
     for (auto &assign : assigns)
     {
-        auto assignExp = assign->GetOriginal();
-        auto var = assignExp->lhs()->variant();
+        auto assignVarExp = assign.first->GetOriginal();
+        auto assignVarVar = assignVarExp->variant();
 
-        if (!findSymbolInStatement(st, assignExp->lhs()->symbol()))
+        if (!findSymbolInStatement(st, assignVarExp->symbol()))
         {
             __spf_print(1, "Variable '%s' in %s clause must be used in next statement in file '%s' on line %d.\n",
-                        assignExp->lhs()->symbol()->identifier(), "PARAMETER", st->fileName(), attributeStatement->lineNumber());
+                        assignVarExp->symbol()->identifier(), "PARAMETER", st->fileName(), attributeStatement->lineNumber());
 
             wstring messageE, messageR;
             __spf_printToLongBuf(messageE, L"Variable '%s' in %s clause must be used in next statement.",
-                                            to_wstring(assignExp->lhs()->symbol()->identifier()).c_str(), to_wstring("PARAMETER").c_str());
+                                            to_wstring(assignVarExp->symbol()->identifier()).c_str(), to_wstring("PARAMETER").c_str());
 
-            __spf_printToLongBuf(messageR, R175, to_wstring(assignExp->lhs()->symbol()->identifier()).c_str());
+            __spf_printToLongBuf(messageR, R175, to_wstring(assignVarExp->symbol()->identifier()).c_str());
 
             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1057));
             retVal = false;
         }
 
-        if (var != VAR_REF)
+        if (assignVarVar != VAR_REF)
         {
             __spf_print(1, "Left part of PARAMETER clause must be a variable in file '%s' on line %d.\n",
                         st->fileName(), attributeStatement->lineNumber());
@@ -603,6 +603,7 @@ static bool checkParameter(SgStatement *st, SgStatement *attributeStatement, con
             retVal = false;
         }
 
+        auto assignExp = assign.second->GetOriginal();
         auto result = checkParametersExpressionRec(st, attributeStatement, assignExp, messagesForFile);
         retVal = retVal && result;
     }
@@ -1717,7 +1718,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             }
 
             // PARAMETER(ident=expr)
-            vector<Expression*> assigns;
+            vector<pair<Expression*, Expression*>> assigns;
             fillParameterFromComment(new Statement(attributeStatement), assigns);
             if (assigns.size())
             {
