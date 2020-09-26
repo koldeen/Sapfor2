@@ -508,13 +508,15 @@ int main(int argc, char *argv[])
         //  ACC_program= 1;
         else if (!strcmp(argv[0], "-noH"))
             ;
-        else if (!strcmp(argv[0], "-C_Cuda"))     /*ACC*/
+        else if (!strcmp(argv[0], "-C_Cuda"))         /*ACC*/
             ;
         else if (!strcmp(argv[0], "-FTN_Cuda") || !strcmp(argv[0], "-F_Cuda"))    /*ACC*/
             ;
         else if (!strcmp(argv[0], "-noCudaType"))     /*ACC*/
             ;
         else if (!strcmp(argv[0], "-noCuda"))         /*ACC*/
+            ;
+        else if (!strcmp(argv[0], "-noPureFunc"))     /*ACC*/
             ;
         else if (!strcmp(argv[0], "-no_blocks_info")) /*ACC*/
             ;
@@ -526,19 +528,19 @@ int main(int argc, char *argv[])
             ;
         else if (!strcmp(argv[0], "-Opl2"))           /*ACC*/
             ;
-        else if (!strcmp(argv[0], "-Opl"))           /*ACC*/
+        else if (!strcmp(argv[0], "-Opl"))            /*ACC*/
             ;
-        else if (!strcmp(argv[0], "-oneThread"))     /*ACC*/
+        else if (!strcmp(argv[0], "-oneThread"))      /*ACC*/
             ;
-        else if (!strcmp(argv[0], "-noTfm"))         /*ACC*/
+        else if (!strcmp(argv[0], "-noTfm"))          /*ACC*/
             ;
-        else if (!strcmp(argv[0], "-autoTfm"))       /*ACC*/
+        else if (!strcmp(argv[0], "-autoTfm"))        /*ACC*/
             ;
-        else if (!strcmp(argv[0], "-gpuO0"))        /*ACC*/
+        else if (!strcmp(argv[0], "-gpuO0"))          /*ACC*/
             ;
-        else if (!strcmp(argv[0], "-gpuO1"))        /*ACC*/
+        else if (!strcmp(argv[0], "-gpuO1"))          /*ACC*/
             ;
-        else if (!strcmp(argv[0], "-rtc"))         /*ACC*/
+        else if (!strcmp(argv[0], "-rtc"))            /*ACC*/
             ;
         else if ((*argv)[1] == 'H')
         {

@@ -951,7 +951,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
             //printf("var %d, line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == PROC_STAT)
             {
-                string pureNameOfCallFunc = removeString("call", st->symbol()->identifier());
+                string pureNameOfCallFunc = removeString("call ", st->symbol()->identifier());
                 correctNameIfContains(st, NULL, pureNameOfCallFunc, containsFunctions, prefix);
 
                 for (auto &proc : entryProcs)

@@ -910,9 +910,10 @@ void MakeFunctionDeclarations(SgStatement *header, SgSymbol *s_last)
         if (IS_DUMMY(s))
         {
             if (flags & (IN_BIT | OUT_BIT | INOUT_BIT))
-                continue;
-            else
+                ;
+            else if(!options.isOn(NO_PURE_FUNC))
                 err_p("Dummy argument need to have INTENT attribute in PURE procedure", name, 617);
+            continue;
         }
 
         if (flags & SAVE_BIT)

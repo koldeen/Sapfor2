@@ -4282,7 +4282,7 @@ void Call(SgSymbol *s, SgExpression *e)
 //{
     if (analyzing)
     {  
-        if (!IsPureProcedure(s) || IS_BY_USE(s))
+        if ((!IsPureProcedure(s) && (s->variant() != FUNCTION_NAME || !options.isOn(NO_PURE_FUNC))) || IS_BY_USE(s))
         {
             Warning(" Call of the procedure %s in a region, which is not pure or is module procedure", s->identifier(), 580, cur_st);
             doNotForCuda();
@@ -4290,7 +4290,7 @@ void Call(SgSymbol *s, SgExpression *e)
     }
     else
     {
-        if (IN_COMPUTE_REGION && isForCudaRegion() && IsPureProcedure(s))  //pure procedure call from the region witch is preparing for CUDA-device        
+        if (IN_COMPUTE_REGION && isForCudaRegion() && (IsPureProcedure(s) || (s->variant() == FUNCTION_NAME && options.isOn(NO_PURE_FUNC)) ))  //pure procedure call from the region witch is preparing for CUDA-device        
             MarkAsCalled(s);
         acc_call_list = AddNewToSymbList(acc_call_list, s);
     }

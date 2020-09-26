@@ -456,6 +456,8 @@ static inline void addLinks(const FuncParam &actual, const FuncParam &formal, ma
             if (actual.parametersT[i] == formal.parametersT[i] && formal.parametersT[i] == ARRAY_T)
             {
                 //printf("add lhs %s -> rhs %s\n", ((DIST::Array*)formal.parameters[i])->GetName().c_str(), ((DIST::Array*)actual.parameters[i])->GetName().c_str());
+                if (((DIST::Array*)formal.parameters[i]) == ((DIST::Array*)actual.parameters[i]))
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 arrayLinksByFuncCalls[(DIST::Array*)formal.parameters[i]].insert((DIST::Array*)actual.parameters[i]);
             }
     }

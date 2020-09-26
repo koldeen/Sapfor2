@@ -1136,7 +1136,7 @@ static void replaceConstants(const string &file, SgStatement *st)
     auto it = replacementsOfConstsInFiles.find(file);
     if (it == replacementsOfConstsInFiles.end())    
         it = replacementsOfConstsInFiles.insert(it, make_pair(file, map<SgStatement*, vector<SgExpression*>>()));
-    
+        
     auto last = st->lastNodeOfStmt();
     for (SgStatement *currS = st; currS != last; currS = currS->lexNext())
     {
@@ -1157,6 +1157,7 @@ static void replaceConstants(const string &file, SgStatement *st)
                     SgExpression *copy = ReplaceConstant(original[i]);
                     calculate(copy);
                     toRepl[i] = copy;
+
                     currS->setExpression(i, *copy);
                 }
             }

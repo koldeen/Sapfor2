@@ -206,14 +206,19 @@ static bool checkPrivate(SgStatement *st,
                 }
                 else if (!defCond && useCond)
                 {
-                    __spf_print(1, "variable '%s' is not changed in loop on line %d\n", privElem.c_str(), attributeStatement->lineNumber());
-                    wstring messageE, messageR;
-                    __spf_printToLongBuf(messageE, L"variable '%s' is not changed in loop", to_wstring(privElem.c_str()).c_str());
+                    if (attributeStatement->localLineNumber() != 888)
+                    {
+                        __spf_print(1, "variable '%s' is not changed in loop on line %d\n", privElem.c_str(), attributeStatement->lineNumber());
+                        wstring messageE, messageR;
+                        __spf_printToLongBuf(messageE, L"variable '%s' is not changed in loop", to_wstring(privElem.c_str()).c_str());
 
-                    __spf_printToLongBuf(messageR, R23, to_wstring(privElem.c_str()).c_str());
+                        __spf_printToLongBuf(messageR, R23, to_wstring(privElem.c_str()).c_str());
 
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1003));
-                    retVal = false;
+                        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1003));
+                        retVal = false;
+                    }
+                    else
+                        wrongPrivFromOmpParallel.insert(privElem);
                 }
             }
             else

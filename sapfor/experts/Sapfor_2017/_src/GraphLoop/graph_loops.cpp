@@ -709,7 +709,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
             }
             else if (currLoop && (st->variant() == PROC_STAT || st->variant() == FUNC_STAT))
             {
-                string pureNameOfCallFunc = removeString("call", st->symbol()->identifier());
+                string pureNameOfCallFunc = removeString("call ", st->symbol()->identifier());
                 for (auto &loop : parentLoops)
                     loop->calls.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));
             }

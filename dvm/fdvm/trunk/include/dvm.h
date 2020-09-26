@@ -901,6 +901,7 @@ void Template_Delete(SgStatement *stmt);
 //void RenamingDvmArraysByUse(SgStatement *stmt);
 void RemovingDifferentNamesOfVar(SgStatement *first);
 void UpdateUseListWithDvmArrays(SgStatement *use_stmt);
+char *doOutFileName(const char *fdeb_name);
 
 /*  parloop.cpp */
 int ParallelLoop(SgStatement *stmt);
@@ -2167,8 +2168,8 @@ void ConvertLoopWithLabelToEnddoLoop (SgStatement *stat); /*OMP*/
 // options on FDVM converter
 enum OPTIONS {
     AUTO_TFM = 0, ONE_THREAD, SPEED_TEST_L0, SPEED_TEST_L1, GPU_O0, GPU_O1, RTC, C_CUDA, OPT_EXP_COMP,
-    O_HOST, NO_CUDA, NO_BL_INFO, LOOP_ANALYSIS, PRIVATE_ANALYSIS, IO_RTS, READ_ALL, NO_REMOTE, NUM_OPT
-};
+    O_HOST, NO_CUDA, NO_BL_INFO, LOOP_ANALYSIS, PRIVATE_ANALYSIS, IO_RTS, READ_ALL, NO_REMOTE, NO_PURE_FUNC, 
+    NUM_OPT};
 // ONE_THREAD - compile one thread CUDA-kernels only for across (TODO for all CUDA-kernels)
 // SPEED_TEST_L0, SPEED_TEST_L1 - debug options for speed testof CUDA-kernels for across
 // RTC - enable CUDA run-time compilation of all CUDA-kernels

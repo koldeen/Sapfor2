@@ -222,6 +222,8 @@ int main(int argc, char *argv[]){
             undefined_Tcuda = 1;
         else if (!strcmp(argv[0], "-noCuda"))
             options.setOn(NO_CUDA);                /*ACC*/
+        else if (!strcmp(argv[0], "-noPureFunc"))
+            options.setOn(NO_PURE_FUNC);           /*ACC*/
         else if (!strcmp(argv[0], "-C_Cuda"))      /*ACC*/
             options.setOn(C_CUDA);
         else if (!strcmp(argv[0], "-FTN_Cuda") || !strcmp(argv[0], "-F_Cuda"))    /*ACC*/

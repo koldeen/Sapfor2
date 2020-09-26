@@ -589,6 +589,10 @@ static string getValue(SgExpression *exp)
     }
     else if (exp->variant() == INT_VAL)
         ret = "(" + std::to_string(exp->valueInteger()) + ")";
+    else if (exp->variant() == DOUBLE_VAL)
+        ret = string("(") + (((SgValueExp*)exp)->doubleValue()) + ")";
+    else if (exp->variant() == FLOAT_VAL)
+        ret = string("(") + (((SgValueExp*)exp)->floatValue()) + ")";
     else if (exp->variant() == ADD_OP)
         ret = "(+)";
     else if (exp->variant() == SUBT_OP)
