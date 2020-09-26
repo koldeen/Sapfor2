@@ -509,45 +509,45 @@ static bool checkParametersExpressionRec(SgStatement *st, SgStatement *attribute
 {
     bool retVal = true;
 
-    if (exp)
+    if (exp && exp->variant() == VAR_REF && exp->symbol())
     {
-        if (exp->symbol())
+        auto declStatement = declaratedInStmt(OriginalSymbol(exp->symbol()), NULL, false);
+
+        // check all used modules in function
+        auto moduleVar = false;
+        vector<SgStatement*> useStats;
+        fillUsedModulesInFunction(st, useStats);
+        for (auto& useSt : useStats)
         {
-            auto declStatement = declaratedInStmt(exp->symbol(), NULL, false);
-
-            // check all used modules in function
-            auto moduleVar = false;
-            vector<SgStatement*> useStats;
-            fillUsedModulesInFunction(st, useStats);
-            for (auto &useSt : useStats)
-            {
-                map<string, SgSymbol*> visibleVars;
-                fillVisibleInUseVariables(useSt, visibleVars);
-                if (visibleVars.find(exp->symbol()->identifier()) != visibleVars.end())
-                    moduleVar = true;
-            }
-
-            if (!declStatement && !moduleVar)
-            {
-                __spf_print(1, "Variable '%s' in %s clause must be declared at the same module in file '%s' on line %d.\n",
-                            exp->symbol()->identifier(), "PARAMETER", st->fileName(), attributeStatement->lineNumber());
-
-                wstring messageE, messageR;
-                __spf_printToLongBuf(messageE, L"Variable '%s' in %s clause must be declared at the same module.",
-                                               to_wstring(exp->symbol()->identifier()).c_str(), to_wstring("PARAMETER").c_str());
-
-                __spf_printToLongBuf(messageR, R168, to_wstring(exp->symbol()->identifier()).c_str(), to_wstring("PARAMETER").c_str());
-
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5004));
-                retVal = false;
-            }
+            map<string, SgSymbol*> visibleVars;
+            fillVisibleInUseVariables(useSt, visibleVars);
+            if (visibleVars.find(exp->symbol()->identifier()) != visibleVars.end())
+                moduleVar = true;
         }
 
-        auto leftResult = checkParametersExpressionRec(st, attributeStatement, exp->lhs(), messagesForFile);
-        auto rightResult = checkParametersExpressionRec(st, attributeStatement, exp->rhs(), messagesForFile);
+        if (!declStatement && !moduleVar)
+        {
+            __spf_print(1, "Variable '%s' in %s clause must be declared at the same module in file '%s' on line %d.\n",
+                exp->symbol()->identifier(), "PARAMETER", st->fileName(), attributeStatement->lineNumber());
 
-        retVal = retVal && leftResult && rightResult;
+            wstring messageE, messageR;
+            __spf_printToLongBuf(messageE, L"Variable '%s' in %s clause must be declared at the same module.",
+                to_wstring(exp->symbol()->identifier()).c_str(), to_wstring("PARAMETER").c_str());
+
+            __spf_printToLongBuf(messageR, R168, to_wstring(exp->symbol()->identifier()).c_str(), to_wstring("PARAMETER").c_str());
+
+            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 5004));
+            retVal = false;
+        }
     }
+
+    bool leftResult, rightResult;
+    leftResult = rightResult = true;
+    if (exp->lhs())
+        leftResult = checkParametersExpressionRec(st, attributeStatement, exp->lhs(), messagesForFile);
+    if (exp->rhs())
+        rightResult = checkParametersExpressionRec(st, attributeStatement, exp->rhs(), messagesForFile);
+    retVal = retVal && leftResult && rightResult;
 
     return retVal;
 }
