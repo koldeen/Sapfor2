@@ -1226,8 +1226,8 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                             parameters.push_back(new SgStatement(ASSIGN_STAT, NULL, NULL, list->lhs()->lhs()->copyPtr(), list->lhs()->rhs()->copyPtr(), NULL));
 
-                            parameters.back()->setFileId(controlParFristExec->getFileId());
-                            parameters.back()->setProject(controlParFristExec->getProject());
+                            parameters.back()->setFileId(st->getFileId());
+                            parameters.back()->setProject(st->getProject());
 
                             parameters.back()->setlineNumber(getNextNegativeLineNumber());
                             parameters.back()->setLocalLineNumber(attr->lineNumber());

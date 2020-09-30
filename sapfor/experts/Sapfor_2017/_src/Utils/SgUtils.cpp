@@ -825,6 +825,8 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, 
             //error ?
             if (start == NULL)
                 break;
+            if (start->variant() == INTERFACE_STMT)
+                start = start->lastNodeOfStmt();
 
             //printf("%d\n", start->variant());
             if (start->variant() == VAR_DECL ||
@@ -1042,8 +1044,14 @@ tuple<int, string, string> getUniqName(const map<string, vector<SgExpression*>> 
             for (int i = 0; i < num && needtoCheck; ++i)
                 if (!strcmp(((SgFuncHedrStmt*)declCP)->parameter(i)->identifier(), symb->identifier()))
                     needtoCheck = false;
-        }        
+        }
+
+        auto declCpCp = declCP->controlParent();
+        if (declCpCp && declCpCp->variant() == INTERFACE_STMT && needtoCheck)
+            needtoCheck = false;
     }
+    else if (declCP->variant() == INTERFACE_STMT)
+        needtoCheck = false;
 
     if (needtoCheck)
     {

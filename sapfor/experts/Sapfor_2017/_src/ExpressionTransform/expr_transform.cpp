@@ -249,10 +249,42 @@ SgExpression* ReplaceParameter(SgExpression *e)
     
     if (e->variant() == CONST_REF)
     {
+        auto t1 = e->type();
+        auto t2 = e->symbol()->type();
+
         SgConstantSymb *sc = isSgConstantSymb(e->symbol());
         if (!sc->constantValue())
             return e;
-        return (ReplaceParameter(&(sc->constantValue()->copy())));
+        auto val = sc->constantValue();
+        auto typeVal = val->type();
+        //if type of constant does not match type of variable
+        if (e->symbol()->type()->variant() == T_DOUBLE && val->variant() == FLOAT_VAL && typeVal->variant() == T_FLOAT)
+        {
+            char* digit_o = ((SgValueExp*)val)->floatValue();
+            SgExpression* val = typeVal->selector();
+
+            char* digit = new char[strlen(digit_o) + 2];
+            strcpy(digit, digit_o);
+            digit[strlen(digit_o)] = 'f';
+            digit[strlen(digit_o) + 1] = '\0';
+
+            SgValueExp* valDouble = new SgValueExp(double(0.0), digit);
+            delete[]digit;
+
+            if (val != NULL)
+            {
+                if (val->valueInteger() == 8) // double
+                    return sc->constantValue()->copyPtr();
+                else if (val->valueInteger() == 4) // float
+                    return valDouble;
+                else
+                    return valDouble;
+            }
+            else
+                return valDouble;
+        }
+        else
+            return (ReplaceParameter(&(sc->constantValue()->copy())));
     }
     else if (e->variant() == ARRAY_REF)
     {

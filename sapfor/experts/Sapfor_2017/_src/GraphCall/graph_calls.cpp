@@ -703,7 +703,7 @@ static void fillInOut(FuncInfo *currF, SgStatement *start, SgStatement *last)
         if (st->variant() == CONTAINS_STMT)
             break;
 
-        if (isSgExecutableStatement(st) == NULL)
+        if (isSgExecutableStatement(st) == NULL || st->lineNumber() <= 0)
             continue;
 
         if (st->variant() == ASSIGN_STAT)
@@ -718,8 +718,10 @@ static void fillInOut(FuncInfo *currF, SgStatement *start, SgStatement *last)
             if (left->symbol())
                 symb = left->symbol()->identifier();
             else if (left->variant() == ARRAY_OP)
+            {
                 if (left->lhs()->symbol())
                     symb = left->lhs()->symbol()->identifier();
+            }
 
             if (symb != "")
             {

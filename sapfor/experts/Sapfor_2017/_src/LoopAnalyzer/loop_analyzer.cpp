@@ -2806,11 +2806,12 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName
                 }
 
                 auto uniqKey = getUniqName(commonBlocks, decl, symb);
+
+                SgStatement* scope = symb->scope();
                 pair<DIST::arrayLocType, string> arrayLocation;
-                SgStatement *scope = symb->scope();
 
                 string typePrefix = "";
-                while (scope->variant() == STRUCT_DECL && scope)
+                while (scope && scope->variant() == STRUCT_DECL)
                 {
                     if (typePrefix == "")
                         typePrefix = scope->symbol()->identifier();
