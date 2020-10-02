@@ -771,14 +771,12 @@ static int groupingShadowNodes(set<ShadowNode*>& allShadowNodes, const map<strin
             for (auto& sh : currNode->newShadows)
             {
                 bool checkOK = true;
-                for (auto& array : totalWrites)
-                {
-                    set<DIST::Array*> allRefs;
-                    getRealArrayRefs(sh.first, sh.first, allRefs, arrayLinksByFuncCalls);
+                set<DIST::Array*> allRefs;
+                getRealArrayRefs(sh.first, sh.first, allRefs, arrayLinksByFuncCalls);
 
-                    if (allRefs.find(array) == allRefs.end())
+                for (auto& array : totalWrites)
+                    if (allRefs.find(array) != allRefs.end())
                         checkOK = false;
-                }
 
                 if (checkOK)
                 {

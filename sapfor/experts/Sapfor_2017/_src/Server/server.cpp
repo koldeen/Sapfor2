@@ -328,7 +328,7 @@ static bool doCommand(SOCKET& spfSoc, SOCKET& javaSoc, SOCKET& serverSoc1, SOCKE
         closesocket(spfSoc);
         spfSoc = INVALID_SOCKET;
 
-        //wait shutdown of spf
+        //wait shutdown of spc
         while (spcRun)
             ;
         //copy new version
@@ -342,6 +342,28 @@ static bool doCommand(SOCKET& spfSoc, SOCKET& javaSoc, SOCKET& serverSoc1, SOCKE
             __print(SERV, "Can not find new version of sapfor in '%s' path", SPC_NAME_NEW);
         //restart
         return true;
+    }
+    else if (command.find("update_server:") == 0)
+    {
+        __print(SERV, "Update SERVER");
+        closesocket(spfSoc);
+        spfSoc = INVALID_SOCKET;
+
+        //wait shutdown of spf
+        while (spfRun)
+            ;
+
+        //wait shutdown of spc
+        while (spcRun)
+            ;
+
+        closesocket(javaSoc);
+        javaSoc = INVALID_SOCKET;
+        __print(SERV, "SAPFOR was closed, Visualizer socker was closed, exit");
+
+        Sleep(500);
+        __bst_unlock();
+        exit(0);
     }
     else
     {
@@ -379,6 +401,34 @@ static bool isVizDebug(int argc, char** argv)
     return false;
 }
 
+static int doRecv(SOCKET& soc, string& command)
+{
+    int count = 0;
+    int err = 0;
+    const int maxSize = 4096;
+    char* buf = new char[maxSize + 1];
+
+    do 
+    {
+        err = recv(soc, buf, maxSize, 0);
+        if (err > 0)
+            count += err;
+        if (count >= maxSize)
+        {
+            buf[err] = '\0';
+            command += buf;
+        }
+    } while (err > 0 && err == maxSize);
+
+    if (err > 0)
+    {
+        buf[err] = '\0';
+        command += buf;
+    }
+    delete []buf;
+    return err < 0 ? err : count;
+}
+
 int main(int argc, char** argv)
 {
     signal(SIGINT, signal_handler);
@@ -400,6 +450,16 @@ int main(int argc, char** argv)
     __print(SERV, "Open ot create mutex of '%s' path, hash = %zu", path.c_str(), hashOfPath);
         
     __bst_create(to_string(hashOfPath).c_str());
+    if (argc == 2 && argv[1] == string("-unlock"))
+    {
+        if (!__bst_tryToLock())
+        {
+            __print(SERV, "Try to unlock '%s' path", path.c_str());
+            __bst_unlock();
+            exit(0);
+        }
+    }
+
     if (!__bst_tryToLock())
     {
         __print(SERV, "The instance of Visualizer from '%s' path was started", path.c_str());
@@ -422,8 +482,8 @@ int main(int argc, char** argv)
     
     __print(SERV, "SOCKET PORT for SAPFOR %d, SOCKET PORT for Visualizer %d", sapforPort, javaPort);
 
-    const int maxSize = 1024;
-    char* buf = new char[maxSize];
+    const int maxSize = 4096;
+    char* buf = new char[maxSize + 1];
 
     int err;
     
@@ -495,7 +555,8 @@ int main(int argc, char** argv)
         {
             string retCode = "";
             string command = "";
-            err = recv(javaSoc, buf, maxSize, 0);
+
+            err = doRecv(javaSoc, command);
             if (err <= 0)
             {
                 __print(SERV, "Error recv from Visualizer with code %d", err);
@@ -506,15 +567,6 @@ int main(int argc, char** argv)
             }
             else
             {
-                if (err >= maxSize)
-                {
-                    __print(SERV, "Critical error");
-                    __bst_unlock();
-                    exit(-1);
-                }
-
-                buf[err] = '\0';
-                command = buf;
                 if (doCommand(spfSoc, javaSoc, serverSPF, serverJAVA, command, needToUpdateViz))
                 {
                     if (javaSoc != INVALID_SOCKET)

@@ -1753,7 +1753,7 @@ int SPF_InlineProcedures(void*& context, int winHandler, short* options, short* 
 }
 
 
-extern set<string> filesToInclude;
+extern map<string, set<string>> filesToInclude;
 int SPF_InsertIncludesPass(void*& context, int winHandler, short *options, short *projName, short *folderName, char *filesToInclude,
                            short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
@@ -1773,8 +1773,18 @@ int SPF_InsertIncludesPass(void*& context, int winHandler, short *options, short
     ::filesToInclude.clear();
     for (int i = 0; i < splited.size(); ++i)
     {
-        ::filesToInclude.insert(splited[i]);
-        __spf_print(1, "file = %s\n", splited[i].c_str());
+        string file = splited[i];
+        int num = 0;
+        if (sscanf(splited[i + 1].c_str(), "%d", &num) == -1)
+            return -3;
+
+        __spf_print(1, "file = %s:\n", file.c_str());
+        for (int k = i + 2; k < i + 2 + num; ++k)
+        {
+            ::filesToInclude[file].insert(splited[k]);
+            __spf_print(1, "    include = %s\n", splited[k].c_str());
+        }
+        i += 1 + num;
     }
     return simpleTransformPass(INSERT_INCLUDES, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }

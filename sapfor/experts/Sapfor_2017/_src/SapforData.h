@@ -71,7 +71,7 @@ std::map<std::string, std::map<int, std::set<std::string>>> commentsToInclude;
 //
 
 //for INSERT_INCLUDES
-std::set<std::string> filesToInclude;
+std::map<std::string, std::set<std::string>> filesToInclude;
 //
 
 //for PASSES DEPENDENSIES
