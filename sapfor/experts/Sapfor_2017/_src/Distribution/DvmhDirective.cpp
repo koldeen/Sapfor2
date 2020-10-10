@@ -297,14 +297,16 @@ static void compliteTieList(vector<SgExpression*>& tieList, const LoopGraph* cur
         
         auto links = pairs.first->GetLinksWithTemplate(regId);
 
-        SgArrayRefExp* array = new SgArrayRefExp(*findSymbolOrCreate(file, pairs.second->GetShortName()));
+        SgSymbol* arrayS = findSymbolOrCreate(file, pairs.second->GetShortName(), pairs.second->GetDeclSymbol()->GetOriginal()->type());
+        SgArrayRefExp* array = new SgArrayRefExp(*arrayS);
         bool needToAdd = false;
+
         for (int z = 0; z < links.size(); ++z)
         {
             int dim = links[z];
             if (dim >= 0)
             {
-                bool wasAdded = true;
+                bool wasAdded = false;
                 for (int k = 0; k < linksWithTempl.size(); ++k)
                 {
                     if (linksWithTempl[k] == dim)
@@ -323,6 +325,31 @@ static void compliteTieList(vector<SgExpression*>& tieList, const LoopGraph* cur
         if (needToAdd)
             tieList.push_back(array);
     }
+}
+
+//TODO: need to improve
+static bool isPrivateOnlyFromSpfParameter(SgStatement* loop, SgSymbol* priv)
+{
+    set<SgSymbol*> used;
+    set<SgSymbol*> usedInSpfPar;
+    
+    SgStatement* last = loop->lastNodeOfStmt();
+    for (SgStatement* st = loop->lexNext(); st != last; st = st->lexNext())
+    {
+        bool isSpf = false;
+        if (st->lineNumber() <= 0) // SPF PARAMETER
+            isSpf = true;
+
+        for (int z = 0; z < 3; ++z)
+            if (st->expr(z))
+                fillUsedSymbols(st->expr(z), isSpf ? usedInSpfPar : used);
+    }
+
+    for (auto& elem : usedInSpfPar)
+        if (OriginalSymbol(elem)->identifier() == string(OriginalSymbol(priv)->identifier()))
+            return true;
+
+    return false;
 }
 
 pair<string, vector<Expression*>> 
@@ -448,6 +475,9 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
         vector<SgExpression*> list;
         for (auto& privVar : setToMapWithSortByStr(privates))
         {
+            if (isPrivateOnlyFromSpfParameter(loop, privVar.second))
+                continue;
+
             directive += (k != 0) ? "," + privVar.first : privVar.first;
             list.push_back(new SgVarRefExp(getFromModule(byUseInFunc, privVar.second, usedInLoop)));
             ++k;

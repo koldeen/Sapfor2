@@ -74,6 +74,8 @@ void Sleep(int millisec) { usleep(millisec * 2000); }
 
 #define SERV "[SERVER]"
 
+static const char* version = "2";
+
 extern void __bst_create(const char* name);
 extern bool __bst_tryToLock();
 extern void __bst_unlock();
@@ -250,7 +252,7 @@ static void runVisulizer(const string command)
     vizRun = false;
 }
 
-static bool doCommand(SOCKET& spfSoc, SOCKET& javaSoc, SOCKET& serverSoc1, SOCKET& serverSoc2, const string& command, bool& needToUpdateViz)
+static bool doCommand(SOCKET& spfSoc, SOCKET& javaSoc, SOCKET& serverSoc1, SOCKET& serverSoc2, const string& command, bool& needToUpdateViz, string &returnToJava)
 {
     if (command.find("restart:") == 0)
     {
@@ -364,6 +366,12 @@ static bool doCommand(SOCKET& spfSoc, SOCKET& javaSoc, SOCKET& serverSoc1, SOCKE
         Sleep(500);
         __bst_unlock();
         exit(0);
+    }
+    else if (command.find("get_version:") == 0)
+    {
+        __print(SERV, "Get version of server: %s", version);
+        returnToJava = version;
+        return true;
     }
     else
     {
@@ -567,17 +575,34 @@ int main(int argc, char** argv)
             }
             else
             {
-                if (doCommand(spfSoc, javaSoc, serverSPF, serverJAVA, command, needToUpdateViz))
+                string returnToJava = "";
+                if (doCommand(spfSoc, javaSoc, serverSPF, serverJAVA, command, needToUpdateViz, returnToJava))
                 {
                     if (javaSoc != INVALID_SOCKET)
                     {
-                        buf[0] = '\n';
-                        int err = send(javaSoc, buf, 1, 0);
-                        if (err != 1)
+                        int needToRecv = 1;
+                        if (returnToJava == "")
+                            buf[0] = '\n';
+                        else
+                        {
+                            memcpy(buf, returnToJava.c_str(), sizeof(char) * returnToJava.size());
+                            buf[returnToJava.size()] = '\n';
+                            needToRecv = returnToJava.size();
+                        }
+
+                        int err = send(javaSoc, buf, needToRecv, 0);
+                        if (err != needToRecv)
                         {
                             closesocket(javaSoc);
                             javaSoc = INVALID_SOCKET;
                         }
+                        else
+                        {
+                            //after 'get_version' command
+                            if (needToRecv > 1)
+                                continue;
+                        }
+
                     }
                     break;
                 }

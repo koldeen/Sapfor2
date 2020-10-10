@@ -266,14 +266,14 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
     int lineBefore = -1;
 
     map<string, set<SgStatement*>> insertedIncludeFiles;
-    map<int, pair<int, int>> placesForInsert;
+    map<int, vector<pair<int, int>>> placesForInsert;
 
     set<string> foundForIncludes;
     map<int, int> stIdByLine;
 
     for (SgStatement* st = file->firstStatement(); st; st = st->lexNext())
     {
-        if (st->variant() > 0 && st->lineNumber() > 0)
+        if (st->variant() > 0 && st->lineNumber() > 0 && st->fileName() == string(file->filename()))
         {
             stIdByLine[st->lineNumber()] = st->id();
             vector<SgStatement*> attr = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR, SPF_NOINLINE_OP});
@@ -343,7 +343,7 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
                             change = true;
                         }
                     }
-                    placesForInsert.insert(make_pair(locSt->id(), lines));
+                    placesForInsert[locSt->id()].push_back(lines);
                 }
             }           
         }
@@ -364,7 +364,7 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
                     auto it = stIdByLine.find(z);
                     if (it != stIdByLine.end())
                     {
-                        placesForInsert.insert(make_pair(it->second, interval));
+                        placesForInsert[it->second].push_back(interval);
                         added = true;
                         break;
                     }
@@ -384,41 +384,45 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
 
         for (auto &it : includeFiles)
         {
-            auto found = placesForInsert.find(st->id());
-            if (found != placesForInsert.end())
+            auto foundV = placesForInsert.find(st->id());
+            if (foundV != placesForInsert.end())
             {                
                 SgStatement* parent = getFuncStat(st, { BLOCK_DATA, MODULE_STMT });
                 if(!parent)
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                if (ifIntervalExists(it.second.second, found->second) && insertedIncludeFiles[it.first].find(parent) == insertedIncludeFiles[it.first].end())
+                for (auto& interval : foundV->second)
                 {
-                    allIncludeFiles.insert(it.first);
-                    insertedIncludeFiles[it.first].insert(parent);
-
-                    string lowerInclude = it.first;
-                    convertToLower(lowerInclude);
-
-                    if (moduleIncudeUses.find(lowerInclude) == moduleIncudeUses.end())
+                    if (ifIntervalExists(it.second.second, interval) && insertedIncludeFiles[it.first].find(parent) == insertedIncludeFiles[it.first].end())
                     {
-                        if (dontReplaceIncludes == false)
+                        allIncludeFiles.insert(it.first);
+                        insertedIncludeFiles[it.first].insert(parent);
+
+                        string lowerInclude = it.first;
+                        convertToLower(lowerInclude);
+
+                        if (moduleIncudeUses.find(lowerInclude) == moduleIncudeUses.end())
                         {
-                            if (st->comments())
+                            if (dontReplaceIncludes == false)
                             {
-                                string comments = st->comments();
-                                if (comments.find(it.second.first) == string::npos)
+                                if (st->comments())
                                 {
-                                    string commLow = comments;
-                                    convertToLower(commLow);
-                                    const size_t pos = commLow.rfind("include");
-                                    if (pos == string::npos)
-                                        st->setComments((it.second.first + comments).c_str());
-                                    else
-                                        st->setComments((comments.insert(comments.find('\n', pos) + 1, it.second.first)).c_str());
+                                    string comments = st->comments();
+                                    if (comments.find(it.second.first) == string::npos)
+                                    {
+                                        string commLow = comments;
+                                        convertToLower(commLow);
+                                        const size_t pos = commLow.rfind("include");
+                                        if (pos == string::npos)
+                                            st->setComments((it.second.first + comments).c_str());
+                                        else
+                                            st->setComments((comments.insert(comments.find('\n', pos) + 1, it.second.first)).c_str());
+                                    }
                                 }
+                                else
+                                    st->addComment(it.second.first.c_str());
+                                __spf_print(1, "   -> restore include '%s' before statement on line %d\n", it.first.c_str(), st->lineNumber());
                             }
-                            else
-                                st->addComment(it.second.first.c_str());
                         }
                     }
                 }

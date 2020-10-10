@@ -533,7 +533,7 @@ static void findArrayRefs(LoopGraph *loop)
     }
 }
 
-void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector<SpfInterval*> &intervalTree, vector<Messages> &messages)
+void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector<SpfInterval*> &intervalTree, vector<Messages> &messages, int mpiProgram)
 {
     map<int, SpfInterval*> mapIntervals;
     createMapOfinterval(mapIntervals, intervalTree);
@@ -618,7 +618,8 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } ); // FORMAT_STAT
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
                 newLoop->hasDvmIntervals = hasThisIds(st, tmpLines, { DVM_INTERVAL_DIR, DVM_ENDINTERVAL_DIR, DVM_EXIT_INTERVAL_DIR });
-                newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops, messages);
+                if (mpiProgram == 0)
+                    newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops, messages);
 
                 auto itTime = mapIntervals.find(newLoop->lineNum);
                 if (itTime != mapIntervals.end() && itTime->second->exec_time != 0)
@@ -1038,5 +1039,37 @@ void completeFillOfArrayUsageBetweenProc(const map<string, vector<LoopGraph*>>& 
             }
         }
     }
+}
+
+bool detectMpiCalls(SgProject* proj, map<string, vector<Messages>>& SPF_messages)
+{
+    bool retVal = false;
+
+    int n = proj->numberOfFiles();
+    for (int i = n - 1; i >= 0; --i)
+    {
+        SgFile* file = &(proj->file(i));
+        string fileName = file->filename();
+
+        SgStatement* st = file->firstStatement();
+        while (st)
+        {
+            if (st->variant() == PROC_STAT)
+            {
+                if (isMpiFunction(st->symbol()->identifier()))
+                {
+                    retVal = true;
+
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"Detected mpi call, turn on special regime of paralyzing");
+                    __spf_printToLongBuf(messageR, R148);
+
+                    SPF_messages[fileName].push_back(Messages(NOTE, st->lineNumber(), messageR, messageE, 1051));
+                }
+            }
+            st = st->lexNext();
+        }
+    }   
+    return retVal;
 }
 #undef DEBUG

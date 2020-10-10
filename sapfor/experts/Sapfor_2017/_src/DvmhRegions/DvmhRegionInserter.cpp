@@ -372,7 +372,7 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
     {
         if (st->variant() == LOGIF_NODE && ((SgLogIfStmt*)st)->body() &&
             (((SgLogIfStmt*)st)->body()->variant() == DEALLOCATE_STMT ||
-             ((SgLogIfStmt*)st)->body()->variant() == ALLOCATABLE_STMT))
+             ((SgLogIfStmt*)st)->body()->variant() == ALLOCATE_STMT))
         {
             return st->lexNext();
         }
@@ -399,6 +399,14 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
 
     // Skip useless
     const int var = st->variant();
+    bool skipGetActualIfProcCall = false;
+    bool skipActualIfProcCall = false;
+    if (var == PROC_STAT)
+    {
+        const char* procName = st->symbol()->identifier();
+        if (isIntrinsicFunctionName(procName) == 0)
+            skipGetActualIfProcCall = skipActualIfProcCall = true;
+    }    
 
     if (!isSgExecutableStatement(st) || isDVM_stat(st) ||
         var == ALLOCATE_STMT || var == DEALLOCATE_STMT || 
@@ -412,7 +420,7 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
             return st->lexNext();
 
     //TODO: read and write !!!
-    if (var != PROC_STAT && var != READ_STAT)
+    if (!skipGetActualIfProcCall && var != READ_STAT)
     {
         set<string> exceptSymbsForActual;
         if (var != WRITE_STAT)
@@ -428,18 +436,18 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
         insertActualDirective(st, readArrays, ACC_GET_ACTUAL_DIR, true, &exceptSymbsForActual);
     }
 
-    if (var != PROC_STAT && var != WRITE_STAT)
+    if (!skipActualIfProcCall && var != WRITE_STAT)
     {
         set<string> exceptSymbsForActual;
         if (var != READ_STAT)
             for (int z = 0; z < 3; ++z)
                 createExceptList(st->expr(z), exceptSymbsForActual);
 
-        auto readArrays = get_used_arrs(st, DVMH_REG_WT);
-        readArrays = excludePrivates(readArrays);
+        auto writeArrays = get_used_arrs(st, DVMH_REG_WT);
+        writeArrays = excludePrivates(writeArrays);
         //filtering by use in DVMH regions
-        readArrays = applyUseFilter(readArrays, usedArraysInParallelLoops);
-        insertActualDirective(st->lexNext(), readArrays, ACC_ACTUAL_DIR, false, &exceptSymbsForActual);
+        writeArrays = applyUseFilter(writeArrays, usedArraysInParallelLoops);
+        insertActualDirective(st->lexNext(), writeArrays, ACC_ACTUAL_DIR, false, &exceptSymbsForActual);
     }
     return st->lexNext();
 }

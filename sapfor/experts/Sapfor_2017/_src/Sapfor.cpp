@@ -449,9 +449,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     SgStatement::setCurrProcessFile("");
     SgStatement::setCurrProcessLine(-1);
 
+    set<string> allFileNames;
     for (int i = n - 1; i >= 0; --i)
     {
         SgFile *file = &(project.file(i));
+        allFileNames.insert(file->filename());
         updateStatsExprs(current_file_id, file->filename());
     }
 
@@ -524,7 +526,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             intentInsert(getObjectForFileFromMap(file_name, allFuncInfo));
         }
         else if (curr_regime == LOOP_GRAPH)
-            loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph), getObjectForFileFromMap(file_name, intervals), getObjectForFileFromMap(file_name, SPF_messages));
+            loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph), getObjectForFileFromMap(file_name, intervals), getObjectForFileFromMap(file_name, SPF_messages), mpiProgram);
         else if (curr_regime == VERIFY_ENDDO)
         {
             bool res = EndDoLoopChecker(file, getObjectForFileFromMap(file_name, SPF_messages));
@@ -704,7 +706,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == PREPROC_SPF)
         {
-            bool noError = preprocess_spf_dirs(file, commonBlocks, getObjectForFileFromMap(file_name, SPF_messages));
+            bool noError = preprocess_spf_dirs(file, commonBlocks, getObjectForFileFromMap(file_name, SPF_messages), allFileNames);
             if (!noError)
                 internalExit = 1;
         }
@@ -1279,17 +1281,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             CreateCallGraphViz("_callGraph.txt", allFuncInfo, V, E);
         }
         findDeadFunctionsAndFillCalls(allFuncInfo, SPF_messages);
-        bool detected = detectMpiCalls(allFuncInfo, SPF_messages);
-        if (detected)
-        {
-            mpiProgram = 1;
-            /*parallizeFreeLoops = 1;
-            for (auto& array : declaredArrays)
-            {
-                if (array.second.first->GetNonDistributeFlagVal() == DIST::DISTR)
-                    array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
-            }*/
-        }
 
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaredArrays, SPF_messages, keepFiles);
         propagateWritesToArrays(allFuncInfo);
@@ -1493,13 +1484,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         fillRegionLinesStep2(parallelRegions, allFuncInfo, &loopGraph);
 
-        if (ignoreDvmChecker == 1)
+        if (ignoreDvmChecker == 1 && parallelRegions.size() == 1 && parallelRegions[0]->GetName() == "DEFAULT" && dvmDirErrors.size())
         {
-            if (parallelRegions.size() == 1 && parallelRegions[0]->GetName() == "DEFAULT" && dvmDirErrors.size())
-            {
-                printDvmActiveDirsErrors();
-                throw(-1);
-            }
+            printDvmActiveDirsErrors();
+            throw(-1);
         }
 
         checkCountOfIter(loopGraph, allFuncInfo, SPF_messages);
@@ -2083,6 +2071,9 @@ static SgProject* createProject(const char *proj_name)
         //file->unparsestdout();
     }
     
+    if (detectMpiCalls(project, SPF_messages))
+        mpiProgram = 1;        
+
     return project;
 }
 

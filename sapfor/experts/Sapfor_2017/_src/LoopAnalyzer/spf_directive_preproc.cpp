@@ -1829,7 +1829,8 @@ static inline bool processStat(SgStatement *st, const string &currFile,
     return retVal;
 }
 
-static bool processModules(vector<SgStatement*> &modules, const string &currFile, const map<string, CommonBlock> *commonBlocks, vector<Messages> &messagesForFile)
+static bool processModules(vector<SgStatement*> &modules, const string &currFile, const map<string, CommonBlock> *commonBlocks, 
+                           vector<Messages> &messagesForFile, const set<string>& allFileNames)
 {
     bool retVal = true;
 
@@ -1838,6 +1839,11 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
         SgStatement *modIterator = modules[i];
         SgStatement *modEnd = modules[i]->lastNodeOfStmt();
         
+        // skip included file
+        const string modFile = modIterator->fileName();
+        if (modFile != currFile && allFileNames.find(modFile) != allFileNames.end())
+            continue;
+
         do
         {
             modIterator = modIterator->lexNext();
@@ -1893,7 +1899,7 @@ bool check_par_reg_dirs(SgFile *file, vector<Messages> &messagesForFile)
     return noError;
 }
 
-bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlocks, vector<Messages> &messagesForFile)
+bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlocks, vector<Messages> &messagesForFile, const set<string>& allFileNames)
 {
     int funcNum = file->numberOfFunctions();
     const string currFile = file->filename();
@@ -1929,7 +1935,7 @@ bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlo
 
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
-    bool result = processModules(modules, currFile, &commonBlocks, messagesForFile);
+    bool result = processModules(modules, currFile, &commonBlocks, messagesForFile, allFileNames);
     noError = noError && result;
     return noError;
 }

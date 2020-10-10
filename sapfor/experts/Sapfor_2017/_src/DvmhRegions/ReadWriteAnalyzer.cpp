@@ -99,6 +99,19 @@ VarUsages ReadWriteAnalyzer::findUsagesInExpr(SgExpression* exp) const
     return usages;
 }
 
+void ReadWriteAnalyzer::findReadUsagesInExpression(SgExpression* ex, VarUsages& usages) const
+{
+    if (ex)
+    {
+        if (ex->variant() == VAR_REF || ex->variant() == ARRAY_REF)
+            usages.insert_read(ex);
+
+        findReadUsagesInExpression(ex->lhs(), usages);
+        findReadUsagesInExpression(ex->rhs(), usages);
+    }
+}
+
+//TODO: need to improve to MPI_* functions
 VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* params_tree, const string& func_key) const
 {
     VarUsages usages;
@@ -129,7 +142,13 @@ VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* params_tree, con
                     usages.insert_write(param);
             }
             else
+            {
                 usages.insert_read(param);
+                usages.insert_write(param);
+            }
+
+            findReadUsagesInExpression(param->lhs(), usages);
+            findReadUsagesInExpression(param->rhs(), usages);
         }
 
         param_no++;

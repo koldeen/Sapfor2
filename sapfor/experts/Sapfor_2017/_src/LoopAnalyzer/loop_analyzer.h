@@ -117,7 +117,7 @@ void removeStatementsFromAllproject(const std::set<int>& variants);
 void correctTemplateModuleDeclaration(const std::string& folderName);
 
 // spf_directive_preproc.cpp
-bool preprocess_spf_dirs(SgFile *file, const std::map<std::string, CommonBlock> &commonBlocks, std::vector<Messages> &messagesForFile);
+bool preprocess_spf_dirs(SgFile *file, const std::map<std::string, CommonBlock> &commonBlocks, std::vector<Messages> &messagesForFile, const std::set<std::string>& allFileNames);
 bool check_par_reg_dirs(SgFile *file, std::vector<Messages> &messagesForFile);
 
 void revertion_spf_dirs(SgFile *file, 

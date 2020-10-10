@@ -22,6 +22,7 @@ class ReadWriteAnalyzer
 
     VarUsages findUsagesInStatement(SgStatement* st) const;
     VarUsages findUsagesInAssignment(SgStatement* st) const;
+    void findReadUsagesInExpression(SgExpression* ex, VarUsages& toExtend) const;
 
     const std::set<int> compound_statements = { FOR_NODE, LOOP_NODE, FUNC_HEDR, PROC_HEDR };
     VarUsages gatherUsagesForCompound(SgStatement* st) const;

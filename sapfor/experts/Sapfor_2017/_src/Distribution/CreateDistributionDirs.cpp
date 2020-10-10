@@ -339,7 +339,7 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
 }
 
 
-static void createNewAlignRule(DIST::Array *alignArray, const DIST::Arrays<int> &allArrays,
+static bool createNewAlignRule(DIST::Array *alignArray, const DIST::Arrays<int> &allArrays,
                                vector<tuple<DIST::Array*, int, pair<int, int>>> &rules,
                                DataDirective &dataDirectives, map<string, vector<Messages>>& SPF_messages)
 {
@@ -370,7 +370,9 @@ static void createNewAlignRule(DIST::Array *alignArray, const DIST::Arrays<int> 
 
         __spf_print(1, "can not find align rules for array '%s' (full name '%s')\n", alignArray->GetShortName().c_str(), alignArray->GetName().c_str());
     }
-    checkNull(alignWith, convertFileName(__FILE__).c_str(), __LINE__);
+    if (alignWith == NULL)
+        return true;
+    //checkNull(alignWith, convertFileName(__FILE__).c_str(), __LINE__);
 
     if (hasFreeDims)
     {
@@ -439,6 +441,7 @@ static void createNewAlignRule(DIST::Array *alignArray, const DIST::Arrays<int> 
         }
     }
     dataDirectives.alignRules.push_back(newRule);
+    return false;
 }
 
 static string printRule(const vector<tuple<DIST::Array*, int, pair<int, int>>> &rule)
@@ -478,6 +481,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, const DIST:
         ++countRep;
         repeat = false;
         set<pair<DIST::Array*, vector<vector<tuple<DIST::Array*, int, pair<int, int>>>>>> manyDistrRules;
+        int errCount = 0;
         for (auto &array : arrays)
         {
             if (distArrays.find((array)) == distArrays.end())
@@ -550,11 +554,18 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, const DIST:
                 }
 
                 if (isAllRulesEqualWithoutArray(rules))
-                    createNewAlignRule(array, allArrays, rules[0], dataDirectives, SPF_messages);
+                {
+                    bool hasError = createNewAlignRule(array, allArrays, rules[0], dataDirectives, SPF_messages);
+                    if (hasError)
+                        errCount++;
+                }
                 else
                     manyDistrRules.insert(make_pair(array, rules));
             }
         }
+
+        if (errCount > 0)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         if (countRep > 500)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
