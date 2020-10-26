@@ -2162,7 +2162,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runAnalysis(*project, INSERT_REGIONS, false);
 
             runAnalysis(*project, CALCULATE_STATS_SCHEME, false);
-
+            for (auto& elem : allPredictorStats)
+                __spf_print(1, "  stat for file %s: %s\n", elem.first.c_str(), elem.second.to_string().c_str());
             //TODO: need to rewrite this to new algo 
             /*if (!folderName && !consoleMode || predictOn)
                 runAnalysis(*project, PREDICT_SCHEME, false); */

@@ -1533,7 +1533,22 @@ void GroupShadow(const map<string, vector<FuncInfo*>>& allFuncs,
 
                     st = st->lexNext();
                     if (st->variant() != FOR_NODE)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    {
+                        if (st->variant() != ASSIGN_STAT)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        else
+                        {
+                            bool found = false;
+                            for (auto& data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ASSIGN_STAT }))
+                            {
+                                if (mapLoops.find(data->lineNumber()) != mapLoops.end())
+                                    found = true;
+                            }
+
+                            if (!found)
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        }
+                    }
                     st = st->lastNodeOfStmt();
                 }
                 else if (st->variant() == CONTAINS_STMT)
@@ -1570,12 +1585,30 @@ void GroupShadow(const map<string, vector<FuncInfo*>>& allFuncs,
                 {
                     dir = dir->lexNext();
                     SgForStmt* start = isSgForStmt(dir);
+                    SgStatement* lastNode = NULL;
+                    if (start == NULL && dir->variant() == ASSIGN_STAT)
+                    {
+                        for (auto& data : getAttributes<SgStatement*, SgStatement*>(dir, set<int>{ ASSIGN_STAT }))
+                        {
+                            if (mapLoops.find(data->lineNumber()) != mapLoops.end() && data->localLineNumber() == dir->lineNumber())
+                            {
+                                start = isSgForStmt(data);
+                                lastNode = dir->lastNodeOfStmt();
+                                break;
+                            }
+                        }
+                    }
+                    else if (start)
+                        lastNode = start->lastNodeOfStmt();
+
                     checkNull(start, convertFileName(__FILE__).c_str(), __LINE__);
                     auto itLoop = mapLoops.find(start->lineNumber());
                     if (itLoop == mapLoops.end())
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                     addRealArraysRef(writesTo, itLoop->second->usedArraysWrite, arrayLinksByFuncCalls);
-                    dir = start->lastNodeOfStmt();
+
+                    checkNull(lastNode, convertFileName(__FILE__).c_str(), __LINE__);
+                    dir = lastNode;
                 }
                 else if (type == STOP || type == RETURN || type == END)
                 {

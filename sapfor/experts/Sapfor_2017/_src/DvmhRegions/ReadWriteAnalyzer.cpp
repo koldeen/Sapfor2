@@ -123,6 +123,60 @@ VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* params_tree, con
         if (it != modified_pars.end())
             inOutTypes = it->second;
     }
+    else if (isMpiFunction(func_key.c_str()))
+    {
+        if (func_key == "mpi_send")
+            inOutTypes = { IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT };
+        if (func_key == "mpi_isend")
+            inOutTypes = { IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_recv")
+            inOutTypes = { IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_irecv")
+            inOutTypes = { IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_alltoall")
+            inOutTypes = { IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_alltoallv")
+            inOutTypes = { IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_allgather")
+            inOutTypes = { IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_allgatherv")
+            inOutTypes = { IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_allreduce")
+            inOutTypes = { IN_BIT, IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_reduce")
+            inOutTypes = { IN_BIT, IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_reduce_scatter")
+            inOutTypes = { IN_BIT, IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_scatter")
+            inOutTypes = { IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_scatterv")
+            inOutTypes = { IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_gather")
+            inOutTypes = { IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_gatherv")
+            inOutTypes = { IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_sendrecv")
+            inOutTypes = { IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_sendrecv_replace")
+            inOutTypes = { IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT, IN_BIT | OUT_BIT };
+        else if (func_key == "mpi_scan")
+            inOutTypes = { IN_BIT, IN_BIT | OUT_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT, IN_BIT | OUT_BIT };
+        //TODO:
+        /*
+        "mpi_bcast"
+        "mpi_bsend"
+        "mpi_bsend_init"
+        "mpi_ibsend"
+        "mpi_irsend"
+        "mpi_issend"
+        "mpi_recv_init"
+        "mpi_rsend"
+        "mpi_rsend_init"
+        "mpi_send_init"
+        "mpi_ssend"
+        "mpi_ssend_init"
+        */
+    }
 
     int param_no = 0;
     while (params_tree)

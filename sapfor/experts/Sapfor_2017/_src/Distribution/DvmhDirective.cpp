@@ -328,7 +328,7 @@ static void compliteTieList(vector<SgExpression*>& tieList, const LoopGraph* cur
 }
 
 //TODO: need to improve
-static bool isPrivateOnlyFromSpfParameter(SgStatement* loop, SgSymbol* priv)
+static bool isPrivateOnlyFromSpfParameter(SgStatement* loop, SgSymbol* priv, const int altLine)
 {
     set<SgSymbol*> used;
     set<SgSymbol*> usedInSpfPar;
@@ -337,7 +337,7 @@ static bool isPrivateOnlyFromSpfParameter(SgStatement* loop, SgSymbol* priv)
     for (SgStatement* st = loop->lexNext(); st != last; st = st->lexNext())
     {
         bool isSpf = false;
-        if (st->lineNumber() <= 0) // SPF PARAMETER
+        if (st->lineNumber() <= 0 && st->localLineNumber() != altLine) // SPF PARAMETER
             isSpf = true;
 
         for (int z = 0; z < 3; ++z)
@@ -475,7 +475,7 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
         vector<SgExpression*> list;
         for (auto& privVar : setToMapWithSortByStr(privates))
         {
-            if (isPrivateOnlyFromSpfParameter(loop, privVar.second))
+            if (isPrivateOnlyFromSpfParameter(loop, privVar.second, currLoop->lineNum < 0 ? currLoop->altLineNum : 0))
                 continue;
 
             directive += (k != 0) ? "," + privVar.first : privVar.first;

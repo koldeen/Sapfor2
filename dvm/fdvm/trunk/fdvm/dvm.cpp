@@ -144,6 +144,12 @@ int main(int argc, char *argv[]){
             options.setOn(LOOP_ANALYSIS);
             options.setOn(OPT_EXP_COMP);
         }
+        else if (!strcmp(argv[0], "-dvmIrregAnalysis"))   /*ACC*/
+        {
+            options.setOn(LOOP_ANALYSIS);
+            options.setOn(OPT_EXP_COMP);
+            options.setOn(GPU_IRR_ACC);
+        }
         else if (!strcmp(argv[0], "-dvmLoopAnalysis"))   /*ACC*/
             options.setOn(LOOP_ANALYSIS);
         else if (!strcmp(argv[0], "-dvmPrivateAnalysis"))   /*ACC*/
@@ -8479,7 +8485,7 @@ void TestShadowWidths(SgSymbol *ar, SgExpression * lbound[], SgExpression * ubou
    }
  }
  else  {//by default shadow width = 1
-   if(!IS_DUMMY(ar))
+   if(!IS_DUMMY(ar) && parloop_by_handler != 2)
      for(i=0; i<nw; i++){
        if(lbound[i]->isInteger() && lbound[i]->valueInteger() > 1 )
          Error("Low shadow width  of  '%s' is greater than 1", ar->identifier(), 144,st); 

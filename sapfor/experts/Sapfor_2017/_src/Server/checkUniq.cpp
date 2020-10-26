@@ -20,10 +20,14 @@ void __bst_create(const char* name)
 
 bool __bst_tryToLock()
 {
-    return uniqInstance->try_lock();
+    if (uniqInstance)
+        return uniqInstance->try_lock();
+    else
+        true;
 }
 
 void __bst_unlock()
 {
-    uniqInstance->unlock();
+    if (uniqInstance)
+        uniqInstance->unlock();
 }

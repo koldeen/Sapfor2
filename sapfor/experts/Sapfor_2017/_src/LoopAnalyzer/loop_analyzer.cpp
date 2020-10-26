@@ -568,105 +568,128 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                     //check array's alignment
                     for (int z = 0; z < wasFound.size() && ok; ++z)
                     {
-                        if (wasFound[z])
+                        auto it = sortedLoopGraph.find(parentLoops[z]->lineNumber());
+                        if (it == sortedLoopGraph.end())
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                             
+
+                        if (!templ)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                        const DataDirective& dataDirectives = reg->GetDataDir();
+                        const vector<int>& currentVariant = reg->GetCurrentVariant();
+
+                        auto& tmp = dataDirectives.distrRules;
+                        pair<DIST::Array*, const DistrVariant*> currentVar;
+
+                        for (int z1 = 0; z1 < currentVariant.size(); ++z1)
                         {
-                            auto it = sortedLoopGraph.find(parentLoops[z]->lineNumber());
-                            if (it == sortedLoopGraph.end())
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                            LoopGraph *loop =  it->second;
-                            if (!templ)
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                            
-                            const DataDirective &dataDirectives = reg->GetDataDir();
-                            const vector<int> &currentVariant = reg->GetCurrentVariant();
-
-                            auto &tmp = dataDirectives.distrRules;
-                            pair<DIST::Array*, const DistrVariant*> currentVar;
-
-
-                            for (int z1 = 0; z1 < currentVariant.size(); ++z1)
+                            if (tmp[z1].first == templ)
                             {
-                                if (tmp[z1].first == templ)
+                                currentVar = make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]);
+                                break;
+                            }
+                        }
+                        if (!currentVar.first)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                        LoopGraph* loop = it->second;
+                        if (!(loop->directiveForLoop))
+                        {
+                            if (wasFound[z])
+                            {
+                                if (matchedToDim[z] != -1 && currentVar.second->distRule[alignCoefs[matchedToDim[z]]] == distType::BLOCK)
                                 {
-                                    currentVar = make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]);
-                                    break;
+                                    ok = false;
+                                    if (!ok)
+                                    {
+                                        __spf_print(DEB, "%s\n", debOutStr.c_str());
+                                        __spf_print(DEB, "RemoteAccess[%d]: call addInfoMaps from aligns miss\n", __LINE__);
+                                        __spf_print(DEB, "RemoteAccess[%d]: z = %d\n", __LINE__, z);
+                                        addInfoToMaps(loopInfo, parentLoops[z], currOrigArrayS, arrayRef, matchedToDim[z], REMOTE_TRUE, currLine, numOfSubs);
+                                    }
                                 }
                             }
-                            if (!currentVar.first)
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                            continue;
+                        }
 
-                            if (!(loop->directiveForLoop))
-                                continue;
-                            DIST::Array *loopT = loop->directiveForLoop->arrayRef;
-                            sprintf(buf, "RemoteAccess[%d]: z = %d, array '%s'\n", __LINE__, z, loopT->GetShortName().c_str());
-                            debOutStr += buf;
+                        //apply redistribute
+                        if (loop->getRedistributeRule(currentVar.first) != NULL)
+                            currentVar.second = loop->getRedistributeRule(currentVar.first);
 
-                            int dimToMap = -1;
-                            for (int z1 = 0; z1 < loopT->GetDimSize(); ++z1)
-                                if (loop->directiveForLoop->on[z1].first != "*")
-                                    dimToMap = z1;
+                        DIST::Array* loopT = loop->directiveForLoop->arrayRef;
+                        sprintf(buf, "RemoteAccess[%d]: z = %d, array '%s'\n", __LINE__, z, loopT->GetShortName().c_str());
+                        debOutStr += buf;
 
-                            sprintf(buf, "RemoteAccess[%d]: z = %d, dimToMap = %d\n", __LINE__, z, dimToMap);
-                            debOutStr += buf;
-                            if (dimToMap != -1)
+                        int dimToMap = -1;
+                        for (int z1 = 0; z1 < loopT->GetDimSize(); ++z1)
+                            if (loop->directiveForLoop->on[z1].first != "*")
+                                dimToMap = z1;
+
+                        sprintf(buf, "RemoteAccess[%d]: z = %d, dimToMap = %d\n", __LINE__, z, dimToMap);
+                        debOutStr += buf;
+                        if (dimToMap != -1)
+                        {
+                            if (loopT != templ)
                             {
-                                if (loopT != templ)
-                                {
-                                    sprintf(buf, "RemoteAccess[%d]: z = %d, false check !=\n", __LINE__, z);
-                                    debOutStr += buf;
-
-                                    DIST::Array *loopTempl = loopT->GetTemplateArray(reg->GetId());
-                                    vector<int> loopAlignCoefs = loopT->GetLinksWithTemplate(reg->GetId());
-
-                                    if (loopTempl == NULL)
-                                    {
-                                        set<DIST::Array*> tmpSet;
-                                        getRealArrayRefs(loopT, loopT, tmpSet, arrayLinksByFuncCalls);
-
-                                        set<DIST::Array*> templates;
-                                        for (auto& elem : tmpSet)
-                                        {
-                                            loopTempl = elem->GetTemplateArray(reg->GetId());
-                                            loopAlignCoefs = elem->GetLinksWithTemplate(reg->GetId());
-                                            templates.insert(loopTempl);
-                                        }
-
-                                        if (templates.size() != 1)
-                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                    }
-
-                                    sprintf(buf, "RemoteAccess[%d]: z = %d, array '%s'\n", __LINE__, z, loopTempl->GetShortName().c_str());
-                                    debOutStr += buf;
-
-                                    if (templ != loopTempl)
-                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                    if (loopAlignCoefs.size() == 0)
-                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                                    
-                                    if (loopAlignCoefs.size() <= dimToMap)
-                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                    if (loopAlignCoefs[dimToMap] == -1)
-                                    {
-                                        if (loop->loop->GetOriginal()->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
-                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                                        else
-                                            continue;
-                                    }
-                                    else
-                                        dimToMap = loopAlignCoefs[dimToMap];
-                                }
-                                sprintf(buf, "RemoteAccess[%d]: ** z = %d, dimToMap = %d\n", __LINE__, z, dimToMap);
+                                sprintf(buf, "RemoteAccess[%d]: z = %d, false check !=\n", __LINE__, z);
                                 debOutStr += buf;
 
-                                for (int z = 0; z < currentVar.second->distRule.size(); ++z)
+                                DIST::Array* loopTempl = loopT->GetTemplateArray(reg->GetId());
+                                vector<int> loopAlignCoefs = loopT->GetLinksWithTemplate(reg->GetId());
+
+                                if (loopTempl == NULL)
                                 {
-                                    sprintf(buf, "RemoteAccess[%d]: distRule[%d] = %d\n", __LINE__, z, currentVar.second->distRule[z]);
-                                    debOutStr += buf;
+                                    set<DIST::Array*> tmpSet;
+                                    getRealArrayRefs(loopT, loopT, tmpSet, arrayLinksByFuncCalls);
+
+                                    set<DIST::Array*> templates;
+                                    for (auto& elem : tmpSet)
+                                    {
+                                        loopTempl = elem->GetTemplateArray(reg->GetId());
+                                        loopAlignCoefs = elem->GetLinksWithTemplate(reg->GetId());
+                                        templates.insert(loopTempl);
+                                    }
+
+                                    if (templates.size() != 1)
+                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
                                 }
 
+                                sprintf(buf, "RemoteAccess[%d]: z = %d, array '%s'\n", __LINE__, z, loopTempl->GetShortName().c_str());
+                                debOutStr += buf;
+
+                                if (templ != loopTempl)
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                if (loopAlignCoefs.size() == 0)
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                if (loopAlignCoefs.size() <= dimToMap)
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                if (loopAlignCoefs[dimToMap] == -1)
+                                {
+                                    if (loop->loop->GetOriginal()->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
+                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                    else
+                                        continue;
+                                }
+                                else
+                                    dimToMap = loopAlignCoefs[dimToMap];
+                            }
+                            sprintf(buf, "RemoteAccess[%d]: ** z = %d, dimToMap = %d\n", __LINE__, z, dimToMap);
+                            debOutStr += buf;
+
+                            for (int z = 0; z < currentVar.second->distRule.size(); ++z)
+                            {
+                                sprintf(buf, "RemoteAccess[%d]: distRule[%d] = %d\n", __LINE__, z, currentVar.second->distRule[z]);
+                                debOutStr += buf;
+                            }
+
+
+                            if (wasFound[z])
+                            {
                                 if (matchedToDim[z] != -1 && currentVar.second->distRule[alignCoefs[matchedToDim[z]]] == distType::BLOCK)
                                 {
                                     bool found = false;
@@ -683,13 +706,42 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                                         __spf_print(DEB, "%s\n", debOutStr.c_str());
                                         __spf_print(DEB, "RemoteAccess[%d]: call addInfoMaps from aligns miss\n", __LINE__);
                                         __spf_print(DEB, "RemoteAccess[%d]: z = %d\n", __LINE__, z);
-                                        __spf_print(DEB, "RemoteAccess[%d]: dimToMap = %d\n", __LINE__, dimToMap);                                        
+                                        __spf_print(DEB, "RemoteAccess[%d]: dimToMap = %d\n", __LINE__, dimToMap);
                                         addInfoToMaps(loopInfo, parentLoops[z], currOrigArrayS, arrayRef, matchedToDim[z], REMOTE_TRUE, currLine, numOfSubs);
                                     }
                                 }
                             }
                             else
-                                ;//printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                            {
+                                bool distrAny = false;
+                                bool distrAll = true;
+                                int dDim = -1;
+                                
+                                for (int idx = 0; idx < alignCoefs.size(); ++idx)
+                                {
+                                    if (currentVar.second->distRule[idx] == distType::BLOCK)
+                                    {
+                                        dDim = idx;
+                                        distrAny = true;
+                                    }
+                                    else
+                                        distrAll = false;
+                                }
+
+
+                                if (matchedToDim[z] == -1 && distrAny && !distrAll)
+                                {
+                                    ok = false;
+                                    if (!ok)
+                                    {
+                                        __spf_print(DEB, "%s\n", debOutStr.c_str());
+                                        __spf_print(DEB, "RemoteAccess[%d]: call addInfoMaps from aligns miss\n", __LINE__);
+                                        __spf_print(DEB, "RemoteAccess[%d]: z = %d\n", __LINE__, z);
+                                        __spf_print(DEB, "RemoteAccess[%d]: dimToMap = %d\n", __LINE__, dimToMap);
+                                        addInfoToMaps(loopInfo, parentLoops[z], currOrigArrayS, arrayRef, dDim, REMOTE_TRUE, currLine, numOfSubs);
+                                    }
+                                }
+                            }
                         }
                     }
 

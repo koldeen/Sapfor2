@@ -1385,9 +1385,15 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
 
         currentLists[string(start->symbol()->identifier())] = vector<DefUseList>();
         for (SgStatement *st = start->lexNext(); st != end; st = st->lexNext())
-        {
+        {            
             if (isSgExecutableStatement(st))
             {
+                if (isDVM_stat(st))
+                {
+                    if (st->variant() != ACC_GET_ACTUAL_DIR && st->variant() != ACC_ACTUAL_DIR)
+                        continue;
+                }
+
                 tmpList.clear();
                 switch (st->variant())
                 {

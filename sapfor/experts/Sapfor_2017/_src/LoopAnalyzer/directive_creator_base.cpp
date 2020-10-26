@@ -1647,14 +1647,6 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
                     checkNull(local, convertFileName(__FILE__).c_str(), __LINE__);
 
                     local->insertStmtBefore(*result, *local->controlParent());
-                    /*SgStatement* local = NULL;
-                    int line = loop->altLineNum + 1;
-                    while (local == NULL)
-                    {
-                        local = SgStatement::getStatementByFileAndLine(loop->loop->fileName(), line);
-                        ++line;
-                    }
-                    local->insertStmtBefore(*result, *local->controlParent());*/
                 }
                 else
 #endif

@@ -1157,8 +1157,70 @@ void Array::generateAssigns(SgVarRefExp* offsetX, SgVarRefExp* offsetY, SgVarRef
     }
 }
 
-Loop::Loop(SgStatement* loop_body, bool enable_opt) : enable_opt(enable_opt), loop_body(loop_body), dimension(0), acrossType(0), acrossDims(NULL)
+bool Loop::irregularAnalysisIsOn() const
 {
+    return do_irreg_opt;
+}
+
+static bool isOnlyParS(SgExpression* ex, SgSymbol* parS)
+{
+    bool ret = true;
+    if (ex)
+    {
+        if (ex->variant() != VAR_REF || ex->variant() == CONST_REF)
+            return false;
+        if (ex->variant() == VAR_REF)
+            if (ex->symbol()->identifier() != string(parS->identifier()))
+                return false;
+
+        bool left = isOnlyParS(ex->lhs(), parS);
+        bool right = isOnlyParS(ex->rhs(), parS);
+        ret = left && right;
+    }
+    return ret;
+}
+
+static void analyzeExpr(SgExpression* ex, SgSymbol* parS, int arrayLvl, bool& needOpt, bool& wasInderectAccess)
+{
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF)
+        {
+            if (arrayLvl > 0)
+                wasInderectAccess = true;
+            arrayLvl++;
+            if (isOnlyParS(ex->lhs(), parS) == false)
+                needOpt = true;
+        }
+
+        analyzeExpr(ex->lhs(), parS, arrayLvl, needOpt, wasInderectAccess);
+        analyzeExpr(ex->rhs(), parS, arrayLvl, needOpt, wasInderectAccess);
+    }
+}
+
+void Loop::analyzeInderectAccess()
+{
+    if (symbols.size() != 1)
+        return;
+
+    SgStatement* stmt = loop_body;
+    bool wasInderectAccess = false;
+    bool needOpt = false;
+    while (stmt)
+    {
+        for (int z = 0; z < 3; ++z)
+            analyzeExpr(stmt->expr(z), symbols[0], 0, needOpt, wasInderectAccess);
+        stmt = stmt->lexNext();
+    }
+
+    if (wasInderectAccess && needOpt)
+        do_irreg_opt = true;
+}
+
+Loop::Loop(SgStatement* loop_body, bool enable_opt, bool irreg_access) : 
+    irregular_acc_opt(irreg_access), enable_opt(enable_opt), loop_body(loop_body), 
+    dimension(0), acrossType(0), acrossDims(NULL), do_irreg_opt(false)
+{    
     lhs.clear();
     rhs.clear();
     unparsedLhs.clear();
@@ -1245,7 +1307,11 @@ Loop::Loop(SgStatement* loop_body, bool enable_opt) : enable_opt(enable_opt), lo
             }
         }
         else
+        {
+            if (irreg_access)
+                analyzeInderectAccess();
             return;
+        }
     }
     //TODO: tmp is undefined in this scope
     if (arrays.find(symbol) == arrays.end())
@@ -1259,7 +1325,12 @@ Loop::Loop(SgStatement* loop_body, bool enable_opt) : enable_opt(enable_opt), lo
 
     // ACROSS_ANALYZER
     if (WithAcrossClause() == 0)
+    {
+        if (irreg_access)
+            analyzeInderectAccess();
         return;
+    }
+
     analyzeAcrossClause();
     vector<int> acrossDims(symbols.size(), -1);
     if (arrays.find(symbol) != arrays.end())
@@ -1877,8 +1948,8 @@ void Loop::buildCFG()
     }
 }
 
-Loop::Loop(SgStatement* stmt)
-{
+Loop::Loop(SgStatement* stmt) : do_irreg_opt(false)
+{    
     lhs.clear(); rhs.clear(); unparsedLhs.clear(); unparsedRhs.clear();
     buildCFG();
 }

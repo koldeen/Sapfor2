@@ -738,7 +738,7 @@ static void fillInOut(FuncInfo *currF, SgStatement *start, SgStatement *last)
         {
             //printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
-        else
+        else if (!isDVM_stat(st))
         {
             for (int i = 0; i < 3; ++i)
                 fillIn(currF, st->expr(i), parNames);

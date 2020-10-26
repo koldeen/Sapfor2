@@ -158,8 +158,17 @@ void intentInsert(FuncInfo* func)
     vector <string> OutIdentificators;
     vector <string> InOutIdentificators;
 
+    SgStatement* headerSt = func->funcPointer->GetOriginal();
+    SgProgHedrStmt* header = (SgProgHedrStmt*)headerSt;
+    map <string, SgSymbol*> parSym;
+
     for (int i = 0; i < func->funcParams.countOfPars; i++)
     {
+        SgSymbol* parS = header->parameter(i);
+        parSym[header->parameter(i)->identifier()] = parS;
+        if ((parS->attributes() & (INOUT_BIT | IN_BIT | OUT_BIT)) != 0)
+            continue;
+
         if (func->funcParams.isArgInOut(i))
             InOutIdentificators.push_back(func->funcParams.identificators[i]);
         else if (func->funcParams.isArgIn(i))
@@ -168,15 +177,9 @@ void intentInsert(FuncInfo* func)
             OutIdentificators.push_back(func->funcParams.identificators[i]);
     }
 
-    SgStatement* headerSt = func->funcPointer->GetOriginal();
-    SgProgHedrStmt* header = (SgProgHedrStmt*)headerSt;
-    map <string, SgSymbol*> parSym;
-    for (int i = 0; i < header->numberOfParameters(); i++)
-        parSym[header->parameter(i)->identifier()] = header->parameter(i);
-
     insertIntents(InOutIdentificators, headerSt, parSym, INOUT_OP, INOUT_BIT);
-    insertIntents(InIdentificators, headerSt, parSym, IN_OP, IN_BIT);
-    insertIntents(OutIdentificators, headerSt, parSym, OUT_OP, OUT_BIT);        
+    insertIntents(InIdentificators, headerSt, parSym, IN_OP, IN_BIT);    
+    insertIntents(OutIdentificators, headerSt, parSym, OUT_OP, OUT_BIT);
 }
 
 void intentInsert(const vector<FuncInfo*>& allFuncInfo) 

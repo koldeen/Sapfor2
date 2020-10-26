@@ -668,7 +668,8 @@ static pair<templateDir, string>
                             const DataDirective &dataDir, const vector<string> &distrRules,
                             const vector<vector<dist>> &distrRulesSt,
                             const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                            const int regionId, SgStatement *module, bool isMain, SgFile *file)
+                            const int regionId, SgStatement *module, bool isMain, SgFile *file,
+                            vector<Messages>& messagesForFile)
 {   
     DIST::Array *templ = findLinkWithTemplate(alignArray, allArrays, reducedG, regionId);   
     bool templDynSt = false;
@@ -694,13 +695,27 @@ static pair<templateDir, string>
         else
         {
             templ = templates[0];
-            for (auto &t : templates)
+            bool isErr = false;
+            for (auto& t : templates)
             {
                 if (t != templ)
                 {
-                    __spf_print(1, "find more then one template: %s and %s\n", t->GetShortName().c_str(), templ->GetShortName().c_str());
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    isErr = true;
+                    __spf_print(1, "find more then one template: %s and %s, align array is %s\n", t->GetShortName().c_str(), templ->GetShortName().c_str(), alignArray->GetShortName().c_str());
                 }
+            }
+
+            if (isErr)
+            {
+                auto allDecl = alignArray->GetDeclInfo();
+                for (auto& decl : allDecl)
+                {
+                    std::wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"Can not find align rules for array '%s'", to_wstring(alignArray->GetShortName()).c_str());
+                    __spf_printToLongBuf(bufR, R171, to_wstring(alignArray->GetShortName()).c_str());
+                    messagesForFile.push_back(Messages(ERROR, decl.second, bufR, bufE, 3020));
+                }
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
         }
         
@@ -1510,6 +1525,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
 
         SgStatement *lastNode = st->lastNodeOfStmt();
         set<string> templateDelc;
+
         SgStatement *isModule = (st->variant() == MODULE_STMT) ? st : NULL;
         bool isMain = (st->variant() == PROG_HEDR);
 
@@ -1638,7 +1654,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                     toInsert = "";
 
                                 const pair<templateDir, string> &templDir =
-                                    getNewTemplateDirective(dirWithArray.first, allArrays, reducedG, dataDir, distrRules, distrRulesSt, arrayLinksByFuncCalls, regionId, isModule, isMain, file);
+                                    getNewTemplateDirective(dirWithArray.first, allArrays, reducedG, dataDir, distrRules, distrRulesSt, arrayLinksByFuncCalls, regionId, isModule, isMain, file, messagesForFile);
                                 string templDecl = templDir.first.templDecl.first; //std::get<0>(templDir.first);
 
                                 //if array is inherit array 

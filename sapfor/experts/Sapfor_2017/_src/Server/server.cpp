@@ -439,6 +439,14 @@ static int doRecv(SOCKET& soc, string& command)
 
 int main(int argc, char** argv)
 {
+    if (argc == 2 && argv[1] == string("-help"))
+    {
+        printf("commands:\n");
+        printf("  -hashSkip\n");
+        printf("  -unlock\n");
+        exit(0);
+    }
+
     signal(SIGINT, signal_handler);
     signal(SIGABRT, signal_handler);
 #if _WIN32
@@ -454,26 +462,31 @@ int main(int argc, char** argv)
     bool isSpfDeb = isSapforDebug(argc, argv);
     bool isVizDeb = isVizDebug(argc, argv);
 
-    const size_t hashOfPath = hash<string>{}(path);
-    __print(SERV, "Open ot create mutex of '%s' path, hash = %zu", path.c_str(), hashOfPath);
-        
-    __bst_create(to_string(hashOfPath).c_str());
-    if (argc == 2 && argv[1] == string("-unlock"))
+    if (argc == 2 && argv[1] == string("-hashSkip"))
+        ;
+    else
     {
+        const size_t hashOfPath = hash<string>{}(path);
+        __print(SERV, "Open ot create mutex of '%s' path, hash = %zu", path.c_str(), hashOfPath);
+
+        __bst_create(to_string(hashOfPath).c_str());
+        if (argc == 2 && argv[1] == string("-unlock"))
+        {
+            if (!__bst_tryToLock())
+            {
+                __print(SERV, "Try to unlock '%s' path", path.c_str());
+                __bst_unlock();
+                exit(0);
+            }
+        }
+
         if (!__bst_tryToLock())
         {
-            __print(SERV, "Try to unlock '%s' path", path.c_str());
-            __bst_unlock();
+            __print(SERV, "The instance of Visualizer from '%s' path was started", path.c_str());
             exit(0);
         }
     }
 
-    if (!__bst_tryToLock())
-    {
-        __print(SERV, "The instance of Visualizer from '%s' path was started", path.c_str());
-        exit(0);
-    }
-   
     setlocale(LC_ALL, "Russian");
     SOCKET serverSPF = INVALID_SOCKET, serverJAVA = INVALID_SOCKET;
     int sapforPort = 0, javaPort = 0;

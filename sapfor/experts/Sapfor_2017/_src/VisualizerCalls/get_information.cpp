@@ -1029,6 +1029,7 @@ int SPF_CreateParallelVariant(void*& context, int winHandler, short *options, sh
             predictRes += "|0";*/
 
         copyStringToShort(predictorStats, predictRes);
+        __spf_print(1, "  statistic to send: %s\n", predictRes.c_str());
         retSize = (int)predictRes.size();
     }
     catch (int ex)
@@ -1519,6 +1520,14 @@ int SPF_ConvertStructures(void*& context, int winHandler, short* options, short*
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);
     return simpleTransformPass(CONVERT_STRUCTURES_TO_SIMPLE, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
+int SPF_InitDeclsWithZero(void*& context, int winHandler, short* options, short* projName, short* folderName, short*& output,
+                          int*& outputSize, short*& outputMessage, int*& outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(SET_TO_ALL_DECL_INIT_ZERO, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
 static inline void convertBackSlash(char *str, int strL)
@@ -2130,6 +2139,8 @@ const wstring Sapfor_RunTransformation(const char* transformName_c, const char* 
         retCode = SPF_CreateCheckpoints(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
     else if (whichRun == "SPF_ConvertStructures")
         retCode = SPF_ConvertStructures(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    else if (whichRun == "SPF_InitDeclsWithZero")
+        retCode = SPF_InitDeclsWithZero(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
     else
     {
         if (showDebug)

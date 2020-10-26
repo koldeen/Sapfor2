@@ -378,6 +378,8 @@ int main(int argc, char *argv[])
             ;
         else if (!strcmp(argv[0], "-dvmPrivateAnalysis"))   /*ACC*/
             ;
+        else if (!strcmp(argv[0], "-dvmIrregAnalysis"))   /*ACC*/
+            ;
         else if (!strcmp(argv[0], "-speedL0")) /*ACC*/
             ;
         else if (!strcmp(argv[0], "-speedL1")) /*ACC*/

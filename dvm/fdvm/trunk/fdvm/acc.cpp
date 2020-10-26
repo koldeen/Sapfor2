@@ -2361,7 +2361,7 @@ void ACC_ParallelLoopEnd(SgStatement *pardo)
 
                 //enabled analysis for each parallel loop for CUDA
                 if (options.isOn(LOOP_ANALYSIS))
-                    currentLoop = new Loop(loop_body, options.isOn(OPT_EXP_COMP));
+                    currentLoop = new Loop(loop_body, options.isOn(OPT_EXP_COMP), options.isOn(GPU_IRR_ACC));
 
                 std::string new_kernel_symb = kernel_symb->identifier();
                 if (rtTypes[k] == rt_INT)
@@ -9606,7 +9606,10 @@ SgStatement *Assign_To_IndVar2(SgStatement *dost, int i, int nloop)
         // ind_i = begin_i + (cur_blocks*blockDim%x + threadIdx%x [- 1]) [ * step_i ]
     {
         eth = ThreadIdxRefExpr("x");
-        es = &(*new SgVarRefExp(s_cur_blocks) * *new SgRecordRefExp(*s_blockdim, "x") + *eth);
+        if (currentLoop && currentLoop->irregularAnalysisIsOn())
+            es = &((*new SgVarRefExp(s_cur_blocks) * *new SgRecordRefExp(*s_blockdim, "x") + *eth) / *new SgValueExp(warpSize));
+        else
+            es = &(*new SgVarRefExp(s_cur_blocks) * *new SgRecordRefExp(*s_blockdim, "x") + *eth);
         es = step_e == NULL ? es : &(*es * *step_e);
         e = &(*e + *es);
     }
@@ -13255,7 +13258,10 @@ SgStatement *Create_C_Adapter_Function(SgSymbol *sadapter)
 
         stmt = new SgCExpStmt(SgAssignOp(*new SgVarRefExp(*s_overallBlocks), *new SgArrayRefExp(*s_blocksS, *new SgValueExp(0))));
         st_end->insertStmtBefore(*stmt, *st_hedr);
-        stmt = new SgCExpStmt(SgAssignOp(*new SgVarRefExp(*s_restBlocks), *new SgVarRefExp(*s_overallBlocks)));
+        if (currentLoop && currentLoop->irregularAnalysisIsOn())
+            stmt = new SgCExpStmt(SgAssignOp(*new SgVarRefExp(*s_restBlocks), *new SgVarRefExp(*s_overallBlocks) * *new SgValueExp(warpSize)));
+        else
+            stmt = new SgCExpStmt(SgAssignOp(*new SgVarRefExp(*s_restBlocks), *new SgVarRefExp(*s_overallBlocks)));
         st_end->insertStmtBefore(*stmt, *st_hedr);
         stmt = new SgCExpStmt(SgAssignOp(*new SgVarRefExp(*s_addBlocks), *new SgValueExp(0)));
         st_end->insertStmtBefore(*stmt, *st_hedr);
@@ -13288,6 +13294,12 @@ SgStatement *Create_C_Adapter_Function(SgSymbol *sadapter)
 
 		stmt = new SgCExpStmt(SgAssignOp(*new SgVarRefExp(*s_max_blocks), *getProp));
 		st_end->insertStmtBefore(*stmt, *st_hedr);
+
+        if (currentLoop && currentLoop->irregularAnalysisIsOn())
+        {
+            stmt = new SgCExpStmt(SgAssignOp(*new SgVarRefExp(*s_max_blocks), *new SgVarRefExp(*s_max_blocks) / *new SgValueExp(warpSize) * *new SgValueExp(warpSize)));
+            st_end->insertStmtBefore(*stmt, *st_hedr);
+        }
 
         //e = & operator > ( *new SgVarRefExp(s_restBlocks), 
         do_while = new SgWhileStmt(operator > (*new SgVarRefExp(s_restBlocks), *new SgValueExp(0)), *st_call);
