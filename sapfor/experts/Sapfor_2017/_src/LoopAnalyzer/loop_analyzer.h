@@ -23,8 +23,8 @@ enum REMOTE_BOOL { REMOTE_NONE = 0, REMOTE_TRUE = 1, REMOTE_FALSE = 3};
 
 //directive_creator.cpp
 std::vector<std::vector<std::pair<std::string, std::vector<Expression*>>>>
-createRealignRules(SgStatement* spStat, const int regId, SgFile* file, const std::string& templClone,
-    const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls, const std::set<DIST::Array*>& usedArrays);
+createRealignRules(SgStatement* spStat, const uint64_t regId, SgFile* file, const std::string& templClone,
+                  const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls, const std::set<DIST::Array*>& usedArrays);
 
 SgStatement* createStatFromExprs(const std::vector<Expression*>& exprs);
 
@@ -78,7 +78,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                                          const std::map<std::string, std::string> &templateDeclInIncludes,
                                          const std::vector<std::string> &distrRules, const std::vector<std::vector<dist>> &distrRulesSt, 
                                          const DIST::Arrays<int> &allArrays,
-                                         const bool extractDir, const int regionId,
+                                         const bool extractDir, const uint64_t regionId,
                                          const std::set<std::string> &includedToThisFile);
 
 void insertDirectiveToFile(SgFile *file, const char *fin_name, const std::vector<std::pair<int, std::pair<std::string, 
@@ -96,7 +96,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                               const bool extractDir, std::vector<Messages> &messagesForFile,
                               const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
                               const std::map<std::string, FuncInfo*>& funcsInFile,
-                              const int regionId);
+                              const uint64_t regionId);
 
 void insertShadowSpecToFile(SgFile *file, const char *fin_name, const std::set<std::string> &distrArrays,
                             DIST::GraphCSR<int, double, attrType> &reducedG,
@@ -112,7 +112,7 @@ void insertDistributeDirsToParallelRegions(const std::vector<ParallelRegionLines
                                            const std::vector<Statement*> &reDistrRulesAfter,
                                            const std::vector<Statement*> &reAlignRules);
 
-void insertTemplateModuleUse(SgFile* file, const std::set<int> &regNum);
+void insertTemplateModuleUse(SgFile* file, const std::set<uint64_t> &regNum, const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls);
 void removeStatementsFromAllproject(const std::set<int>& variants);
 void correctTemplateModuleDeclaration(const std::string& folderName);
 
@@ -146,7 +146,7 @@ void createRemoteInParallel(const std::tuple<SgForStmt*, const LoopGraph*, const
                             const std::map<int, std::pair<SgForStmt*, std::pair<std::set<std::string>, std::set<std::string>>>> &allLoops,
                             std::map<std::string, SgArrayRefExp*> &uniqRemotes,
                             std::vector<Messages> &messages,
-                            const int regionId,
+                            const uint64_t regionId,
                             const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
                             std::set<DIST::Array*>& doneInLoops);
 void createRemoteInParallel(const std::tuple<SgForStmt*, const LoopGraph*, const ParallelDirective*>& under_dvm_dir,
@@ -154,7 +154,7 @@ void createRemoteInParallel(const std::tuple<SgForStmt*, const LoopGraph*, const
                             std::map<std::string, SgArrayRefExp*>& uniqRemotes, std::vector<Messages>& messages);
 
 template<int NUM> bool createRemoteDir(SgStatement *st, const std::map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
-                                       const DataDirective &data, const std::vector<int> &currVar, const int redionID, std::vector<Messages> &currMessages,
+                                       const DataDirective &data, const std::vector<int> &currVar, const uint64_t regionId, std::vector<Messages> &currMessages,
                                        const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
 // shadow.cpp

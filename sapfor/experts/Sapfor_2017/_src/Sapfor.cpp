@@ -568,10 +568,23 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 DIST::GraphCSR<int, double, attrType> &reducedG = parallelRegions[z]->GetReducedGraphToModify();
                 DIST::Arrays<int> &allArrays = parallelRegions[z]->GetAllArraysToModify();
 
-                auto &tmp = dataDirectives.distrRules;
+                auto& tmp = dataDirectives.distrRules;
                 vector<pair<DIST::Array*, const DistrVariant*>> currentVar;
-                for (int z1 = 0; z1 < currentVariant.size(); ++z1)
-                    currentVar.push_back(make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]));
+
+                if (mpiProgram == 0)
+                {
+                    for (int z1 = 0; z1 < currentVariant.size(); ++z1)
+                        currentVar.push_back(make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]));
+                }
+                else
+                {                    
+                    for (auto& loop : mapLoopsInFile)
+                    {
+                        auto& rules = loop.second->getDataDir().distrRules;
+                        for (auto& rule : rules)
+                            currentVar.push_back(make_pair(rule.first, &rule.second[0]));
+                    }
+                }
 
                 map<LoopGraph*, void*> depInfoForLoopGraphV;
                 for (auto& elem : depInfoForLoopGraph)
@@ -635,10 +648,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
             else if (mpiProgram == 0)
             {
-                set<int> regNum;
+                set<uint64_t> regNum;
                 for (int z = 0; z < parallelRegions.size(); ++z)
                     regNum.insert(parallelRegions[z]->GetId());
-                insertTemplateModuleUse(file, regNum);
+                insertTemplateModuleUse(file, regNum, arrayLinksByFuncCalls);
             }
         }
         else if (curr_regime == INSERT_SHADOW_DIRS || curr_regime == EXTRACT_SHADOW_DIRS)
@@ -1050,7 +1063,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             replaceStructuresToSimpleTypes(file);
         else if (curr_regime == PURE_INTENT_INSERT)
             intentInsert(getObjectForFileFromMap(file_name, allFuncInfo));
-
+        
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, allIncludeFiles);
     } // end of FOR by files
         
@@ -1062,215 +1075,226 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     /// SECOND AGGREGATION STEP            ///
     // **********************************  ///
     SgStatement::setCurrProcessFile("");
-    SgStatement::setCurrProcessLine(-1);    if (curr_regime == LOOP_ANALYZER_DATA_DIST_S2 || curr_regime == ONLY_ARRAY_GRAPH)
+    SgStatement::setCurrProcessLine(-1);
+    
+    if (curr_regime == LOOP_ANALYZER_DATA_DIST_S2 || curr_regime == ONLY_ARRAY_GRAPH)
     {
         if (curr_regime == ONLY_ARRAY_GRAPH)
             keepFiles = 1;
 
-        set<DIST::Array*> usedArrays;
-        for (int i = 0; i < parallelRegions.size(); ++i)
+        if (mpiProgram)
         {
-            ParallelRegion *currReg = parallelRegions[i];
-            DIST::GraphCSR<int, double, attrType> &G = currReg->GetGraphToModify();
-            DIST::GraphCSR<int, double, attrType> &reducedG = currReg->GetReducedGraphToModify();
-            DIST::Arrays<int> &allArrays = currReg->GetAllArraysToModify();
-
-            usedArrays.insert(allArrays.GetArrays().begin(), allArrays.GetArrays().end());
-
-            if (currReg->HasUserDvmDirs())
+            for (auto& byFile : loopGraph)
+                for (auto& loop : byFile.second)
+                    loop->reduceAccessGraph();
+        }
+        else
+        {
+            set<DIST::Array*> usedArrays;
+            for (int i = 0; i < parallelRegions.size(); ++i)
             {
-                set<DIST::Array*> alignedArrays;
-                set<DIST::Array*> addedArrays;
+                ParallelRegion* currReg = parallelRegions[i];
+                DIST::GraphCSR<int, double, attrType>& G = currReg->GetGraphToModify();
+                DIST::GraphCSR<int, double, attrType>& reducedG = currReg->GetReducedGraphToModify();
+                DIST::Arrays<int>& allArrays = currReg->GetAllArraysToModify();
 
-                bool error = false;
-                if (currReg->GetUsersDirecites(DVM_REALIGN_DIR)->size())
+                usedArrays.insert(allArrays.GetArrays().begin(), allArrays.GetArrays().end());
+
+                if (currReg->HasUserDvmDirs())
                 {
-                    bool ret = buildGraphFromUserDirectives(*(currReg->GetUsersDirecites(DVM_REALIGN_DIR)), G, allArrays, arrayLinksByFuncCalls, alignedArrays, addedArrays);
-                    error = error || ret;
-                    alignedArrays.insert(addedArrays.begin(), addedArrays.end());
-                }
+                    set<DIST::Array*> alignedArrays;
+                    set<DIST::Array*> addedArrays;
 
-                if (currReg->GetUsersDirecites(DVM_ALIGN_DIR)->size())
-                {
-                    bool ret = buildGraphFromUserDirectives(*(currReg->GetUsersDirecites(DVM_ALIGN_DIR)), G, allArrays, arrayLinksByFuncCalls, alignedArrays, addedArrays);
-                    error = error || ret;
-                    alignedArrays.insert(addedArrays.begin(), addedArrays.end());
-                }
-
-                if (currReg->GetUsersDirecites(DVM_DISTRIBUTE_DIR)->size())
-                    error = false;
-                
-                if (error == false)
-                    error = (currReg->GetUsersDirecites(DVM_REALIGN_DIR)->size() == 0) && 
-                            (currReg->GetUsersDirecites(DVM_ALIGN_DIR)->size() == 0) &&
-                            (currReg->GetUsersDirecites(DVM_DISTRIBUTE_DIR)->size() == 0);
-
-                if (error)
-                {
-                    wstring messageR, messageE;
-                    __spf_printToLongBuf(messageE, L"Can not build align graph from user's DVM directives in this region");
-                    __spf_printToLongBuf(messageR, R67);
-
-                    for (auto &lines : currReg->GetAllLines())
+                    bool error = false;
+                    if (currReg->GetUsersDirecites(DVM_REALIGN_DIR)->size())
                     {
-                        const auto &vecLines = lines.second;
-                        const string &fileName = lines.first;
+                        bool ret = buildGraphFromUserDirectives(*(currReg->GetUsersDirecites(DVM_REALIGN_DIR)), G, allArrays, arrayLinksByFuncCalls, alignedArrays, addedArrays);
+                        error = error || ret;
+                        alignedArrays.insert(addedArrays.begin(), addedArrays.end());
+                    }
 
-                        auto &messages = getObjectForFileFromMap(fileName.c_str(), SPF_messages);
-                        for (auto &line : vecLines)
+                    if (currReg->GetUsersDirecites(DVM_ALIGN_DIR)->size())
+                    {
+                        bool ret = buildGraphFromUserDirectives(*(currReg->GetUsersDirecites(DVM_ALIGN_DIR)), G, allArrays, arrayLinksByFuncCalls, alignedArrays, addedArrays);
+                        error = error || ret;
+                        alignedArrays.insert(addedArrays.begin(), addedArrays.end());
+                    }
+
+                    if (currReg->GetUsersDirecites(DVM_DISTRIBUTE_DIR)->size())
+                        error = false;
+
+                    if (error == false)
+                        error = (currReg->GetUsersDirecites(DVM_REALIGN_DIR)->size() == 0) &&
+                        (currReg->GetUsersDirecites(DVM_ALIGN_DIR)->size() == 0) &&
+                        (currReg->GetUsersDirecites(DVM_DISTRIBUTE_DIR)->size() == 0);
+
+                    if (error)
+                    {
+                        wstring messageR, messageE;
+                        __spf_printToLongBuf(messageE, L"Can not build align graph from user's DVM directives in this region");
+                        __spf_printToLongBuf(messageR, R67);
+
+                        for (auto& lines : currReg->GetAllLines())
                         {
-                            if ((line.stats.first && line.stats.second) || currReg->GetId() == 0)
-                            {
-                                messages.push_back(Messages(ERROR, line.lines.first, messageR, messageE, 1036));
+                            const auto& vecLines = lines.second;
+                            const string& fileName = lines.first;
 
-                                __spf_print(1, "Can not build align graph from user's DVM directives in this region in '%s': %d\n",
-                                            fileName.c_str(), line.lines.first);
+                            auto& messages = getObjectForFileFromMap(fileName.c_str(), SPF_messages);
+                            for (auto& line : vecLines)
+                            {
+                                if ((line.stats.first && line.stats.second) || currReg->GetId() == 0)
+                                {
+                                    messages.push_back(Messages(ERROR, line.lines.first, messageR, messageE, 1036));
+
+                                    __spf_print(1, "Can not build align graph from user's DVM directives in this region in '%s': %d\n",
+                                        fileName.c_str(), line.lines.first);
+                                }
+                            }
+                        }
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    }
+                    else
+                    {
+                        currReg->ClearUserDirs();
+
+                        set<int> varsToClear = { DVM_DYNAMIC_DIR, DVM_INHERIT_DIR };
+                        removeStatementsFromAllproject(varsToClear);
+
+                        //TODO: need to add template clones, so remove all dirs!
+                        // clear user directives from all loops
+                        for (auto& byFile : loopGraph)
+                        {
+                            if (SgFile::switchToFile(byFile.first) == -1)
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                            for (auto& loop : byFile.second)
+                                loop->clearUserDirectives();
+                        }
+                        // clear other dirs
+                        set<int> varsToClear1 = { ACC_REGION_DIR, ACC_END_REGION_DIR, ACC_ACTUAL_DIR, ACC_GET_ACTUAL_DIR,
+                                                  DVM_SHADOW_DIR, DVM_REALIGN_DIR, DVM_REDISTRIBUTE_DIR, DVM_VAR_DECL, HPF_TEMPLATE_STAT, DVM_REMOTE_ACCESS_DIR };
+                        removeStatementsFromAllproject(varsToClear1);
+                    }
+                }
+
+                G.SetMaxAvailMemory(currentAvailMemory);
+                G.ChangeQuality(QUALITY, SPEED);
+
+                reducedG.SetMaxAvailMemory(currentAvailMemory);
+                DIST::createOptimalDistribution<int, double, attrType>(G, reducedG, allArrays, currReg->GetId(), (curr_regime == ONLY_ARRAY_GRAPH));
+
+                set<DIST::Array*> usedArraysLocal;
+                usedArraysLocal.insert(allArrays.GetArrays().begin(), allArrays.GetArrays().end());
+
+                //add array that linked with used
+                for (auto& used : usedArraysLocal)
+                {
+                    set<DIST::Array*> allArrayRefs;
+                    getAllArrayRefs(used, used, allArrayRefs, arrayLinksByFuncCalls);
+
+                    for (auto& array : allArrayRefs)
+                    {
+                        if (usedArraysLocal.find(array) == usedArraysLocal.end())
+                        {
+                            auto key = tableOfUniqNamesByArray.find(array);
+                            if (key != tableOfUniqNamesByArray.end())
+                            {
+                                createdArrays.insert(make_pair(key->second, key->first));
+                                allArrays.AddArrayToGraph(array);
                             }
                         }
                     }
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
+            }
+
+            //remove arrays that is not used
+            map<tuple<int, string, string>, DIST::Array*> createdArraysNew;
+            for (auto it = createdArrays.begin(); it != createdArrays.end(); ++it)
+            {
+                if (usedArrays.find(it->second) != usedArrays.end())
+                    createdArraysNew.insert(*it);
                 else
                 {
-                    currReg->ClearUserDirs();
+                    set<DIST::Array*> realArrayRefs;
+                    getRealArrayRefs(it->second, it->second, realArrayRefs, arrayLinksByFuncCalls);
 
-                    set<int> varsToClear = { DVM_DYNAMIC_DIR, DVM_INHERIT_DIR };
-                    removeStatementsFromAllproject(varsToClear);
-
-                    //TODO: need to add template clones, so remove all dirs!
-                    // clear user directives from all loops
-                    for (auto& byFile : loopGraph)
+                    for (auto& array : realArrayRefs)
                     {
-                        if (SgFile::switchToFile(byFile.first) == -1)
-                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        if (array == it->second)
+                            continue;
 
-                        for (auto& loop : byFile.second)
-                            loop->clearUserDirectives();
+                        if (usedArrays.find(array) != usedArrays.end())
+                            createdArraysNew.insert(*it);
                     }
-                    // clear other dirs
-                    set<int> varsToClear1 = { ACC_REGION_DIR, ACC_END_REGION_DIR, ACC_ACTUAL_DIR, ACC_GET_ACTUAL_DIR,
-                                              DVM_SHADOW_DIR, DVM_REALIGN_DIR, DVM_REDISTRIBUTE_DIR, DVM_VAR_DECL, HPF_TEMPLATE_STAT, DVM_REMOTE_ACCESS_DIR };
-                    removeStatementsFromAllproject(varsToClear1);
                 }
             }
+            createdArrays = createdArraysNew;
 
-            G.SetMaxAvailMemory(currentAvailMemory);
-            G.ChangeQuality(QUALITY, SPEED);
+            for (map<string, string>::iterator it = shortFileNames.begin(); it != shortFileNames.end(); it++)
+                __spf_print(1, "  %s -> %s\n", it->first.c_str(), it->second.c_str());
 
-            reducedG.SetMaxAvailMemory(currentAvailMemory);
-            DIST::createOptimalDistribution<int, double, attrType>(G, reducedG, allArrays, currReg->GetId(), (curr_regime == ONLY_ARRAY_GRAPH));
-
-            set<DIST::Array*> usedArraysLocal;
-            usedArraysLocal.insert(allArrays.GetArrays().begin(), allArrays.GetArrays().end());
-
-            //add array that linked with used
-            for (auto &used : usedArraysLocal)
+            set<int> idxToDel;
+            for (int z = 0; z < parallelRegions.size(); ++z)
             {
-                set<DIST::Array*> allArrayRefs;
-                getAllArrayRefs(used, used, allArrayRefs, arrayLinksByFuncCalls);
-
-                for (auto &array : allArrayRefs)
+                if (parallelRegions[z]->GetAllArrays().GetArrays().size() == 0)
                 {
-                    if (usedArraysLocal.find(array) == usedArraysLocal.end())
+                    __spf_print(1, "  CAN NOT FIND ARRAYS FOR DISTRIBUTION for parallel region '%s'\n", parallelRegions[z]->GetName().c_str());
+
+                    if (parallelRegions[z]->GetId() == 0) // DEFAULT
                     {
-                        auto key = tableOfUniqNamesByArray.find(array);
-                        if (key != tableOfUniqNamesByArray.end())
+                        wstring bufE, bufR;
+                        __spf_printToLongBuf(bufE, L"Can not find arrays or free loops for distribution in this project");
+                        __spf_printToLongBuf(bufR, R130);
+
+                        for (auto& funcByFile : allFuncInfo)
                         {
-                            createdArrays.insert(make_pair(key->second, key->first));
-                            allArrays.AddArrayToGraph(array);
+                            vector<Messages>& fileM = getObjectForFileFromMap(funcByFile.first.c_str(), SPF_messages);
+                            for (auto& func : funcByFile.second)
+                            {
+                                auto stat = func->funcPointer->GetOriginal();
+                                if (stat->variant() == PROG_HEDR)
+                                    fileM.push_back(Messages(ERROR, stat->lineNumber(), bufR, bufE, 3010));
+                            }
                         }
                     }
-                }
-            }
-        }
-
-        //remove arrays that is not used
-        map<tuple<int, string, string>, DIST::Array*> createdArraysNew;
-        for (auto it = createdArrays.begin(); it != createdArrays.end(); ++it)
-        {
-            if (usedArrays.find(it->second) != usedArrays.end())
-                createdArraysNew.insert(*it);
-            else
-            {
-                set<DIST::Array*> realArrayRefs;
-                getRealArrayRefs(it->second, it->second, realArrayRefs, arrayLinksByFuncCalls);
-
-                for (auto &array : realArrayRefs)
-                {
-                    if (array == it->second)
-                        continue;
-
-                    if (usedArrays.find(array) != usedArrays.end())
-                        createdArraysNew.insert(*it);
-                }
-            }
-        }
-        createdArrays = createdArraysNew;
-
-        for (map<string, string>::iterator it = shortFileNames.begin(); it != shortFileNames.end(); it++)
-            __spf_print(1, "  %s -> %s\n", it->first.c_str(), it->second.c_str());
-
-        set<int> idxToDel;
-        for (int z = 0; z < parallelRegions.size(); ++z)
-        {
-            if (parallelRegions[z]->GetAllArrays().GetArrays().size() == 0)
-            {
-                __spf_print(1, "  CAN NOT FIND ARRAYS FOR DISTRIBUTION for parallel region '%s'\n", parallelRegions[z]->GetName().c_str());
-
-                if (parallelRegions[z]->GetId() == 0) // DEFAULT
-                {
-                    wstring bufE, bufR;
-                    __spf_printToLongBuf(bufE, L"Can not find arrays or free loops for distribution in this project");
-                    __spf_printToLongBuf(bufR, R130);
-
-                    for (auto &funcByFile : allFuncInfo)
+                    else
                     {
-                        vector<Messages> &fileM = getObjectForFileFromMap(funcByFile.first.c_str(), SPF_messages);
-                        for (auto &func : funcByFile.second)
+                        wstring bufE, bufR;
+                        __spf_printToLongBuf(bufE, L"Can not find arrays or free loops for distribution in this region");
+                        __spf_printToLongBuf(bufR, R131);
+
+                        for (auto& linesByFile : parallelRegions[z]->GetAllLines())
                         {
-                            auto stat = func->funcPointer->GetOriginal();
-                            if (stat->variant() == PROG_HEDR)
-                                fileM.push_back(Messages(ERROR, stat->lineNumber(), bufR, bufE, 3010));
+                            vector<Messages>& fileM = getObjectForFileFromMap(linesByFile.first.c_str(), SPF_messages);
+                            for (auto& lines : linesByFile.second)
+                                if (!lines.isImplicit())
+                                    fileM.push_back(Messages(ERROR, lines.lines.first, bufR, bufE, 3010));
                         }
                     }
+                    idxToDel.insert(z);
                 }
-                else
-                {
-                    wstring bufE, bufR;
-                    __spf_printToLongBuf(bufE, L"Can not find arrays or free loops for distribution in this region");
-                    __spf_printToLongBuf(bufR, R131);
-
-                    for (auto &linesByFile : parallelRegions[z]->GetAllLines())
-                    {
-                        vector<Messages> &fileM = getObjectForFileFromMap(linesByFile.first.c_str(), SPF_messages);
-                        for (auto &lines : linesByFile.second)
-                            if (!lines.isImplicit())
-                                fileM.push_back(Messages(ERROR, lines.lines.first, bufR, bufE, 3010));
-                    }
-                }
-                idxToDel.insert(z);
             }
-        }
 
-        vector<ParallelRegion*> newParReg;
-        for (int z = 0; z < parallelRegions.size(); ++z)
-        {
-            if (idxToDel.find(z) != idxToDel.end())
+            vector<ParallelRegion*> newParReg;
+            for (int z = 0; z < parallelRegions.size(); ++z)
             {
-                ParallelRegion *regToDel = parallelRegions[z];                
+                if (idxToDel.find(z) != idxToDel.end())
+                {
+                    ParallelRegion* regToDel = parallelRegions[z];
 #ifdef _WIN32
-                removeFromCollection(parallelRegions[z]);
+                    removeFromCollection(parallelRegions[z]);
 #endif
-                delete parallelRegions[z];
+                    delete parallelRegions[z];
+                }
+                else
+                    newParReg.push_back(parallelRegions[z]);
             }
-            else
-                newParReg.push_back(parallelRegions[z]);
-        }
-        parallelRegions.clear();
-        parallelRegions = newParReg;
+            parallelRegions.clear();
+            parallelRegions = newParReg;
 
-        if (parallelRegions.size() == 0)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            if (parallelRegions.size() == 0)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
     }
     else if (curr_regime == CALL_GRAPH)
     {    
@@ -1404,73 +1428,130 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         vector<string> result;
         set<DIST::Array*> arraysDone;
         
-        for (int z = 0; z < parallelRegions.size(); ++z)
+        if (mpiProgram)
         {
-            DIST::GraphCSR<int, double, attrType> &reducedG = parallelRegions[z]->GetReducedGraphToModify();
-            DIST::Arrays<int> &allArrays = parallelRegions[z]->GetAllArraysToModify();
-            DataDirective &dataDirectives = parallelRegions[z]->GetDataDirToModify();
-
-            if (ALGORITHMS_DONE[CREATE_DISTIBUTION][z] == 0)
+            bool wasDone = false;
+            for (int z = 0; z < parallelRegions.size(); ++z)
             {
-                //recalculate array sizes after expression substitution
-                recalculateArraySizes(arraysDone, allArrays.GetArrays(), arrayLinksByFuncCalls, allFuncInfo);
+                DIST::Arrays<int>& allArrays = parallelRegions[z]->GetAllArraysToModify();
 
-                createDistributionDirs(reducedG, allArrays, dataDirectives, SPF_messages, arrayLinksByFuncCalls);
+                if (ALGORITHMS_DONE[CREATE_DISTIBUTION][z] == 0)
+                    recalculateArraySizes(arraysDone, allArrays.GetArrays(), arrayLinksByFuncCalls, allFuncInfo);
+
+                if (ALGORITHMS_DONE[CREATE_DISTIBUTION][z] != 0)
+                    wasDone = true;
+
                 ALGORITHMS_DONE[CREATE_DISTIBUTION][z] = 1;
-            }
-
-            if (ALGORITHMS_DONE[CREATE_ALIGNS][z] == 0)
-            {
-                if (keepFiles)
-                {
-                    char fName[256];
-                    sprintf(fName, "_graph_reduced_with_templ_reg%d.txt", parallelRegions[z]->GetId());
-                    reducedG.CreateGraphWiz(fName, vector<tuple<int, int, attrType>>(), allArrays, true);
-                }
-                createAlignDirs(reducedG, allArrays, dataDirectives, parallelRegions[z]->GetId(), arrayLinksByFuncCalls, SPF_messages);
                 ALGORITHMS_DONE[CREATE_ALIGNS][z] = 1;
             }
 
-            __spf_print(1, "*** FOR PARALLEL REGION '%s':\n", parallelRegions[z]->GetName().c_str());
-            result = dataDirectives.GenAlignsRules();
+            if (parallelRegions.size() == 0)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-            SgStatement *mainUnit = findMainUnit(&project, SPF_messages);
-
-            map<string, vector<SgExpression*>> commonBlocks;
-            checkNull(mainUnit, convertFileName(__FILE__).c_str(), __LINE__);
-            getCommonBlocksRef(commonBlocks, mainUnit, mainUnit->lastNodeOfStmt());
-
-            // check array declaration
-            for (auto &arrayP : dataDirectives.GenAlignsRules(NULL))
+            if (!wasDone)
             {
-                auto array = arrayP.alignArray;
-                if (array->IsLoopArray() || array->IsTemplate())
-                    continue;
-                if (array->GetLocation().first == DIST::l_COMMON)
-                {
-                    auto nameOfCommon = array->GetLocation().second;
-                    if (commonBlocks.find(nameOfCommon) == commonBlocks.end())
-                    {
-                        auto declPlaces = array->GetDeclInfo();
-                        for (auto &place : declPlaces)
-                        {
-                            vector<Messages> &currMessages = getObjectForFileFromMap(place.first.c_str(), SPF_messages);
-                            __spf_print(1, "  ERROR: distributed array '%s' in common block '%s' must have declaration in main unit\n", array->GetShortName().c_str(), nameOfCommon.c_str());
+                for (auto& byFile : loopGraph)
+                    for (auto& loop : byFile.second)
+                        loop->createVirtualTemplateLinks(arrayLinksByFuncCalls, SPF_messages);
 
-                            wstring messageE, messageR;
-                            __spf_printToLongBuf(messageE, L"distributed array '%s' in common block '%s' must have declaration in main unit", 
-                                                 to_wstring(array->GetShortName()).c_str(), to_wstring(nameOfCommon).c_str());
-                            __spf_printToLongBuf(messageR, R75,
-                                                 to_wstring(array->GetShortName()).c_str(), to_wstring(nameOfCommon).c_str());
-                            currMessages.push_back(Messages(ERROR, place.second, messageR, messageE, 1042));
+                //add dummy array
+                DataDirective& dataDirectives = parallelRegions[0]->GetDataDirToModify();
+                DIST::Arrays<int>& allArrays = parallelRegions[0]->GetAllArraysToModify();
+                for (auto& byFile : loopGraph)
+                {
+                    map<int, LoopGraph*> allLoops;
+                    createMapLoopGraph(byFile.second, allLoops);
+                    bool found = false;
+                    for (auto& loop : allLoops)
+                    {
+                        auto& tmp = loop.second->getDataDir();
+                        if (tmp.distrRules.size() != 0)
+                        {
+                            dataDirectives.distrRules.push_back(tmp.distrRules[0]);
+                            DIST::Array* firstTempl = dataDirectives.distrRules.back().first;
+
+                            firstTempl->DeprecateAllDims();
+                            allArrays.AddArrayToGraph(firstTempl);
+                            firstTempl->ChangeName("dvmh_additional_parallel");
+                            found = true;
+                            break;
                         }
-                        internalExit = 1;
                     }
+                    if (found)
+                        break;
                 }
             }
+        }
+        else
+        {
 
-            for (int i = 0; i < result.size(); ++i)
-                __spf_print(1, "  %s\n", result[i].c_str());
+            for (int z = 0; z < parallelRegions.size(); ++z)
+            {
+                DIST::GraphCSR<int, double, attrType>& reducedG = parallelRegions[z]->GetReducedGraphToModify();
+                DIST::Arrays<int>& allArrays = parallelRegions[z]->GetAllArraysToModify();
+                DataDirective& dataDirectives = parallelRegions[z]->GetDataDirToModify();
+
+                if (ALGORITHMS_DONE[CREATE_DISTIBUTION][z] == 0)
+                {
+                    //recalculate array sizes after expression substitution
+                    recalculateArraySizes(arraysDone, allArrays.GetArrays(), arrayLinksByFuncCalls, allFuncInfo);
+
+                    createDistributionDirs(reducedG, allArrays, dataDirectives, SPF_messages, arrayLinksByFuncCalls);
+                    ALGORITHMS_DONE[CREATE_DISTIBUTION][z] = 1;
+                }
+
+                if (ALGORITHMS_DONE[CREATE_ALIGNS][z] == 0)
+                {
+                    if (keepFiles)
+                    {
+                        char fName[256];
+                        sprintf(fName, "_graph_reduced_with_templ_reg%d.txt", parallelRegions[z]->GetId());
+                        reducedG.CreateGraphWiz(fName, vector<tuple<int, int, attrType>>(), allArrays, true);
+                    }
+                    createAlignDirs(reducedG, allArrays, dataDirectives, parallelRegions[z]->GetId(), arrayLinksByFuncCalls, SPF_messages);
+                    ALGORITHMS_DONE[CREATE_ALIGNS][z] = 1;
+                }
+                
+                SgStatement* mainUnit = findMainUnit(&project, SPF_messages);
+
+                map<string, vector<SgExpression*>> commonBlocks;
+                checkNull(mainUnit, convertFileName(__FILE__).c_str(), __LINE__);
+                getCommonBlocksRef(commonBlocks, mainUnit, mainUnit->lastNodeOfStmt());
+
+                // check array declaration
+                for (auto& arrayP : dataDirectives.GenAlignsRules(NULL))
+                {
+                    auto array = arrayP.alignArray;
+                    if (array->IsLoopArray() || array->IsTemplate())
+                        continue;
+                    if (array->GetLocation().first == DIST::l_COMMON)
+                    {
+                        auto nameOfCommon = array->GetLocation().second;
+                        if (commonBlocks.find(nameOfCommon) == commonBlocks.end())
+                        {
+                            auto declPlaces = array->GetDeclInfo();
+                            for (auto& place : declPlaces)
+                            {
+                                vector<Messages>& currMessages = getObjectForFileFromMap(place.first.c_str(), SPF_messages);
+                                __spf_print(1, "  ERROR: distributed array '%s' in common block '%s' must have declaration in main unit\n", array->GetShortName().c_str(), nameOfCommon.c_str());
+
+                                wstring messageE, messageR;
+                                __spf_printToLongBuf(messageE, L"distributed array '%s' in common block '%s' must have declaration in main unit",
+                                    to_wstring(array->GetShortName()).c_str(), to_wstring(nameOfCommon).c_str());
+                                __spf_printToLongBuf(messageR, R75,
+                                    to_wstring(array->GetShortName()).c_str(), to_wstring(nameOfCommon).c_str());
+                                currMessages.push_back(Messages(ERROR, place.second, messageR, messageE, 1042));
+                            }
+                            internalExit = 1;
+                        }
+                    }
+                }
+
+                __spf_print(1, "*** FOR PARALLEL REGION '%s':\n", parallelRegions[z]->GetName().c_str());
+                result = dataDirectives.GenAlignsRules();
+                for (int i = 0; i < result.size(); ++i)
+                    __spf_print(1, "  %s\n", result[i].c_str());
+            }
         }
     }
     else if (curr_regime == FILE_LINE_INFO)
@@ -1610,13 +1691,21 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         checkArraysMapping(loopGraph, SPF_messages, arrayLinksByFuncCalls);
         propagateArrayFlags(arrayLinksByFuncCalls, declaredArrays, SPF_messages);
 
-        for (int z = 0; z < parallelRegions.size(); ++z)        
-            filterArrayInCSRGraph(loopGraph, allFuncInfo, parallelRegions[z], arrayLinksByFuncCalls, SPF_messages);
-        propagateArrayFlags(arrayLinksByFuncCalls, declaredArrays, SPF_messages);
+        if (mpiProgram == 0)
+        {
+            for (int z = 0; z < parallelRegions.size(); ++z)
+                filterArrayInCSRGraph(loopGraph, allFuncInfo, parallelRegions[z], arrayLinksByFuncCalls, SPF_messages);
+            propagateArrayFlags(arrayLinksByFuncCalls, declaredArrays, SPF_messages);
+        }
 
-        for (auto &loopByFile : loopGraph)
-            for (auto &loop : loopByFile.second)
-                loop->removeNonDistrArrays();            
+        for (auto& loopByFile : loopGraph)
+        {
+            for (auto& loop : loopByFile.second)
+            {
+                loop->removeNonDistrArrays();
+                loop->removeGraphData();
+            }
+        }
 
         for (auto &funcByFile : allFuncInfo)
             for (auto &func : funcByFile.second)
@@ -1626,8 +1715,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
             parallelRegions[z]->GetAllArraysToModify().cleanData();
-            parallelRegions[z]->GetGraphToModify().cleanData();
-            parallelRegions[z]->GetReducedGraphToModify().cleanData();
+            parallelRegions[z]->GetGraphToModify().ClearGraphCSR();
+            parallelRegions[z]->GetReducedGraphToModify().ClearGraphCSR();
         }
         createdArrays.clear();
     }
@@ -1638,7 +1727,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             ParallelRegion *currReg = parallelRegions[z];
             auto graph = currReg->GetGraph();
             __spf_print(1, "STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
-            printf("STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
         }
     }
     else if (curr_regime == PRINT_PAR_REGIONS_ERRORS)
@@ -1848,6 +1936,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else
             __spf_print(1, "skip\n");
     }
+    else if (curr_regime == SWAP_LOOPS)
+        swapLoopsForParallel(loopGraph, SPF_messages, 1);
+    else if (curr_regime == RESTORE_SWAP_LOOPS)
+        swapLoopsForParallel(loopGraph, SPF_messages, -1);
+    else if (curr_regime == CREATE_PARALLEL_DIRS)
+        filterParallelDirectives(loopGraph, createdDirectives);
 
 #if _WIN32
     const float elapsed = duration_cast<milliseconds>(high_resolution_clock::now() - timeForPass).count() / 1000.;
@@ -1902,25 +1996,30 @@ static string selectAddNameOfVariant(const int i, int maxDimsIdx, int maxDimsIdx
     char buf[256];
     if (consoleMode)
     {
-        sprintf(buf, "v%d", i + 1);
-        currentVariants[maxDimsIdxReg][maxDimsIdx] = i;
-        if (i != 0)
+        if (mpiProgram != 0)
+            sprintf(buf, "__mpi");
+        else
         {
-            for (int p = 0; p < parallelRegions.size(); ++p)
+            sprintf(buf, "v%d", i + 1);
+            currentVariants[maxDimsIdxReg][maxDimsIdx] = i;
+            if (i != 0)
             {
-                DataDirective &dataDirectives = parallelRegions[p]->GetDataDirToModify();
-
-                for (int z = 0; z < dataDirectives.distrRules.size(); ++z)
+                for (int p = 0; p < parallelRegions.size(); ++p)
                 {
-                    if (z == maxDimsIdx && maxDimsIdxReg == p)
-                        continue;
-                    currentVariants[p][z] = (currentVariants[p][z] + 1) % dataDirectives.distrRules[z].second.size();
+                    DataDirective& dataDirectives = parallelRegions[p]->GetDataDirToModify();
+
+                    for (int z = 0; z < dataDirectives.distrRules.size(); ++z)
+                    {
+                        if (z == maxDimsIdx && maxDimsIdxReg == p)
+                            continue;
+                        currentVariants[p][z] = (currentVariants[p][z] + 1) % dataDirectives.distrRules[z].second.size();
+                    }
                 }
             }
-        }
 
-        for (int z = 0; z < parallelRegions.size(); ++z)
-            parallelRegions[z]->SetCurrentVariant(currentVariants[z]);
+            for (int z = 0; z < parallelRegions.size(); ++z)
+                parallelRegions[z]->SetCurrentVariant(currentVariants[z]);
+        }
     }
     else
         sprintf(buf, "");  //sprintf(buf, "par");
@@ -2072,7 +2171,11 @@ static SgProject* createProject(const char *proj_name)
     }
     
     if (detectMpiCalls(project, SPF_messages))
-        mpiProgram = 1;        
+    {
+        mpiProgram = 1;
+        keepDvmDirectives = 0;
+        ignoreIO = 1;
+    }
 
     return project;
 }
@@ -2125,14 +2228,16 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         int maxDimsIdx = -1;
         int maxDimsIdxReg = -1;
 
-        int lastI = countMaxValuesForParallelVariants(maxDims, maxDimsIdx, maxDimsIdxReg, currentVariants);
+        int lastI = 1;
+        if (mpiProgram == 0)
+            lastI = countMaxValuesForParallelVariants(maxDims, maxDimsIdx, maxDimsIdxReg, currentVariants);
         if (genAllVars == 0)
             lastI = 1;
 
         for (int i = 0; i < lastI; ++i)
         {
             //if specific variant number is requested, skip all others
-            if (genSpecificVar >= 0 && i != genSpecificVar) 
+            if (genSpecificVar >= 0 && i != genSpecificVar && mpiProgram == 0)
                 continue;
 
             string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
@@ -2169,10 +2274,12 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
                 runAnalysis(*project, PREDICT_SCHEME, false); */
 
             runAnalysis(*project, REMOVE_COPIES, false);
+            runAnalysis(*project, SWAP_LOOPS, false);
 
             if (folderName || consoleMode)
                 runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
             
+            runAnalysis(*project, RESTORE_SWAP_LOOPS, false); // restore
             runAnalysis(*project, RESTORE_COPIES, false);
 
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
@@ -2199,6 +2306,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             {
                 for (auto& loop : loopByFile.second)
                 {
+                    loop->clearForSwap();
                     if (loop->directive)
                         loop->directive->cloneOfTemplate = "";
                     loop->inDvmhRegion = 0;
@@ -2539,6 +2647,9 @@ int main(int argc, char **argv)
                 break;
             }
         }
+
+        if (mpiProgram == 1)
+            keepDvmDirectives = 0;
 
         if (runAsClient)
         {

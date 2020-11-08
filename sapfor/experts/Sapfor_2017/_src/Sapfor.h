@@ -121,6 +121,8 @@ enum passes {
     DUPLICATE_FUNCTIONS,
     REMOVE_COPIES,
     RESTORE_COPIES,
+    SWAP_LOOPS,
+    RESTORE_SWAP_LOOPS,
 
     PARSE_FILES,
     PPPA_ANALYZER,
@@ -263,6 +265,8 @@ static void setPassValues()
     passNames[DUPLICATE_FUNCTIONS] = "DUPLICATE_FUNCTIONS";
     passNames[REMOVE_COPIES] = "REMOVE_COPIES";
     passNames[RESTORE_COPIES] = "RESTORE_COPIES";
+    passNames[SWAP_LOOPS] = "SWAP_LOOPS";
+    passNames[RESTORE_SWAP_LOOPS] = "RESTORE_SWAP_LOOPS";
     passNames[PRIVATE_ARRAYS_SHRINKING] = "PRIVATE_ARRAYS_SHRINKING";
     passNames[PARSE_FILES] = "PARSE_FILES";
     passNames[PPPA_ANALYZER] = "PPPA_ANALYZER";
@@ -277,6 +281,7 @@ static void setPassValues()
     passNames[PURE_COMMON_TO_PARAMS] = "PURE_COMMON_TO_PARAMS";
     passNames[PURE_SAVE_TO_PARAMS] = "PURE_SAVE_TO_PARAMS";
     passNames[PURE_MODULE_TO_PARAMS] = "PURE_MODULE_TO_PARAMS";
+    
 }
 
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

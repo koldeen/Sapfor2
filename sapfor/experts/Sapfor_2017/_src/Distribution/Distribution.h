@@ -18,5 +18,5 @@ namespace Distribution
 
     template<typename vType, typename wType, typename attrType>
     void createOptimalDistribution(GraphCSR<vType, wType, attrType> &G, GraphCSR<vType, wType, attrType> &reducedG,
-                                   const Arrays<vType> &allArrays, const int regionNum, bool onlyGraph);
+                                   const Arrays<vType> &allArrays, const uint64_t regionNum, bool onlyGraph);
 }

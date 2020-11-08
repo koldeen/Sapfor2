@@ -66,7 +66,7 @@ void findAndReplaceDimentions(std::vector<std::tuple<DIST::Array*, int, std::pai
 extern "C" void removeFromCollection(void *pointer);
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 
-std::vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int regionId);
+std::vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const uint64_t regionId);
 #ifdef _WIN32
 void printStackTrace();
 #endif

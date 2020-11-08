@@ -144,7 +144,7 @@ struct FuncInfo
 
     // for RESOLVE_PAR_REGIONS
     int inRegion; // 0 - none, 1 - explicit, 2 - implicit, 3 - indirect
-    std::set<int> callRegions; // 0 - default; forall i > 0, i - user region
+    std::set<uint64_t> callRegions; // 0 - default; forall i > 0, i - user region
     bool isInRegion() { return inRegion == 1 || inRegion == 2; }
     bool isIndirect() { return inRegion == 3; }
     //
@@ -177,14 +177,14 @@ struct FuncInfo
         return result;
     }
 
-    std::string getFuncNameWithContainsByRegion(const int regionId)
+    std::string getFuncNameWithContainsByRegion(const uint64_t regionId)
     {
         if (regionId && callRegions.size() > 1 && callRegions.find(regionId) != callRegions.end())
             return funcName + "_r" + std::to_string(regionId);
         return funcName;
     }
 
-    std::string getFuncNameByRegion(const std::string &shortName, const int regionId)
+    std::string getFuncNameByRegion(const std::string &shortName, const uint64_t regionId)
     {
         if (regionId && callRegions.size() > 1 && callRegions.find(regionId) != callRegions.end())
             return shortName + "_r" + std::to_string(regionId);

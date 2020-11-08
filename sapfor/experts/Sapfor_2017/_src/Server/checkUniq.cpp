@@ -23,7 +23,7 @@ bool __bst_tryToLock()
     if (uniqInstance)
         return uniqInstance->try_lock();
     else
-        true;
+        return true;
 }
 
 void __bst_unlock()

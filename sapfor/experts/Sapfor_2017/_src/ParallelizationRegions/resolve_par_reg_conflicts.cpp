@@ -38,7 +38,7 @@ static inline int getRegionExplicitLine(SgStatement *startR)
     return regSt->lineNumber();
 }
 
-static int getIntervalNumber(const int fileId, const int lineNumber, const int regionId)
+static int getIntervalNumber(const int fileId, const int lineNumber, const uint64_t regionId)
 {
     int fileMask = 0xFF;
     int lineMask = 0x7FFFF;
@@ -572,7 +572,7 @@ static inline string getContains(SgStatement *funcSt)
     return containsName;
 }
 
-static void recReplaceFuncCalls(SgStatement *st, SgExpression *exp, const ParallelRegionLines &lines, const map<string, FuncInfo*> &funcMap, const int regionId)
+static void recReplaceFuncCalls(SgStatement *st, SgExpression *exp, const ParallelRegionLines &lines, const map<string, FuncInfo*> &funcMap, const uint64_t regionId)
 {
     if (exp)
     {
@@ -603,7 +603,7 @@ static void recReplaceFuncCalls(SgStatement *st, SgExpression *exp, const Parall
     }
 }
 
-static void replaceFuncCalls(const ParallelRegionLines &lines, const map<string, FuncInfo*> &funcMap, int regionId = 0)
+static void replaceFuncCalls(const ParallelRegionLines &lines, const map<string, FuncInfo*> &funcMap, uint64_t regionId = 0)
 {
     for (auto st = lines.stats.first->GetOriginal();
          st != lines.stats.second->GetOriginal()->lexNext();

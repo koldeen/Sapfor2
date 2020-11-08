@@ -20,10 +20,13 @@ void selectParallelDirectiveForVariant(File* file,
                                        const std::vector<std::pair<DIST::Array*, const DistrVariant*>>& distribution,
                                        const std::vector<AlignRule>& alignRules,
                                        std::vector<std::pair<int, std::pair<std::string, std::vector<Expression*>>>>& toInsert,
-                                       const int regionId,
+                                       const uint64_t regionId,
                                        const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls,
                                        const std::map<LoopGraph*, void*>& depInfoForLoopGraph,
                                        std::vector<Messages>& messages);
+
+void filterParallelDirectives(const std::map<std::string, std::vector<LoopGraph*>>& loopGraph,
+                              std::map<std::string, std::vector<std::pair<int, std::pair<std::string, std::vector<Expression*>>>>>& createdDirectives);
 
 bool analyzeLoopBody(LoopGraph* loopV,
                      std::map<DIST::Array*, std::vector<std::pair<bool, std::pair<std::string, int>>>>& leftValues,
@@ -35,7 +38,7 @@ bool analyzeLoopBody(LoopGraph* loopV,
 bool addRedistributionDirs(File *file, const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distribution,
                            std::vector<std::pair<int, std::pair<std::string, std::vector<Expression*>>>> &toInsert,
                            LoopGraph *current, const std::map<int, LoopGraph*> &loopGraph,
-                           ParallelDirective *currParDir, const int regionId, std::vector<Messages> &messages,
+                           ParallelDirective *currParDir, const uint64_t regionId, std::vector<Messages> &messages,
                            const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
 std::vector<std::pair<std::string, std::vector<Expression*>>> groupRealignsDirs(const std::vector<std::pair<std::string, std::vector<Expression*>>>& toRealign);

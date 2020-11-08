@@ -380,7 +380,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 addInfoToMaps(loopInfo, parentLoops[position], currOrigArrayS, arrayRef, dimNum, REMOTE_FALSE, currLine, numOfSubscriptions);
             }
 
-            if (coefs.first < 0)
+            if (coefs.first < 0 && mpiProgram == 0)
             {
                 if (currRegime == DATA_DISTR)
                 {
@@ -533,7 +533,7 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                     vector<int> alignCoefs;
                     for (auto &real : realArrayRefs)
                     {
-                        DIST::Array *curr = real->GetTemplateArray(reg->GetId());
+                        DIST::Array *curr = real->GetTemplateArray(reg->GetId(), false);
                         alignCoefs = real->GetLinksWithTemplate(reg->GetId());
 
                         if (templ == NULL)
@@ -635,7 +635,7 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                                 sprintf(buf, "RemoteAccess[%d]: z = %d, false check !=\n", __LINE__, z);
                                 debOutStr += buf;
 
-                                DIST::Array* loopTempl = loopT->GetTemplateArray(reg->GetId());
+                                DIST::Array* loopTempl = loopT->GetTemplateArray(reg->GetId(), false);
                                 vector<int> loopAlignCoefs = loopT->GetLinksWithTemplate(reg->GetId());
 
                                 if (loopTempl == NULL)
@@ -646,7 +646,7 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                                     set<DIST::Array*> templates;
                                     for (auto& elem : tmpSet)
                                     {
-                                        loopTempl = elem->GetTemplateArray(reg->GetId());
+                                        loopTempl = elem->GetTemplateArray(reg->GetId(), false);
                                         loopAlignCoefs = elem->GetLinksWithTemplate(reg->GetId());
                                         templates.insert(loopTempl);
                                     }
@@ -820,6 +820,8 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                     if (itLoop->second->perfectLoop != depth)
                         break;
                     itLoop->second->hasIndirectAccess = true;
+                    if (mpiProgram && side == RIGHT)
+                        itLoop->second->hasIndirectAccess = false;
                 }
                 SgSymbol *symb = currExp->symbol();
                 if (symb->type()->variant() == T_ARRAY)

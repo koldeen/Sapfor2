@@ -232,6 +232,9 @@ void initIntrinsicFunctionNames()
 #endif
     intrinsicF.insert(string("hypot"));    
     intrinsicF.insert(string("iiabs"));
+#ifdef __SPF
+    intrinsicF.insert(string("iargc"));
+#endif
     intrinsicF.insert(string("iiand"));
     intrinsicF.insert(string("iibclr"));
     intrinsicF.insert(string("iibits"));

@@ -389,6 +389,7 @@ static void replaceComment(string &dir, const char *firstChar)
 void removeDvmDirectives(SgFile *file, const bool toComment)
 {
     vector<SgStatement*> toDel;
+    vector<SgStatement*> toTotalDel;
     const string currFile = file->filename();
 
     vector<SgStatement*> toProcess;
@@ -423,6 +424,8 @@ void removeDvmDirectives(SgFile *file, const bool toComment)
                     toDel.push_back(st);
             }
 
+            if ( (var == USE_STMT || var == MODULE_STMT)&& st->symbol()->identifier() == string("dvmh_template_mod"))
+                toTotalDel.push_back(st);
             st = st->lexNext();
         }
     }
@@ -454,6 +457,12 @@ void removeDvmDirectives(SgFile *file, const bool toComment)
             moveComment(elem);
             elem->deleteStmt();
         }
+    }
+
+    for (auto& elem : toTotalDel)
+    {
+        moveComment(elem);
+        elem->deleteStmt();
     }
 }
 
@@ -537,7 +546,7 @@ static inline pair<string, SgStatement*> genTemplateDelc(DIST::Array *templ, con
 
 static inline pair<string, SgStatement*> 
     genTemplateDistr(DIST::Array *array, const string &name, const vector<string> &distrRules, const vector<vector<dist>> &distrRulesSt,
-                     const int regionId, const int templIdx, bool isMain, SgFile *file)
+                     const uint64_t regionId, const int templIdx, bool isMain, SgFile *file)
 {
     auto newOrder = array->GetNewTemplateDimsOrder();
     //TODO:!!!
@@ -620,7 +629,7 @@ static inline int findTeplatePosition(const DIST::Array *templ, const DataDirect
 }
 
 static inline DIST::Array* findLinkWithTemplate(DIST::Array *alignArray, const DIST::Arrays<int> &allArrays,
-                                                DIST::GraphCSR<int, double, attrType> &reducedG, const int regionId)
+                                                DIST::GraphCSR<int, double, attrType> &reducedG, const uint64_t regionId)
 {
     DIST::Array *templ = NULL;
 
@@ -668,7 +677,7 @@ static pair<templateDir, string>
                             const DataDirective &dataDir, const vector<string> &distrRules,
                             const vector<vector<dist>> &distrRulesSt,
                             const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                            const int regionId, SgStatement *module, bool isMain, SgFile *file,
+                            const uint64_t regionId, SgStatement *module, bool isMain, SgFile *file,
                             vector<Messages>& messagesForFile)
 {   
     DIST::Array *templ = findLinkWithTemplate(alignArray, allArrays, reducedG, regionId);   
@@ -909,7 +918,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                                         const map<string, string> &templateDeclInIncludes,
                                         const vector<string> &distrRules, const vector<vector<dist>> &distrRulesSt, 
                                         const DIST::Arrays<int> &allArrays,
-                                        const bool extractDir, const int regionId,
+                                        const bool extractDir, const uint64_t regionId,
                                         const set<string> &includedToThisFile)
 {
     vector<SgStatement*> modulesAndFuncs;
@@ -1211,7 +1220,7 @@ static bool hasPrivateAllInModule(SgStatement *mod)
     return ret;
 }
 
-void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
+void insertTemplateModuleUse(SgFile *file, const set<uint64_t> &regNums, const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls)
 {
     int funcNum = file->numberOfFunctions();
     map<string, set<string>> moduleUseMap = createMapOfModuleUses(file);
@@ -1262,16 +1271,23 @@ void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
 
             if (!currArray->GetNonDistributeFlag())
             {
+                set<DIST::Array*> realRefs;
+                getRealArrayRefs(currArray, currArray, realRefs, arrayLinksByFuncCalls);
+
+                if (!(realRefs.size() == 1 && realRefs.find(currArray) != realRefs.end()))
+                    continue;
+
                 for (auto& num : regNums)
                 {
                     auto templ = currArray->GetTemplateArray(num);
                     if (templ)
+                    {
                         if (templ->GetLocation().first == DIST::l_MODULE)
                         {
                             bool needToAdd = true;
                             if (modUse.find(dvmhModuleName) == modUse.end())
                             {
-                                for (auto &elem : modUse)
+                                for (auto& elem : modUse)
                                 {
                                     auto it = moduleUseMap.find(elem);
                                     if (it != moduleUseMap.end())
@@ -1292,6 +1308,7 @@ void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
                             if (needToAdd)
                                 templates.insert(templ);
                         }
+                    }
                 }
             }
         }
@@ -1486,7 +1503,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                               const bool extractDir, vector<Messages> &messagesForFile,
                               const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                               const map<string, FuncInfo*>& funcsInFile,
-                              const int regionId)
+                              const uint64_t regionId)
 {
     vector<SgStatement*> modulesAndFuncs;
     getModulesAndFunctions(file, modulesAndFuncs);

@@ -689,7 +689,6 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 {
                     currLoop->children.push_back(newLoop);
                     currLoop->children.back()->parent = parentLoops.back();
-                    currLoop->children.back()->funcParent = parentLoops.back();
                 }
 
                 parentLoops.push_back(newLoop);
@@ -847,7 +846,7 @@ void createMapLoopGraph(const vector<LoopGraph*> &loops, map<int, LoopGraph*> &m
         createMapLoopGraph(elem->children, mapGraph);
 }
 
-map<LoopGraph*, ParallelDirective*> findAllDirectives(SgFile *file, const vector<LoopGraph*> &loops, const int regId)
+map<LoopGraph*, ParallelDirective*> findAllDirectives(SgFile *file, const vector<LoopGraph*> &loops, const uint64_t regId)
 {
     if (loops.size() == 0)
         return map<LoopGraph*, ParallelDirective*>();
@@ -934,7 +933,7 @@ map<DIST::Array*, vector<long>> fillRemoteInParallel(Statement *loop)
     return toRet;
 }
 
-vector<std::tuple<DIST::Array*, vector<long>, pair<string, int>>> findAllSingleRemotes(SgFile *file, const int regId, vector<ParallelRegion*> &regions)
+vector<std::tuple<DIST::Array*, vector<long>, pair<string, int>>> findAllSingleRemotes(SgFile *file, const uint64_t regId, vector<ParallelRegion*> &regions)
 {
     vector<std::tuple<DIST::Array*, vector<long>, pair<string, int>>> retVal;
 
@@ -1071,5 +1070,27 @@ bool detectMpiCalls(SgProject* proj, map<string, vector<Messages>>& SPF_messages
         }
     }   
     return retVal;
+}
+
+void swapLoopsForParallel(map<string, vector<LoopGraph*>>& loopGraph, map<string, vector<Messages>>& SPF_messages, const int reverse)
+{
+    for (auto& byFile : loopGraph)
+    {
+        map<int, pair<LoopGraph*, LoopGraph*>> loopHeadr;
+
+        if (SgFile::switchToFile(byFile.first) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        map<int, LoopGraph*> mapGraph;
+        createMapLoopGraph(byFile.second, mapGraph);
+        for (auto& byLoop : mapGraph)
+        {
+            auto forSwap = byLoop.second->getForSwap();
+            if (forSwap)
+                loopHeadr[reverse * byLoop.second->lineNum] = std::make_pair(byLoop.second, forSwap);
+        }
+        for (auto& loopPair : loopHeadr)
+            ((SgForStmt*)loopPair.second.first->loop)->interchangeNestedLoops((SgForStmt*)loopPair.second.second->loop);
+    }
 }
 #undef DEBUG

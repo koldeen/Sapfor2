@@ -123,10 +123,10 @@ public:
     std::pair<std::string, std::vector<Expression*>> 
         genDirective(File *file, const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distribution,
                      const std::vector<AlignRule> &alignRules,
-                     const LoopGraph* currLoop,
+                     LoopGraph* currLoop,
                      DIST::GraphCSR<int, double, attrType> &reducedG,
                      DIST::Arrays<int> &allArrays,
-                     const int regionId,
+                     const uint64_t regionId,
                      const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
     //for C_LANG;
@@ -155,7 +155,7 @@ private:
                                 DIST::GraphCSR<int, double, attrType> &reducedG,
                                 DIST::Arrays<int> &allArrays,
                                 const std::map<DIST::Array*, std::pair<std::vector<ArrayOp>, std::vector<bool>>> &readOps,
-                                const bool isAcross, const int regionId,
+                                const bool isAcross, const uint64_t regionId,
                                 const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distribution,
                                 std::set<DIST::Array*> &arraysInAcross,
                                 std::vector<std::map<std::pair<int, int>, int>> &shiftsByAccess,

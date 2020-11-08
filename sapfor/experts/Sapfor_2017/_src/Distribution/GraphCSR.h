@@ -83,7 +83,7 @@ namespace Distribution
     public:
         GraphCSR()
         {
-            cleanData();
+            ClearGraphCSR();
         }
 
         GraphCSR(const GraphCSR &G) : GraphCSR(G.neighbors, G.edges, G.weights, G.localIdx, G.globalIdx, G.attributes, G.linkType, G.hardLinksWasUp)
@@ -95,27 +95,6 @@ namespace Distribution
             this->countRequestsToAdd = G.countRequestsToAdd;
             this->countMissToAdd = G.countMissToAdd;
             this->treesQuality = G.treesQuality;
-        }
-
-        void cleanData()
-        {
-            lastNumOfV = numVerts = numEdges = 0;
-            hardLinksWasUp = false;
-            neighbors.resize(0);
-            edges.resize(0);
-            weights.resize(0);
-            linkType.resize(0);
-            localIdx.resize(0);
-            globalIdx.resize(0);
-            attributes.resize(0);
-
-            maxAvailMemory = 0;
-            maxLoopDim = MAX_LOOP_DIM;
-            maxChainLen = MAX_CHAIN_LEN;
-
-            cacheLinks.clear();
-            countRequestsToAdd = 0;
-            countMissToAdd = 0;
         }
 
         void cleanCacheLinks() { cacheLinks.clear(); }
@@ -156,7 +135,7 @@ namespace Distribution
         void HighlightLinks();
 
         int GetAlignRuleForArray(Array *inputArray, const Arrays<vType> &allArrays, std::vector<std::vector<std::tuple<Array*, vType, attrType>>> &assignedArrays);
-        int GetAlignRuleWithTemplate(Array *inputArray, const Arrays<vType> &allArrays, std::vector<std::tuple<Array*, vType, std::pair<int, int>>> &rules, const int regionId);
+        int GetAlignRuleWithTemplate(Array *inputArray, const Arrays<vType> &allArrays, std::vector<std::tuple<Array*, vType, std::pair<int, int>>> &rules, const uint64_t regionId);
         void FindLinksBetweenArrays(const Arrays<vType> &allArrays, const Array *from, const Array *to, std::vector<int> &links) const;
         void FindLinkWithMaxDim(const vType from, const Arrays<vType> &allArrays, std::pair<Array*, int> &result, std::set<int> &wasDone);
         int FindAllArraysTrees(std::map<Array*, int> &trees, const Arrays<vType> &allArrays);

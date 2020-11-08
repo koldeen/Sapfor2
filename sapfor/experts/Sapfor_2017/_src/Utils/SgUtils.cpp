@@ -288,7 +288,6 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
         removeOmpDir(st);
         if (st->lineNumber() <= 0 || st->variant() < 0)
             continue;
-
         string currFileName = st->fileName();
         if (currFileName != fileN)
         {
@@ -314,7 +313,10 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
                         {
                             auto itNear = includeFiles.find(locName);
                             if (itNear != includeFiles.end())
+                            {
                                 nearIncludes.insert(locName);
+                                foundForIncludes.insert(locName);
+                            }
                         }
                     }
                     locSt = locSt->lexNext();

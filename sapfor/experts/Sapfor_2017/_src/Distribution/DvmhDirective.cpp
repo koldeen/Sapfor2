@@ -252,21 +252,10 @@ static SgStatement* getModuleScope(const string& origFull, vector<SgStatement*>&
     return local;
 }
 
-static void compliteTieList(vector<SgExpression*>& tieList, const LoopGraph* currLoop, SgArrayRefExp* etalon, DIST::Array* etalonA, 
-                            const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls, const int regId, File* file)
+static vector<SgExpression*> 
+    compliteTieList(const LoopGraph* currLoop, const vector<LoopGraph*>& loops, const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls, File* file)
 {
-    vector<SgExpression*> etalonExprs(etalon->numberOfSubscripts());
-    if (etalonExprs.size() == 0)
-        return;
-    for (int z = 0; z < etalonExprs.size(); ++z)
-        etalonExprs[z] = etalon->subscript(z);
-
-    set<DIST::Array*> realRefs; 
-    getRealArrayRefs(etalonA, etalonA, realRefs, arrayLinksByFuncCalls);
-    if (realRefs.size() != 1)
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    etalonA = *realRefs.begin();
-
+    vector<SgExpression*> tieList;
     vector<pair<DIST::Array*, DIST::Array*>> realRefsUsed;
     for (auto& elem : currLoop->usedArrays)
     {
@@ -274,57 +263,102 @@ static void compliteTieList(vector<SgExpression*>& tieList, const LoopGraph* cur
         getRealArrayRefs(elem, elem, realRefs, arrayLinksByFuncCalls);
         if (realRefs.size() != 1)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-        if (*realRefs.begin() == etalonA)
-            continue;
         realRefsUsed.push_back(make_pair(*realRefs.begin(), elem));
     }
 
     if (realRefsUsed.size() == 0)
-        return;
+        return tieList;
 
-    auto tmpl = etalonA->GetTemplateArray(regId);
-    checkNull(tmpl, convertFileName(__FILE__).c_str(), __LINE__);
-
-    auto linksWithTempl = etalonA->GetLinksWithTemplate(regId);
     SgVarRefExp* zeroS = new SgVarRefExp(findSymbolOrCreate(file, "*"));
 
     for (auto& pairs : realRefsUsed)
     {
-        auto tmplP = pairs.first->GetTemplateArray(regId);
-        if (tmplP != tmpl)
-            continue;
-        
-        auto links = pairs.first->GetLinksWithTemplate(regId);
-
         SgSymbol* arrayS = findSymbolOrCreate(file, pairs.second->GetShortName(), pairs.second->GetDeclSymbol()->GetOriginal()->type());
         SgArrayRefExp* array = new SgArrayRefExp(*arrayS);
         bool needToAdd = false;
 
-        for (int z = 0; z < links.size(); ++z)
+        vector<SgExpression*> subs;
+        for (int k = 0; k < pairs.second->GetDimSize(); ++k)
+            subs.push_back(&zeroS->copy());
+
+        for (int z = 0; z < loops.size(); ++z)
         {
-            int dim = links[z];
-            if (dim >= 0)
+            currLoop = loops[z];
+            const uint64_t regId = (uint64_t)currLoop;
+            auto dirForLoop = currLoop->directiveForLoop;
+
+            auto tmplP = pairs.first->GetTemplateArray(regId, false);
+            auto links = pairs.first->GetLinksWithTemplate(regId);
+
+            // no mapping for this loop, skip this
+            if (tmplP == dirForLoop->arrayRef)
             {
-                bool wasAdded = false;
-                for (int k = 0; k < linksWithTempl.size(); ++k)
+                for (int z = 0; z < links.size(); ++z)
                 {
-                    if (linksWithTempl[k] == dim)
+                    int dim = links[z];
+                    if (dim >= 0)
                     {
-                        wasAdded = needToAdd = true;
-                        array->addSubscript(etalonExprs[k]->copy());
+                        if (dirForLoop->on[dim].first != "*")
+                        {
+                            needToAdd = true;
+                            subs[z] = new SgVarRefExp(findSymbolOrCreate(file, dirForLoop->on[dim].first));
+                            break;
+                        }
+                    }
+                }
+            }
+            else if (pairs.second == dirForLoop->arrayRef)
+            {
+                for (int z = 0; z < dirForLoop->on.size(); ++z)
+                {
+                    if (dirForLoop->on[z].first != "*")
+                    {
+                        needToAdd = true;
+                        subs[z] = new SgVarRefExp(findSymbolOrCreate(file, dirForLoop->on[z].first));
                         break;
                     }
                 }
-                if (!wasAdded)
-                    array->addSubscript(zeroS->copy());
             }
-            else
-                array->addSubscript(zeroS->copy());
+            else if (!dirForLoop->arrayRef->IsTemplate())
+            {
+                auto tmplP = dirForLoop->arrayRef->GetTemplateArray(regId, false);
+                auto links = dirForLoop->arrayRef->GetLinksWithTemplate(regId);
+
+                auto tmplP_et = pairs.first->GetTemplateArray(regId, false);
+                auto links_et = pairs.first->GetLinksWithTemplate(regId);
+
+                if (tmplP == tmplP_et)
+                {
+                    for (int z = 0; z < dirForLoop->on.size(); ++z)
+                    {
+                        if (dirForLoop->on[z].first != "*")
+                        {                            
+                            const int idx = links[z];
+                            for (int p = 0; p < links_et.size(); ++p)
+                            {
+                                if (idx >= 0 && links_et[p] == idx)
+                                {
+                                    subs[p] = new SgVarRefExp(findSymbolOrCreate(file, dirForLoop->on[z].first));
+                                    needToAdd = true;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
         }
+
         if (needToAdd)
+        {
+            for (int k = 0; k < subs.size(); ++k)
+                array->addSubscript(*subs[k]);
             tieList.push_back(array);
+        }
     }
+
+    return tieList;
 }
 
 //TODO: need to improve
@@ -352,12 +386,49 @@ static bool isPrivateOnlyFromSpfParameter(SgStatement* loop, SgSymbol* priv, con
     return false;
 }
 
+static void changeLoopOrder(const vector<string>& parallel, const vector<string>& newParallel, vector<LoopGraph*>& loops)
+{
+    if (parallel == newParallel)
+        return;
+
+    vector<int> newOrder, order;
+
+    for (int z = 0; z < parallel.size(); ++z)
+        order.push_back(z);
+    for (int z = 0; z < parallel.size(); ++z)
+        if (parallel[z] != "*")
+            newOrder.push_back(z);
+    for (int z = 0; z < parallel.size(); ++z)
+        if (parallel[z] == "*")
+            newOrder.push_back(z);
+
+    for (int z = 0; z < order.size(); ++z)
+    {
+        if (order[z] != newOrder[z])
+        {
+            int idx = 0;
+            for (; idx < order.size(); ++idx)
+                if (newOrder[z] == order[idx])
+                    break;
+
+            if (loops[z]->getForSwap() == NULL)
+                loops[z]->setForSwap(loops[idx]);
+            else if (loops[idx]->getForSwap() == NULL)
+                loops[idx]->setForSwap(loops[z]);
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            std::swap(order[z], order[idx]);
+        }
+    }
+}
+
 pair<string, vector<Expression*>> 
 ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, const DistrVariant*>>& distribution,
                                 const vector<AlignRule>& alignRules,
-                                const LoopGraph* currLoop,
+                                LoopGraph* currLoop,
                                 DIST::GraphCSR<int, double, attrType>& reducedG,
-                                DIST::Arrays<int>& allArrays, const int regionId,
+                                DIST::Arrays<int>& allArrays, const uint64_t regionId,
                                 const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls)
 {
     const set<DIST::Array*>& acrossOutAttribute = currLoop->acrossOutAttribute;
@@ -378,7 +449,10 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
     SgStatement* parentFunc = getFuncStat(realStat);
     const map<string, set<SgSymbol*>> byUseInFunc = moduleRefsByUseInFunction(realStat);
     const int nested = loopG->isPerfectLoopNest();
+    
     vector<SgSymbol*> loopSymbs;
+    vector<LoopGraph*> loops;
+    LoopGraph* pLoop = currLoop;
     for (int z = 0; z < nested; ++z)
     {
         loopSymbs.push_back(loopG->symbol());
@@ -386,33 +460,43 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
         if (next->variant() != FOR_NODE && z + 1 < nested)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         loopG = (SgForStmt*)next;
-    }
 
+        loops.push_back(pLoop);
+        if (pLoop->children.size())
+            pLoop = pLoop->children[0];
+    }
 
     SgExpression* expr = new SgExpression(EXPR_LIST);
     SgExpression* p = expr;
 
     directive += "!DVM$ PARALLEL(";
+    //filter parallel
+    vector<string> filteredParalel;
     for (int i = 0; i < (int)parallel.size(); ++i)
+        if (parallel[i] != "*")
+            filteredParalel.push_back(parallel[i]);
+    changeLoopOrder(parallel, filteredParalel, loops);
+
+    for (int i = 0; i < (int)filteredParalel.size(); ++i)
     {
-        const string pS = (parallel[i] == "*") ? loopSymbs[i]->identifier() : parallel[i];
+        if (filteredParalel[i] == "*")
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
         if (i == 0)
-            directive += pS;
+            directive += filteredParalel[i];
         else
-            directive += "," + pS;
+            directive += "," + filteredParalel[i];
 
         SgVarRefExp* tmp = NULL;
-        if (parallel[i] == "*")
-            tmp = new SgVarRefExp(loopSymbs[i]);
-        else
-            tmp = new SgVarRefExp(findSymbolOrCreate(file, parallel[i]));
+        tmp = new SgVarRefExp(findSymbolOrCreate(file, filteredParalel[i]));
 
         p->setLhs(tmp);
-        if (i != (int)parallel.size() - 1)
+        if (i != (int)filteredParalel.size() - 1)
             p = createAndSetNext(RIGHT, EXPR_LIST, p);
         else
             p->setRhs(NULL);
     }
+
     DIST::Array* mapTo = arrayRef2->IsLoopArray() ? arrayRef : arrayRef2;
     auto onTo = arrayRef2->IsLoopArray() ? on : on2;
 
@@ -492,30 +576,34 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
     {
         if (!arrayRef2->IsLoopArray())
         {
-            if (dirStatement[1] != NULL)
+            vector<LoopGraph*> loopsTie;
+            for (int i = 0; i < (int)parallel.size(); ++i)
+                if (parallel[i] != "*")
+                    loopsTie.push_back(loops[i]);
+
+            vector<SgExpression*> tieList = compliteTieList(currLoop, loopsTie, arrayLinksByFuncCalls, file);
+
+            if (tieList.size())
             {
-                expr = createAndSetNext(RIGHT, EXPR_LIST, expr);
-                p = expr;
+                if (dirStatement[1] != NULL)
+                {
+                    expr = createAndSetNext(RIGHT, EXPR_LIST, expr);
+                    p = expr;
+                }
+                p = createAndSetNext(LEFT, ACC_TIE_OP, p);
+                p->setLhs(makeExprList(tieList));
+
+                directive += ", TIE(";
+                int k = 0;
+                for (auto& tieL : tieList)
+                {
+                    if (k != 0)
+                        directive += ",";
+                    directive += tieL->unparse();
+                    ++k;
+                }
+                directive += ")";
             }
-            p = createAndSetNext(LEFT, ACC_TIE_OP, p);
-
-            vector<SgExpression*> tieList;
-            tieList.push_back(arrayExpr);
-
-            compliteTieList(tieList, currLoop, arrayExpr, arrayRef2, arrayLinksByFuncCalls, regionId, file);
-
-            directive += ", TIE(";
-            int k = 0;
-            for (auto& tieL : tieList)
-            {
-                if (k != 0)
-                    directive += ",";
-                directive += tieL->unparse();
-                ++k;
-            }
-            directive += ")";
-
-            p->setLhs(makeExprList(tieList));
         }
     }
 

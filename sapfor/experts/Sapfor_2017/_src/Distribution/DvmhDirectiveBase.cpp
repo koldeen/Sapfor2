@@ -85,6 +85,19 @@ static vTuples uniteOnRules(const vTuples &first, const vTuples &second)
     return result;
 }
 
+template<typename vTuples>
+static bool hasConflictUniteOnRules(const vTuples& first, const vTuples& second)
+{ 
+    for (int i = 0; i < (int)first.size(); ++i)
+    {
+        bool firstStar = first[i].first == "*";
+        bool secondStar = second[i].first == "*";
+        if (!firstStar && !secondStar)
+            return true;
+    }
+    return false;
+}
+
 ParallelDirective* operator+(const ParallelDirective &left, const ParallelDirective &right)
 {
     const ParallelDirective *first = &left;
@@ -94,7 +107,11 @@ ParallelDirective* operator+(const ParallelDirective &left, const ParallelDirect
     checkNull(first, convertFileName(__FILE__).c_str(), __LINE__);
     checkNull(second, convertFileName(__FILE__).c_str(), __LINE__);
 
-    if (first->arrayRef == second->arrayRef)
+    bool condition = first->arrayRef == second->arrayRef;
+    if (mpiProgram)
+        condition = !hasConflictUniteOnRules(first->on, second->on) && !hasConflictUniteOnRules(first->on2, second->on2);
+
+    if (condition)
     {
         if (first->on.size() != second->on.size())
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -188,7 +205,7 @@ static inline bool isNonDistributedDim(const vector<tuple<DIST::Array*, int, pai
 vector<tuple<DIST::Array*, int, pair<int, int>>> 
     getAlignRuleWithTemplate(DIST::Array *array, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                              DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays,
-                             const int regionId)
+                             const uint64_t regionId)
 {
     vector<tuple<DIST::Array*, int, pair<int, int>>> retVal;
 
@@ -222,7 +239,7 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                                      const vector<pair<string, pair<int, int>>> parallelOnRule,
                                      const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>> &readOps, const bool isAcross,
                                      const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
-                                     const int regionId,
+                                     const uint64_t regionId,
                                      const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     string out = "";
@@ -391,7 +408,7 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
                                     DIST::Arrays<int> &allArrays,
                                     const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>> &readOps,
                                     const bool isAcross,
-                                    const int regionId,
+                                    const uint64_t regionId,
                                     const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                     set<DIST::Array*> &arraysInAcross,
                                     vector<map<pair<int, int>, int>> &shiftsByAccess,
@@ -402,7 +419,7 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
     
     auto on_ext = on;
     //replace to template align ::on
-    if (arrayRef->IsTemplate() == false)
+    if (arrayRef->IsTemplate() == false && mpiProgram == 0)
     {
         vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForRef =
             getAlignRuleWithTemplate(arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);

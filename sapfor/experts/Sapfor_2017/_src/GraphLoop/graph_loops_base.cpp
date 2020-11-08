@@ -26,6 +26,7 @@ using std::get;
 #include "../GraphCall/graph_calls_func.h"
 #include "../Utils/errors.h"
 #include "../Distribution/Distribution.h"
+#include "../Distribution/CreateDistributionDirs.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../VisualizerCalls/get_information.h"
 
@@ -429,14 +430,19 @@ void getAllArrayRefs(DIST::Array *addTo, DIST::Array *curr,
                 getAllArrayRefs(addTo, link, allArrayRefs, arrayLinksByFuncCalls);
 }
 
+#define DEB_GRAPH 0
 static bool processLinks(const vector<pair<DIST::Array*, const ArrayInfo*>> &currAccessesV,
                          DIST::Arrays<int> &allArrays, map<DIST::Array*, set<DIST::Array*>> &realArrayRefs,
-                         DIST::GraphCSR<int, double, attrType> &G, const links linkType)
+                         DIST::GraphCSR<int, double, attrType> &globalGraph, 
+                         DIST::GraphCSR<int, double, attrType> &loopGraph,
+                         const links linkType)
 {
     bool has_Wr_Ww_edges = false;
+    int countAdd = 0;
+
     for (int z = 0; z < currAccessesV.size(); ++z)
     {
-        const ArrayInfo &fromUniq = *currAccessesV[z].second;
+        const ArrayInfo& fromUniq = *currAccessesV[z].second;
         allArrays.AddArrayToGraph(currAccessesV[z].first);
 
         for (auto &fromSymb : realArrayRefs[currAccessesV[z].first])
@@ -450,19 +456,43 @@ static bool processLinks(const vector<pair<DIST::Array*, const ArrayInfo*>> &cur
                 allArrays.AddArrayToGraph(currAccessesV[z1].first);
                 for (auto &toSymb : realArrayRefs[currAccessesV[z1].first])
                 {
-                    bool res = addToGraph(G, allArrays, &fromUniq, fromSymb, &toUniq, toSymb, linkType);
+                    bool res = false;
+                    if (mpiProgram)
+                    {
+                        res = addToGraph(loopGraph, allArrays, &fromUniq, fromSymb, &toUniq, toSymb, linkType);
+                        //__spf_print(DEB_GRAPH, "  add from %s to %s\n", fromSymb->GetName().c_str(), toSymb->GetName().c_str());
+                    }
+                    else
+                        res = addToGraph(globalGraph, allArrays, &fromUniq, fromSymb, &toUniq, toSymb, linkType);
+                    countAdd++;
+
                     has_Wr_Ww_edges |= res;
                 }
             }
         }
     }
 
+#if DEB_GRAPH 
+    __spf_print(DEB_GRAPH, "added count = %d\n", countAdd);
+#endif
     return has_Wr_Ww_edges;
 }
 
 void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayInfo*>> &loopInfo,
                             const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
+#if 0
+    for (auto it = loopInfo.begin(); it != loopInfo.end(); it++)
+    {
+        printf("info for loop %d %s\n", it->first->lineNum, it->first->fileName.c_str());
+        for (auto& elem : it->second)
+        {
+            printf(" for Array %s\n", elem.first->GetName().c_str());
+            elem.second->printInfo();
+        }
+    }
+#endif
+    
     for (auto it = loopInfo.begin(); it != loopInfo.end(); it++)
     {
         createNeededException();
@@ -474,9 +504,12 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
             continue;
         }
 
-        DIST::GraphCSR<int, double, attrType> &G = currReg->GetGraphToModify();
-        DIST::Arrays<int> &allArrays = currReg->GetAllArraysToModify();
+        DIST::GraphCSR<int, double, attrType>& G = currReg->GetGraphToModify();
+        DIST::GraphCSR<int, double, attrType>& loopGraph = it->first->getGraphToModify();
 
+        __spf_print(DEB_GRAPH, "added to loop %d %s\n", it->first->lineNum, it->first->fileName.c_str());
+
+        DIST::Arrays<int> &allArrays = currReg->GetAllArraysToModify();
         //printf("for loop on line %d: \n", it->first->lineNum);
         const map<DIST::Array*, const ArrayInfo*> &currAccesses = it->second;
         map<DIST::Array*, set<DIST::Array*>> realArrayRefs;
@@ -484,39 +517,30 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
             getRealArrayRefs(access.first, access.first, realArrayRefs[access.first], arrayLinksByFuncCalls);
 
         const vector<pair<DIST::Array*, const ArrayInfo*>> currAccessesV(currAccesses.begin(), currAccesses.end());
-        bool has_Wr_edges = false, has_Ww_edges = false;
-        has_Wr_edges = processLinks(currAccessesV, allArrays, realArrayRefs, G, WW_link);
-        has_Ww_edges |= processLinks(currAccessesV, allArrays, realArrayRefs, G, WR_link);
+        bool has_Wr_edges = false, has_Ww_edges = false, has_Rr_edges = false;
+        has_Wr_edges = processLinks(currAccessesV, allArrays, realArrayRefs, G, loopGraph, WW_link);
+        has_Ww_edges |= processLinks(currAccessesV, allArrays, realArrayRefs, G, loopGraph, WR_link);
         if (!has_Wr_edges && !has_Ww_edges)
-            processLinks(currAccessesV, allArrays, realArrayRefs, G, RR_link);
-        
-        /*for (auto &accessFrom : currAccesses)
+            has_Rr_edges = processLinks(currAccessesV, allArrays, realArrayRefs, G, loopGraph, RR_link);
+
+        if (mpiProgram)
         {
-            const ArrayInfo &fromUniq = *accessFrom.second;
-            allArrays.AddArrayToGraph(accessFrom.first);
+            if (!has_Wr_edges && !has_Ww_edges && !has_Rr_edges)
+                for (auto& elem : realArrayRefs)
+                    for (auto& array : elem.second)
+                        allArrays.AddArrayToGraph(array);
+        }
 
-            for (auto &fromSymb : realArrayRefs[accessFrom.first])
-            {
-                for (auto &accessTo : currAccesses)
-                {
-                    if (&accessTo == &accessFrom)
-                        continue;
-
-                    const ArrayInfo &toUniq = *accessTo.second;
-                    allArrays.AddArrayToGraph(accessTo.first);
-                    for (auto &toSymb : realArrayRefs[accessTo.first])
-                    {
-                        bool t, t1;
-                        t = addToGraph(G, allArrays, &fromUniq, fromSymb, &toUniq, toSymb, WW_link);
-                        t1 = addToGraph(G, allArrays, &fromUniq, fromSymb, &toUniq, toSymb, WR_link);
-                        if (!t && !t1)
-                            addToGraph(G, allArrays, &fromUniq, fromSymb, &toUniq, toSymb, RR_link);
-                    }
-                }
-            }
-        }*/
+#if 0
+        {
+            char fName[256];
+            sprintf(fName, "_graph_reg%d_%s.txt", it->first->lineNum, it->first->fileName.c_str());
+            loopGraph.CreateGraphWiz(fName, vector<tuple<int, int, attrType>>(), allArrays, true);
+        }
+#endif
     }
 }
+#undef DEB_GRAPH
 
 bool addToDistributionGraph(const LoopGraph *loopInfo, const string &inFunction)
 {
@@ -726,14 +750,27 @@ static void fillInterprocLinks(const map<string, FuncInfo*> &mapFunc, vector<Loo
     }
 }
 
+static void fillInterprocLinks(vector<LoopGraph*>& loops)
+{
+    for (auto& loop : loops)
+    {
+        for (auto& funcCh : loop->funcChildren)
+            funcCh->funcParents.push_back(loop);
+
+        fillInterprocLinks(loop->children);
+    }
+}
+
 void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
 {
     set<void*> isNotOkey;
     map<string, FuncInfo*> mapFunc;
     
     createMapOfFunc(allFuncInfo, mapFunc);
-    for (auto &loopsInFile : loopGraph)
+    for (auto& loopsInFile : loopGraph)
         fillInterprocLinks(mapFunc, loopsInFile.second, loopGraph);
+    for (auto& loopsInFile : loopGraph)
+        fillInterprocLinks(loopsInFile.second);
 
     for (auto &loopsInFile : loopGraph)
     {
@@ -1169,4 +1206,46 @@ void filterArrayInCSRGraph(map<string, vector<LoopGraph*>> &loopGraph, map<strin
     if (trees.size())
         for (auto &byFile : loopGraph)
             filterArrayInCSRGraph(byFile.second, mapFuncInfo, reg, arrayLinksByFuncCalls, trees, messages);
+}
+
+void LoopGraph::reduceAccessGraph()
+{
+    for (auto& ch : children)
+        ch->reduceAccessGraph();
+
+    checkNull(region, convertFileName(__FILE__).c_str(), __LINE__);
+    if (accessGraph.GetNumberOfV() != 0)
+        DIST::createOptimalDistribution<int, double, attrType>(accessGraph, reducedAccessGraph, region->GetAllArrays(), region->GetId(), false);
+}
+
+void LoopGraph::createVirtualTemplateLinks(const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls, map<string, vector<Messages>>& SPF_messages)
+{
+    checkNull(region, convertFileName(__FILE__).c_str(), __LINE__);
+
+    auto allArrays = region->GetAllArrays();
+    __spf_print(1, "*** FOR LOOP on line %d and file '%s':\n", lineNum, fileName.c_str());
+#if 0
+    {
+        char fName[256];
+        sprintf(fName, "_graph_reg%d_%s.txt", lineNum, fileName.c_str());
+        accessGraph.CreateGraphWiz(fName, vector<tuple<int, int, attrType>>(), allArrays, true);
+    }
+#endif
+
+    createDistributionDirs(reducedAccessGraph, allArrays, dataDirectives, SPF_messages, arrayLinksByFuncCalls, usedArrays.size() ? usedArrays : usedArraysAll);
+    createAlignDirs(reducedAccessGraph, allArrays, dataDirectives, (uint64_t)this, arrayLinksByFuncCalls, SPF_messages, usedArrays);
+
+    auto result = dataDirectives.GenAlignsRules();
+    for (int i = 0; i < result.size(); ++i)
+        __spf_print(1, "  %s\n", result[i].c_str());
+#if 0
+    {
+        char fName[256];
+        sprintf(fName, "_graph_reduced_with_templ_reg%d_%s.txt", lineNum, fileName.c_str());
+        reducedAccessGraph.CreateGraphWiz(fName, vector<tuple<int, int, attrType>>(), allArrays, true);
+    }
+#endif
+
+    for (auto& ch : children)
+        ch->createVirtualTemplateLinks(arrayLinksByFuncCalls, SPF_messages);
 }

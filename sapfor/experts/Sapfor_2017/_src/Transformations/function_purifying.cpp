@@ -72,6 +72,29 @@ void setPureStatus(const map<string, vector<FuncInfo*>>& allFuncInfo)
             setPureStatus(func);
 }
 
+static set<string> fillFromIntent(SgStatement* header)
+{
+    set<string> intentS;
+
+    SgStatement* last = header->lastNodeOfStmt();
+    for (auto stmt = header->lexNext(); stmt && stmt != last; stmt = stmt->lexNext())
+    {
+        if (stmt->variant() == CONTAINS_STMT)
+            break;
+
+        if (isSgExecutableStatement(stmt))
+            break;
+
+        if (stmt->variant() == INTENT_STMT)
+        {
+            SgIntentStmt* s = (SgIntentStmt*)stmt;
+            for (int i = 0; i < s->numberOfVars(); i++)
+                intentS.insert(s->var(i)->symbol()->identifier());
+        }
+    }
+    return intentS;
+}
+
 static void insertIntents(vector<string> identificators, SgStatement* header, map <string, SgSymbol*> parSym, int intentVariant, int intentBit)
 { 
     SgStatement* last = header->lastNodeOfStmt();
@@ -162,11 +185,13 @@ void intentInsert(FuncInfo* func)
     SgProgHedrStmt* header = (SgProgHedrStmt*)headerSt;
     map <string, SgSymbol*> parSym;
 
+    auto intentS = fillFromIntent(headerSt);
+
     for (int i = 0; i < func->funcParams.countOfPars; i++)
     {
         SgSymbol* parS = header->parameter(i);
-        parSym[header->parameter(i)->identifier()] = parS;
-        if ((parS->attributes() & (INOUT_BIT | IN_BIT | OUT_BIT)) != 0)
+        parSym[parS->identifier()] = parS;
+        if (intentS.find(parS->identifier()) != intentS.end())
             continue;
 
         if (func->funcParams.isArgInOut(i))

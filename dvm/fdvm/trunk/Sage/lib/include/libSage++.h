@@ -9,6 +9,7 @@
 #include <string.h>
 #include <map>
 #include <string>
+#include <algorithm>
 
 /* includes the attributes data structure */
 
@@ -1527,7 +1528,8 @@ public:
   inline void setEnd(SgExpression &ubound);
 
   inline SgExpression *step();
-  inline void setStep(SgExpression &step);
+  inline void setStep(SgExpression &step);  
+  inline void interchangeNestedLoops(SgForStmt* loop);
 
   inline SgLabel *endOfLoop();
 
@@ -6380,6 +6382,16 @@ inline void SgForStmt::setStep(SgExpression &step)
     {
       BIF_LL3(thebif) = step.thellnd;
     }
+}
+
+//added by Kolganov A.S. 27.10.2020
+inline void SgForStmt::interchangeNestedLoops(SgForStmt* loop)
+{
+    std::swap(BIF_LL1(thebif), BIF_LL1(loop->thebif));
+    std::swap(BIF_LL2(thebif), BIF_LL2(loop->thebif));
+    std::swap(BIF_LL3(thebif), BIF_LL3(loop->thebif));
+    std::swap(BIF_SYMB(thebif), BIF_SYMB(loop->thebif));
+    std::swap(BIF_LABEL(thebif), BIF_LABEL(loop->thebif));
 }
 
 inline SgStatement * SgForStmt::body()

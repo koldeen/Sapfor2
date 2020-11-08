@@ -495,7 +495,7 @@ namespace Distribution
 #define TEST 0
     template<typename vType, typename wType, typename attrType>
     void createOptimalDistribution(GraphCSR<vType, wType, attrType> &G, GraphCSR<vType, wType, attrType> &reducedG,
-                                   const Arrays<vType> &allArrays, const int regionNum, bool onlyGraph)
+                                   const Arrays<vType> &allArrays, const uint64_t regionNum, bool onlyGraph)
     {
         vector<tuple<int, int, attrType>> toDelArcs;
 
@@ -670,7 +670,7 @@ namespace Distribution
         }
     }
 
-    template void createOptimalDistribution(GraphCSR<int, double, attrType> &G, GraphCSR<int, double, attrType> &reducedG, const Arrays<int> &allArrays, const int regionNum, bool onlyGraph);
+    template void createOptimalDistribution(GraphCSR<int, double, attrType> &G, GraphCSR<int, double, attrType> &reducedG, const Arrays<int> &allArrays, const uint64_t regionNum, bool onlyGraph);
     template int AddArrayAccess(GraphCSR<int, double, attrType> &G, Arrays<int> &allArrays, Array *arr1, Array *arr2, pair<int, int> arc, double arcWeight, const attrType &arcAttr, const uint8_t linkType);
 }
 

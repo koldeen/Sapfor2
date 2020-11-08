@@ -507,8 +507,11 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
             continue;
         }
 
+        uint64_t regId = currReg->GetId();
+        if (mpiProgram)
+            regId = (uint64_t)loopInfo.first;
+
         const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
-        DIST::GraphCSR<int, double, attrType> &reducedG = currReg->GetReducedGraphToModify();
 
         vector<pair<pair<string, string>, vector<pair<int, int>>>> acrossInfo;
         fillAcrossInfoFromDirectives(loopInfo.first, acrossInfo);
@@ -620,7 +623,7 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                         {
                             for (auto &refs2 : realArrayRefs2)
                             {
-                                auto links = findLinksBetweenArrays(refs1, refs2, currReg->GetId());
+                                auto links = findLinksBetweenArrays(refs1, refs2, regId);
 
                                 const int dimFrom = accesses[i].second.first;
                                 const int dimTo = accesses[k].second.first;
@@ -637,8 +640,8 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                                     const auto accessFrom = accesses[i].second.second;
                                     const auto accessTo = accesses[k].second.second;
 
-                                    auto templRule1 = refs1->GetAlignRulesWithTemplate(currReg->GetId());
-                                    auto templRule2 = refs2->GetAlignRulesWithTemplate(currReg->GetId());
+                                    auto templRule1 = refs1->GetAlignRulesWithTemplate(regId);
+                                    auto templRule2 = refs2->GetAlignRulesWithTemplate(regId);
 
                                     if (DIST::Fx(accessFrom, templRule1[dimFrom]) != DIST::Fx(accessTo, templRule2[dimTo]))
                                     {
@@ -732,13 +735,15 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                     vector<vector<pair<int, int>>> allRules;
                     vector<vector<int>> allLinks;
 
-                    for (auto &array : realArrayRef)
+                    for (auto& array : realArrayRef)
                     {
-                        DIST::Array *toAdd = array->GetTemplateArray(currReg->GetId());
+                        DIST::Array* toAdd = array->GetTemplateArray(regId);
                         if (toAdd)
+                        {
                             templateLink.insert(toAdd);
-                        allRules.push_back(array->GetAlignRulesWithTemplate(currReg->GetId()));
-                        allLinks.push_back(array->GetLinksWithTemplate(currReg->GetId()));
+                            allRules.push_back(array->GetAlignRulesWithTemplate(regId));
+                            allLinks.push_back(array->GetLinksWithTemplate(regId));
+                        }
                     }
 
                     if (!isAllRulesEqual(allRules))
@@ -789,9 +794,9 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
 
 extern vector<tuple<DIST::Array*, int, pair<int, int>>> 
     getAlignRuleWithTemplate(DIST::Array *array, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                             DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays, const int regionId);
+                             DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays, const uint64_t regionId);
 
-static void propagateTemplateInfo(map<DIST::Array*, vector<pair<bool, map<string, pair<int, int>>>>> &arrays, const int regId,
+static void propagateTemplateInfo(map<DIST::Array*, vector<pair<bool, map<string, pair<int, int>>>>> &arrays, const uint64_t regId,
                                   const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                   DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays)
 {
@@ -802,7 +807,7 @@ static void propagateTemplateInfo(map<DIST::Array*, vector<pair<bool, map<string
         for (auto &arrayElem: arrays)
         {
             auto array = arrayElem.first;
-            if (array->GetTemplateArray(regId) == NULL)
+            if (array->GetTemplateArray(regId, false) == NULL)
             {
                 vector<tuple<DIST::Array*, int, pair<int, int>>> templRule =
                     getAlignRuleWithTemplate(array, arrayLinksByFuncCalls, reducedG, allArrays, regId);
@@ -836,7 +841,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                                   const map<DIST::Array*, vector<bool>> &dimsNotMatch,
                                   const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                   DIST::GraphCSR<int, double, attrType> &reducedG, 
-                                  const DIST::Arrays<int> &allArrays, const int regId,
+                                  const DIST::Arrays<int> &allArrays, const uint64_t regId,
                                   ParallelDirective *parDirective,
                                   map<DIST::Array*, vector<pair<bool, pair<string, int>>>> &values,
                                   const set<string> &deprecateToMatch,
@@ -954,7 +959,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
 }
 
 //TODO: 
-static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dimsNotMatch, LoopGraph* loop, const int regId,
+static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dimsNotMatch, LoopGraph* loop, const uint64_t regId,
                                      ParallelDirective *parDirective, DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays,
                                      const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                      const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
@@ -1228,7 +1233,7 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
 static bool createLinksBetweenArrays(map<DIST::Array*, vector<int>> &links, DIST::Array *dist, 
                                      const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                      DIST::GraphCSR<int, double, attrType> &reducedG,
-                                     DIST::Arrays<int> &allArrays, const int regionId)
+                                     DIST::Arrays<int> &allArrays, const uint64_t regionId)
 {
     bool ok = true;
     if (dist == NULL)
@@ -1260,7 +1265,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
                              const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                              const set<DIST::Array*> &allArraysInLoop,
                              vector<Messages> &messages, const int loopLine,
-                             map<DIST::Array*, vector<bool>> &dimsNotMatch, const int regionId)
+                             map<DIST::Array*, vector<bool>> &dimsNotMatch, const uint64_t regionId)
 {    
     const pair<DIST::Array*, const DistrVariant*> *distArray = NULL;
     pair<DIST::Array*, const DistrVariant*> *newDistArray = NULL;
@@ -1368,7 +1373,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
     
     auto templArray = dir.arrayRef;
     if (templArray->IsTemplate() == false)
-        templArray = dir.arrayRef->GetTemplateArray(regionId);
+        templArray = dir.arrayRef->GetTemplateArray(regionId, false);
 
     ok = createLinksBetweenArrays(arrayLinksWithTmpl, templArray, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
     if (ok == false)
@@ -1546,6 +1551,14 @@ static void constructRules(vector<pair<DIST::Array*, const DistrVariant*>>& outR
     }
 }
 
+static uint64_t getTrueRegId(const uint64_t regId, const uint64_t loopRegId)
+{
+    if (mpiProgram)
+        return loopRegId;
+    else
+        return regId;
+}
+
 void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
                                        DIST::GraphCSR<int, double, attrType>& reducedG,
                                        DIST::Arrays<int>& allArrays,
@@ -1555,7 +1568,7 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
                                        const vector<pair<DIST::Array*, const DistrVariant*>>& distribution,
                                        const vector<AlignRule>& alignRules,
                                        vector<pair<int, pair<string, vector<Expression*>>>>& toInsert,
-                                       const int regionId,
+                                       const uint64_t regionId,
                                        const map<DIST::Array*, set<DIST::Array*>>& arrayLinksByFuncCalls,
                                        const map<LoopGraph*, void*>& depInfoForLoopGraph,
                                        vector<Messages>& messages)
@@ -1563,11 +1576,13 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
     for (int i = 0; i < loopGraph.size(); ++i)
     {
         LoopGraph* loop = loopGraph[i];
+        const uint64_t loopRegId = (uint64_t)loop;
+
         if (loop->directive &&
             (loop->hasLimitsToParallel() == false) &&
             (loop->region == currParReg) &&
             (loop->userDvmDirective == NULL) &&
-            (loop->isArrayTemplatesTheSame(regionId, arrayLinksByFuncCalls) == true))
+            (loop->isArrayTemplatesTheSame(getTrueRegId(regionId, loopRegId), arrayLinksByFuncCalls)))
         {
             if (loop->perfectLoop >= 1)
             {
@@ -1596,11 +1611,11 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
                 {
                     //<Array, linksWithTempl> -> dims not mached
                     map<DIST::Array*, vector<bool>> dimsNotMatch;
-                    if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch, regionId))
+                    if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch, getTrueRegId(regionId, loopRegId)))
                     {
-                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop, regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls, distribution, mapFuncInfo))
+                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop, getTrueRegId(regionId, loopRegId), parDirective, reducedG, allArrays, arrayLinksByFuncCalls, distribution, mapFuncInfo))
 #if __SPF
-                            needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsInFile, parDirective, regionId, messages, arrayLinksByFuncCalls);
+                            needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsInFile, parDirective, getTrueRegId(regionId, loopRegId), messages, arrayLinksByFuncCalls);
 #else
 #error 'TODO: addRedistributionDirs'
                             needToContinue = true;
@@ -1609,7 +1624,7 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
                 }
                 else
 #if __SPF
-                    needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsInFile, parDirective, regionId, messages, arrayLinksByFuncCalls);
+                    needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsInFile, parDirective, getTrueRegId(regionId, loopRegId), messages, arrayLinksByFuncCalls);
 #else
 #error 'TODO: addRedistributionDirs'
                     needToContinue = true;
@@ -1624,7 +1639,7 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
                 // insert parallel dir
                 pair<string, vector<Expression*>> dir;
 #if __SPF
-                dir = parDirective->genDirective(file, newRules, alignRules, loop, reducedG, allArrays, regionId, arrayLinksByFuncCalls);
+                dir = parDirective->genDirective(file, newRules, alignRules, loop, reducedG, allArrays, getTrueRegId(regionId, loopRegId), arrayLinksByFuncCalls);
 #else
                 dir = parDirective->genDirective();
 #endif
@@ -1661,6 +1676,93 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
                     depInfoForLoopGraph, messages);
         }
     }
+}
+
+static bool hasParallelDir(const LoopGraph* loop,
+                           const map<string, set<int>>& createdDirectives)
+{
+    auto byFile = createdDirectives.find(loop->fileName);
+    if (byFile == createdDirectives.end())
+        return false;
+    if (byFile->second.find(loop->lineNum) == byFile->second.end())
+        return false;
+    else
+        return true;
+}
+
+//TODO: check for rec calls
+static void addForRemove(const vector<LoopGraph*>& loops,
+                         const map<string, set<int>>& createdDirectives,
+                         map<string, set<int>>& toRem)
+{
+    for (auto& loop : loops)
+    {
+        if (hasParallelDir(loop, createdDirectives))
+            toRem[loop->fileName].insert(loop->lineNum);
+            
+        addForRemove(loop->children, createdDirectives, toRem);
+        addForRemove(loop->funcChildren, createdDirectives, toRem);
+    }
+}
+
+static void filterParallelDirectives(const vector<LoopGraph*>& loopsByFile, 
+                                     const map<string, vector<pair<int, pair<string, vector<Expression*>>>>>& createdDirectives,
+                                     map<string, set<int>>& toRem)
+{
+    if (loopsByFile.size() == 0)
+        return;
+
+    auto dirsInCurrF = createdDirectives.find(loopsByFile[0]->fileName);
+    if (dirsInCurrF == createdDirectives.end())
+        return;
+
+    set<int> dirsForLoop;
+    for (auto& elem : dirsInCurrF->second)
+        dirsForLoop.insert(elem.first);
+
+    map<string, set<int>> dirsForLoopByFile;
+    for (auto& byFile : createdDirectives)
+        for (auto& elem : byFile.second)
+            dirsForLoopByFile[byFile.first].insert(elem.first);
+
+    for (auto& loop : loopsByFile)
+    {
+        auto it = dirsForLoop.find(loop->lineNum);
+
+        if (it != dirsForLoop.end()) //remove all dirs from funcChildren
+            addForRemove(loop->funcChildren, dirsForLoopByFile, toRem);
+        
+        filterParallelDirectives(loop->children, createdDirectives, toRem);
+    }
+}
+
+void filterParallelDirectives(const map<string, vector<LoopGraph*>>& loopGraph, 
+                              map<string, vector<pair<int, pair<string, vector<Expression*>>>>>& createdDirectives)
+{
+    map<string, set<int>> dirsToRem;
+    for (auto& byFile : loopGraph)
+        filterParallelDirectives(byFile.second, createdDirectives, dirsToRem);
+
+    if (dirsToRem.size() == 0)
+        return;
+
+    map<string, vector<pair<int, pair<string, vector<Expression*>>>>> newCreatedDirectives;
+    for (auto& byFile : createdDirectives)
+    {
+        auto byFileRem = dirsToRem.find(byFile.first);
+        if (byFileRem == dirsToRem.end())
+            newCreatedDirectives[byFile.first] = byFile.second;
+        else
+        {
+            for (auto& elem : byFile.second)
+            {
+                auto it = byFileRem->second.find(elem.first);
+                if (it == byFileRem->second.end())
+                    newCreatedDirectives[byFile.first].push_back(elem);
+            }
+        }
+    }
+    createdDirectives = newCreatedDirectives;
 }
 #undef PRINT_PROF_INFO
 #undef PRINT_DIR_RESULT 

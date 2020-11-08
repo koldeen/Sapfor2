@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <climits>
 #include "DvmhDirectiveBase.h"
+#include "../Utils/utils.h"
+#include "../Utils/errors.h"
 
 class Symbol;
 class Expression;
@@ -18,6 +20,10 @@ struct FuncInfo;
 #define MAP std::map
 #define SET std::set
 #define TO_STR std::to_string
+
+#if __SPF
+extern int mpiProgram;
+#endif
 
 namespace Distribution
 {
@@ -74,7 +80,7 @@ namespace Distribution
         VECTOR<PAIR<PAIR<Expression*, PAIR<int, int>>, PAIR<Expression*, PAIR<int, int>>>> orderedSizesExpr;
 
         // template info by region
-        MAP<int, TemplateLink*> templateInfo;
+        MAP<uint64_t, TemplateLink*> templateInfo;
         bool isTemplFlag;
         bool isLoopArrayFlag;
         distFlag isNonDistribute;
@@ -100,12 +106,16 @@ namespace Distribution
         bool ompThreadPrivate;
 
     private:
-        TemplateLink* getTemlateInfo(const int regionId)
+        TemplateLink* getTemlateInfo(const uint64_t regionId, bool withCheck = false)
         {
             auto it = templateInfo.find(regionId);
             TemplateLink *currLink = NULL;
             if (it == templateInfo.end())
             {
+#if __SPF
+                if (withCheck && mpiProgram != 0)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+#endif
                 currLink = new TemplateLink(dimSize);
                 templateInfo[regionId] = currLink;
             }
@@ -274,29 +284,35 @@ namespace Distribution
             }
         }
 
-        int AddLinkWithTemplate(const int dimNum, const int dimTempl, Array *templateArray_, const PAIR<int, int> &rule, const int regionId)
+        int AddLinkWithTemplate(const int dimNum, const int dimTempl, Array *templateArray_, const PAIR<int, int> &rule, const uint64_t regionId)
         {
             int err = 0;
             if (dimNum >= dimSize)
                 err = -1;
             else
             {
-                TemplateLink *currLink = getTemlateInfo(regionId);
+                TemplateLink *currLink = getTemlateInfo(regionId, templateArray_ == NULL);
                 currLink->AddRule(dimNum, dimTempl, rule, templateArray_);
             }
             return err;
         }
 
-        VECTOR<int> GetLinksWithTemplate(const int regionId)
+        VECTOR<int> GetLinksWithTemplate(const uint64_t regionId)
         {
-            TemplateLink *currLink = getTemlateInfo(regionId);
+            TemplateLink *currLink = getTemlateInfo(regionId, true);
             return currLink->GetLinks();
         }
 
-        VECTOR<PAIR<int, int>> GetAlignRulesWithTemplate(const int regionId)
+        VECTOR<PAIR<int, int>> GetAlignRulesWithTemplate(const uint64_t regionId)
         {
-            TemplateLink *currLink = getTemlateInfo(regionId);
+            TemplateLink *currLink = getTemlateInfo(regionId, true);
             return currLink->GetAlignRules();
+        }
+
+        bool HasTemplateInfo(const uint64_t regionId) const
+        {
+            auto it = templateInfo.find(regionId);
+            return (it != templateInfo.end());
         }
 
         void ChangeName(const STRING &newName)
@@ -429,9 +445,9 @@ namespace Distribution
             return retVal;
         }
 
-        Array* GetTemplateArray(const int regionId) 
+        Array* GetTemplateArray(const uint64_t regionId, bool withCheck = true)
         {
-            TemplateLink *currLink = getTemlateInfo(regionId);
+            TemplateLink *currLink = getTemlateInfo(regionId, withCheck);
             return currLink->GetTemplateArray();
         }
 

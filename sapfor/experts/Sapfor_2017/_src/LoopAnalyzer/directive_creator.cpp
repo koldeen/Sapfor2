@@ -44,7 +44,7 @@ using std::get;
 using std::string;
 using std::wstring;
 
-static bool matchParallelAndDist(const pair<DIST::Array*, const DistrVariant*> &currDist, const ParallelDirective *currParDir, vector<bool> &saveDistr, const int regionId)
+static bool matchParallelAndDist(const pair<DIST::Array*, const DistrVariant*> &currDist, const ParallelDirective *currParDir, vector<bool> &saveDistr, const uint64_t regionId)
 {
     DIST::Array *parallelOn = currParDir->arrayRef;
     const vector<pair<string, pair<int, int>>> &ruleOn = currParDir->on;
@@ -133,7 +133,7 @@ static bool matchParallelAndDist(const pair<DIST::Array*, const DistrVariant*> &
 static pair<vector<int>, vector<pair<string, vector<Expression*>>>>
     genRedistributeDirective(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> distribution, 
                              const LoopGraph *current, const ParallelDirective *currParDir,
-                             const int regionId, vector<pair<DIST::Array*, DistrVariant*>> &redistributeRules)
+                             const uint64_t regionId, vector<pair<DIST::Array*, DistrVariant*>> &redistributeRules)
 {
     vector<Expression*> dirStatement = { NULL, NULL, NULL, NULL };
     vector<pair<string, vector<Expression*>>> out;
@@ -205,7 +205,7 @@ static bool ifRuleNull(const DistrVariant *currVar)
     return true;
 }
 
-static DIST::Array* getRealArrayRef(DIST::Array *in, const int regId, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+static DIST::Array* getRealArrayRef(DIST::Array *in, const uint64_t regId, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     set<DIST::Array*> out;
     getRealArrayRefs(in, in, out, arrayLinksByFuncCalls);
@@ -264,7 +264,7 @@ vector<pair<string, vector<Expression*>>>
 
 //create realigns instead of full template redistribution
 vector<vector<pair<string, vector<Expression*>>>> 
-    createRealignRules(SgStatement *spStat, const int regId, SgFile *file, const string &templClone, 
+    createRealignRules(SgStatement *spStat, const uint64_t regId, SgFile *file, const string &templClone, 
                        const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls, const set<DIST::Array*> &usedArrays)
 {
     vector<vector<pair<string, vector<Expression*>>>> optimizedRules(2);
@@ -350,7 +350,7 @@ extern int mpiProgram;
 bool addRedistributionDirs(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                            vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
                            LoopGraph *current, const map<int, LoopGraph*> &loopGraph, 
-                           ParallelDirective *currParDir, const int regionId, vector<Messages> &messages,
+                           ParallelDirective *currParDir, const uint64_t regionId, vector<Messages> &messages,
                            const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     vector<pair<DIST::Array*, DistrVariant*>> redistributeRules;

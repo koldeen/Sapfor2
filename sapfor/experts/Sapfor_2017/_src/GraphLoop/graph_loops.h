@@ -8,6 +8,7 @@
 #include "../Utils/errors.h"
 #include "../Utils/types.h"
 #include "../Distribution/DvmhDirective.h"
+#include "../Distribution/Distribution.h"
 
 struct DistrVariant;
 struct ParallelDirective;
@@ -28,6 +29,13 @@ struct LoopGraph
 {
 private:
     std::vector<std::pair<DIST::Array*, DistrVariant*>> redistributeRules;
+    LoopGraph* needToSwapWith;
+
+    //for local directive creating in MPI mode
+    DIST::GraphCSR<int, double, attrType> accessGraph;
+    DIST::GraphCSR<int, double, attrType> reducedAccessGraph;    
+    DataDirective dataDirectives;
+    //
 
 public:
     LoopGraph()
@@ -53,11 +61,11 @@ public:
         oldDirective = NULL;
         directiveForLoop = NULL;
         region = NULL;
+        needToSwapWith = NULL;
         countOfIters = 0;
         countOfIterNested = 1;
         loop = NULL;
         parent = NULL;
-        funcParent = NULL;
         userDvmDirective = NULL;
         startVal = endVal = stepVal = -1;
         calculatedCountOfIters = 0;
@@ -67,6 +75,7 @@ public:
 
     ~LoopGraph()
     {
+        needToSwapWith = NULL;
         if (directive != NULL)
             delete directive;
 
@@ -82,6 +91,19 @@ public:
         writeOps.clear();
         hasConflicts.clear();
         acrossOutAttribute.clear();
+        accessGraph.ClearGraphCSR();
+        reducedAccessGraph.ClearGraphCSR();
+    }
+
+    void setForSwap(LoopGraph* with) { needToSwapWith = with; }
+
+    LoopGraph* getForSwap() const { return needToSwapWith; }
+
+    void clearForSwap() 
+    {
+        for (auto& ch : children)
+            ch->clearForSwap();
+        needToSwapWith = NULL; 
     }
 
     bool hasLimitsToParallel() const
@@ -278,10 +300,22 @@ public:
             ch->removeNonDistrArrays();
     }
 
+    void removeGraphData()
+    {
+        accessGraph.ClearGraphCSR();
+        reducedAccessGraph.ClearGraphCSR();
+
+        for (auto& ch : children)
+            ch->removeGraphData();
+    }
+
     void clearUserDirectives();    
 
-    bool isArrayTemplatesTheSame(const int regId, const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls)
+    bool isArrayTemplatesTheSame(const uint64_t regId, const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls)
     {
+        if (mpiProgram != 0)
+            return true;
+
         std::set<DIST::Array*> usedTemplates;        
         for (auto& array : usedArrays)
         {
@@ -300,6 +334,16 @@ public:
     }
 
     bool hasParallelLoopsInChList();
+
+    DIST::GraphCSR<int, double, attrType>& getGraphToModify() { return accessGraph; }
+    const DIST::GraphCSR<int, double, attrType>& getGraph() const { return accessGraph; }
+
+    DataDirective& getDataDirToModify() { return dataDirectives; }
+    const DataDirective& getDataDir() const { return dataDirectives; }
+
+    void reduceAccessGraph();
+
+    void createVirtualTemplateLinks(const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls, std::map<std::string, std::vector<Messages>>& SPF_messages);
 public:
     int lineNum;
     int altLineNum;
@@ -355,7 +399,7 @@ public:
     std::vector<LoopGraph*> children;
     std::vector<LoopGraph*> funcChildren;
     LoopGraph *parent;
-    LoopGraph *funcParent;
+    std::vector<LoopGraph*> funcParents;
 
     // PAIR<FUNC_NAME, LINE>
     std::vector<std::pair<std::string, int>> calls;
@@ -397,3 +441,4 @@ void createMapLoopGraph(const std::vector<LoopGraph*>& loops, std::map<int, Loop
 void updateLoopIoAndStopsByFuncCalls(std::map<std::string, std::vector<LoopGraph*>>& loopGraph, const std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo);
 void checkArraysMapping(std::map<std::string, std::vector<LoopGraph*>>& loopGraph, std::map<std::string, std::vector<Messages>>& SPF_messages, const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls);
 void filterArrayInCSRGraph(std::map<std::string, std::vector<LoopGraph*>>& loopGraph, std::map<std::string, std::vector<FuncInfo*>>& allFuncs, ParallelRegion* reg, const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls, std::map<std::string, std::vector<Messages>>& messages);
+void swapLoopsForParallel(std::map<std::string, std::vector<LoopGraph*>>& loopGraph, std::map<std::string, std::vector<Messages>>& SPF_messages, const int rev);

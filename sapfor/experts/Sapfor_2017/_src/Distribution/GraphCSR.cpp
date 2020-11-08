@@ -1634,7 +1634,7 @@ namespace Distribution
 
     template<typename vType, typename wType, typename attrType>
     int GraphCSR<vType, wType, attrType>::
-        GetAlignRuleWithTemplate(Array *inputArray, const Arrays<vType> &allArrays, vector<tuple<Array*, vType, pair<int, int>>> &rules, const int regionId)
+        GetAlignRuleWithTemplate(Array *inputArray, const Arrays<vType> &allArrays, vector<tuple<Array*, vType, pair<int, int>>> &rules, const uint64_t regionId)
     {
         vector<vType> arrayVerts;
         int err = allArrays.GetAllVertNumber(inputArray, arrayVerts);

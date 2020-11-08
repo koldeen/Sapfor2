@@ -103,7 +103,7 @@ public:
 struct ParallelRegion
 {
 public:
-    ParallelRegion(const int regionId, const std::string &originalName) : regionId(regionId), originalName(originalName) { }
+    ParallelRegion(const uint64_t regionId, const std::string &originalName) : regionId(regionId), originalName(originalName) { }
 
     ParallelRegion(const ParallelRegion &copy) : allArrays(copy.allArrays), G(copy.G), reducedG(copy.reducedG), dataDirectives(copy.dataDirectives)
     {
@@ -137,7 +137,7 @@ public:
     void AddFuncCallsToAllCalls(FuncInfo *func) { allFunctionsCall.insert(func); }
 #endif
 
-    int GetId() const { return regionId; }
+    uint64_t GetId() const { return regionId; }
     const std::string& GetName() const { return originalName; }
     const std::map<std::string, std::vector<ParallelRegionLines>>& GetAllLines() const { return lines; }
     std::map<std::string, std::vector<ParallelRegionLines>>& GetAllLinesToModify() { return lines; }
@@ -270,7 +270,7 @@ public:
 
     void CleanData()
     {
-        reducedG.cleanData();
+        reducedG.ClearGraphCSR();
         currentVariant.clear();
 
         dataDirectives.distrRules.clear();
@@ -279,7 +279,7 @@ public:
 
     void print(FILE *fileOut)
     {
-        fprintf(fileOut, "  regionId %d\n", regionId);
+        fprintf(fileOut, "  regionId %lld\n", regionId);
         fprintf(fileOut, "  originalName '%s'\n", originalName.c_str());
         fprintf(fileOut, "  functions call from %d:\n", (int)functionsCall.size());
         for (auto &func : functionsCall)
@@ -348,7 +348,7 @@ public:
     }
 #endif
 private:
-    int regionId;
+    uint64_t regionId;
     //name in program
     std::string originalName;
     // file -> lines info
@@ -396,7 +396,7 @@ private:
 #endif
 };
 
-ParallelRegion* getRegionById(const std::vector<ParallelRegion*> &regions, const int regionId);
-ParallelRegion* getRegionByName(const std::vector<ParallelRegion*> &regions, const std::string &regionName);
-ParallelRegion* getRegionByLine(const std::vector<ParallelRegion*> &regions, const std::string &file, const int line);
-std::set<ParallelRegion*> getAllRegionsByLine(const std::vector<ParallelRegion*> &regions, const std::string &file, const int line);
+ParallelRegion* getRegionById(const std::vector<ParallelRegion*>& regions, const uint64_t regionId);
+ParallelRegion* getRegionByName(const std::vector<ParallelRegion*>& regions, const std::string& regionName);
+ParallelRegion* getRegionByLine(const std::vector<ParallelRegion*>& regions, const std::string& file, const int line);
+std::set<ParallelRegion*> getAllRegionsByLine(const std::vector<ParallelRegion*>& regions, const std::string& file, const int line);

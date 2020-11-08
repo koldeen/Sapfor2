@@ -830,7 +830,7 @@ bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DI
                             if (!cleaned)
                             {
                                 cleaned = true;
-                                G.cleanData();
+                                G.ClearGraphCSR();
                             }
 
                             DIST::AddArrayAccess(G, allArrays, array, alignWithArray, make_pair(i, dimT), 1.0, make_pair(make_pair(1, 0), alignWithTemplate[dimT].second), WW_link);

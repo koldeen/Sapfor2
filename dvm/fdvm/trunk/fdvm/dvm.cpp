@@ -7776,7 +7776,7 @@ void ChangeArg_DistArrayRef(SgExpression *ele)
       if(IS_POINTER(e->symbol()))
         Error("Illegal POINTER reference: '%s'",e->symbol()->identifier(),138,cur_st);
       if((inparloop && parloop_by_handler || IN_COMPUTE_REGION) ) 
-        if(DUMMY_FOR_ARRAY(e->symbol()) )   
+        if(DUMMY_FOR_ARRAY(e->symbol()) && isIn_acc_array_list(*DUMMY_FOR_ARRAY(e ->symbol())) )   
         {  e->setLhs(FirstArrayElementSubscriptsForHandler(e->symbol()));
                                         //changed by first array element reference
            if(!for_host)
@@ -8485,7 +8485,7 @@ void TestShadowWidths(SgSymbol *ar, SgExpression * lbound[], SgExpression * ubou
    }
  }
  else  {//by default shadow width = 1
-   if(!IS_DUMMY(ar) && parloop_by_handler != 2)
+   if(!IS_DUMMY(ar) && HEADER(ar))     
      for(i=0; i<nw; i++){
        if(lbound[i]->isInteger() && lbound[i]->valueInteger() > 1 )
          Error("Low shadow width  of  '%s' is greater than 1", ar->identifier(), 144,st); 

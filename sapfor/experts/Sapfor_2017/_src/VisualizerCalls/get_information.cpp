@@ -144,7 +144,6 @@ static void setOptions(const short *options)
     staticShadowAnalysis = intOptions[STATIC_SHADOW_ANALYSIS];
     staticPrivateAnalysis = intOptions[STATIC_PRIVATE_ANALYSIS];
     out_free_form = intOptions[FREE_FORM];
-    keepDvmDirectives = intOptions[KEEP_DVM_DIRECTIVES];
     keepSpfDirs = intOptions[KEEP_SPF_DIRECTIVES];
     parallizeFreeLoops = (mpiProgram == 1) ? 0 : intOptions[PARALLIZE_FREE_LOOPS];
     maxShadowWidth = intOptions[MAX_SHADOW_WIDTH];
@@ -154,6 +153,7 @@ static void setOptions(const short *options)
     showDebug = (intOptions[DEBUG_PRINT_ON] == 1);
     mpiProgram = (mpiProgram != 1) ? intOptions[MPI_PROGRAM] : mpiProgram;
     ignoreIO = (mpiProgram == 1) ? 1 : intOptions[IGNORE_IO_SAPFOR];
+    keepDvmDirectives = (mpiProgram == 1) ? 0 : intOptions[KEEP_DVM_DIRECTIVES];
 
     string optAnalisys = splited.size() > ANALYSIS_OPTIONS ? splited[ANALYSIS_OPTIONS] : "";
 }
@@ -584,6 +584,9 @@ int SPF_GetGraphVizOfFunctions(void*& context, short *options, short *projName, 
 
         copyStringToShort(result, graph, false);
         retSize = (int)graph.size();
+
+        if (showDebug)
+            printf("GraphViz: %s\n", graph.c_str());
     }
     catch (int ex)
     {
@@ -686,6 +689,10 @@ int SPF_GetArrayDistribution(void*& context, int winHandler, short *options, sho
         resVal += to_string(parallelRegions.size());
         for (int i = 0; i < parallelRegions.size(); ++i)
             resVal += parallelRegions[i]->toString();
+
+        //__spf_print(1, "==============\n");
+        //__spf_print(1, "%s\n", resVal.c_str());
+        //__spf_print(1, "==============\n");
 
         copyStringToShort(result, resVal);
         retSize = (int)resVal.size() + 1;
@@ -911,12 +918,12 @@ int SPF_CreateParallelVariant(void*& context, int winHandler, short *options, sh
         if ((*varLen % 3) != 0)
             throw (-5);
 
-        map<int, vector<pair<int64_t, int64_t>>> varLens;
+        map<uint64_t, vector<pair<int64_t, int64_t>>> varLens;
         for (int i = 0, k = 0; i < *varLen; i += 3, ++k)
         {
             if (showDebug)
                 printf("SAPFOR: input pack %d: %lld %lld %lld\n", k, variants[i], variants[i + 1], variants[i + 2]);
-            varLens[(int)variants[i + 2]].push_back(make_pair(variants[i], variants[i + 1]));
+            varLens[variants[i + 2]].push_back(make_pair(variants[i], variants[i + 1]));
         }
 
         if (varLens.size() != parallelRegions.size())

@@ -1038,7 +1038,7 @@ void findAndReplaceDimentions(vector<tuple<DIST::Array*, int, pair<int, int>>> &
     }
 }
 
-vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int regionId)
+vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const uint64_t regionId)
 {
     vector<int> retVal(from->GetDimSize());
     std::fill(retVal.begin(), retVal.end(), -1);
@@ -1249,7 +1249,7 @@ void writeFileFromStr(const string& name, const string &data)
     outf.close();
 }
 
-ParallelRegion* getRegionById(const vector<ParallelRegion*>& regions, const int regionId)
+ParallelRegion* getRegionById(const vector<ParallelRegion*>& regions, const uint64_t regionId)
 {
     for (auto& region : regions)
         if (region->GetId() == regionId)

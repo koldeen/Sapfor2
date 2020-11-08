@@ -185,9 +185,8 @@ static void insertIntervalIntoTree(vector<SpfInterval*> &tree, SpfInterval* user
                     userInterval->exit_levels.push_back(0);
 
                     tree[i]->ends[j] = NULL;
+                    amount++;
                 }
-
-                amount++;
             }
 
             tree[i]->ends.erase(std::remove_if(tree[i]->ends.begin(), tree[i]->ends.end(), [](SgStatement* stmt) {return (stmt == NULL);}), tree[i]->ends.end());
