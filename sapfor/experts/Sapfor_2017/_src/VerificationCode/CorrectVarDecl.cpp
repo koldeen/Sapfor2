@@ -488,6 +488,8 @@ void correctModuleProcNames(SgFile *file, const set<string> &globalF)
         }
     }
 
+    map<SgSymbol*, string> moduleSymbols; // s -> in mod
+
     for (auto &mod : modules)
     {
         fillInfo(mod, modsInfo);
@@ -509,6 +511,7 @@ void correctModuleProcNames(SgFile *file, const set<string> &globalF)
                 {
                     (*currModuleRename)[s] = make_pair(s->identifier(), modName + "::" + s->identifier());
                     s->changeName((modName + "::" + s->identifier()).c_str());
+                    moduleSymbols[s] = modName;
                 }
             }
         }
@@ -559,9 +562,16 @@ void correctModuleProcNames(SgFile *file, const set<string> &globalF)
                             SgSymbol *toSwap = st->symbol();
                             if (toSwap != procS)
                             {
-                                //printf(":: var %d, line %d, change %s -> %s\n", st->variant(), st->lineNumber(), toSwap->identifier(), procS->identifier());
-                                st->addAttribute(VARIABLE_NAME, toSwap, sizeof(SgSymbol));
-                                st->setSymbol(*procS);
+                                auto inMod = moduleSymbols.find(procS);
+                                if (inMod == moduleSymbols.end())
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                if (currModuleRename->find(toSwap) == currModuleRename->end())
+                                {
+                                    (*currModuleRename)[toSwap] = make_pair(toSwap->identifier(), inMod->second + "::" + toSwap->identifier());
+                                    toSwap->changeName((inMod->second + "::" + toSwap->identifier()).c_str());
+                                }
+                                changed.insert(procS);
                             }                           
                             else if (changed.find(procS) == changed.end())
                                 extendCheckAndFindProcName(containsFuncs, globalFuncs, moduleFuncs, st, procS, changed);
@@ -662,44 +672,94 @@ void correctModuleSymbols(SgFile *file)
     }
 }
 
-static void changeNameAndSwap(SgSymbol* s, set<SgSymbol*>& swaped)
+static bool changeNameAndSwap(SgSymbol* s, set<SgSymbol*>& swaped, const map<SgSymbol*, pair<string, string>>& unitedAfterDuplication,
+                              const map<string, vector<pair<SgSymbol*, SgSymbol*>>>& modByAllUse)
 {
+    bool changedAfterUnite = false;
     if (currModuleRename->find(s) == currModuleRename->end())
-        return;
+        return changedAfterUnite;
 
     if (swaped.find(s) != swaped.end())
-        return;
+        return changedAfterUnite;
 
     swaped.insert(s);
     pair<string, string> oldVal = (*currModuleRename)[s];
+    
+    auto itUnite = unitedAfterDuplication.find(s);
+    if (itUnite != unitedAfterDuplication.end())
+    {
+        const string replacedTo = itUnite->second.second;
+        vector<pair<string, string>> byUse;
+        for (auto& elem : modByAllUse)
+        {
+            if (replacedTo.find(elem.first) != string::npos)
+            {
+                for (auto& use : elem.second)
+                    byUse.push_back(std::make_pair(use.first->identifier(), use.second->identifier()));
+                break;
+            }
+        }
+        bool found = false;
+        for (auto& elem : (*currModuleRename))
+        {
+            string newVal = "";
+            if (elem.second.first == replacedTo)
+                newVal = elem.second.second;
+            else if (elem.second.second == replacedTo)
+                newVal = elem.second.first;
+            if (newVal != "")
+            {
+                for (auto& use : byUse)
+                {
+                    if (use.second == replacedTo)
+                    {
+                        newVal = use.first;
+                        break;
+                    }
+                }
+                found = true;
+                s->changeName(newVal.c_str());
+                changedAfterUnite = true;
+                break;
+            }
+        }
+        if (!found)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+    else
+        s->changeName(oldVal.first.c_str());
 
-    s->changeName(oldVal.first.c_str());
-    std::swap(oldVal.first, oldVal.second);
+    swap(oldVal.first, oldVal.second);
     (*currModuleRename)[s] = oldVal;
+    return changedAfterUnite;
 }
 
-static void restoreInFunc(SgExpression *ex, set<SgSymbol*> &swaped, const map<SgSymbol*, SgSymbol*> &byUseMapping)
+static void restoreInFunc(SgExpression *ex, set<SgSymbol*> &swaped, const map<SgSymbol*, SgSymbol*> &byUseMapping,
+                          const map<SgSymbol*, pair<string, string>>& unitedAfterDuplication,
+                          const map<string, vector<pair<SgSymbol*, SgSymbol*>>>& modByAllUse)
 {
     if (ex)
     {
         if (ex->variant() == FUNC_CALL)
         {
             SgSymbol *toSwap = ex->symbol();
-            changeNameAndSwap(toSwap, swaped);
+            bool isAfterUnite = changeNameAndSwap(toSwap, swaped, unitedAfterDuplication, modByAllUse);
 
             auto it = byUseMapping.find(toSwap);
-            if (it != byUseMapping.end())
+            if (it != byUseMapping.end() && !isAfterUnite)
                 ex->setSymbol(it->second);
                         
         }
-        restoreInFunc(ex->lhs(), swaped, byUseMapping);
-        restoreInFunc(ex->rhs(), swaped, byUseMapping);
+        restoreInFunc(ex->lhs(), swaped, byUseMapping, unitedAfterDuplication, modByAllUse);
+        restoreInFunc(ex->rhs(), swaped, byUseMapping, unitedAfterDuplication, modByAllUse);
     }
 }
 
+//from uniq_call_chain_dup.cpp
+extern map<SgSymbol*, pair<string, string>> replaced;
+
 void restoreCorrectedModuleProcNames(SgFile *file)
 {
-    
     currModuleRename = &moduleRenameByFile[file->filename()];
     /*for (SgSymbol *elem = file->firstSymbol(); elem; elem = elem->next())
     {
@@ -711,21 +771,24 @@ void restoreCorrectedModuleProcNames(SgFile *file)
     set<SgSymbol*> swaped;
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
-
+        
     if (modules.size() == 0)
         return;
 
     for (auto &mod : modules)
     {
+        //TODO: may by fill it too
+        map<string, vector<pair<SgSymbol*, SgSymbol*>>> modByAllUse;
+
         const string modName = mod->symbol()->identifier();
         for (SgStatement *st = mod->lexNext(); st != mod->lastNodeOfStmt(); st = st->lexNext())
-        {
+        {            
             if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
-                changeNameAndSwap(st->symbol(), swaped);
+                changeNameAndSwap(st->symbol(), swaped, replaced, modByAllUse);
             else if (st->variant() == INTERFACE_STMT)
             {
                 if (needToReplaceInterfaceName(st))
-                    changeNameAndSwap(st->symbol(), swaped);
+                    changeNameAndSwap(st->symbol(), swaped, replaced, modByAllUse);
             }
         }
     }
@@ -733,36 +796,37 @@ void restoreCorrectedModuleProcNames(SgFile *file)
     for (int z = 0; z < file->numberOfFunctions(); ++z)
     {
         SgStatement *func = file->functions(z);
+
+        set<string> useMod;
+        map<string, vector<pair<SgSymbol*, SgSymbol*>>> modByAllUse;
+        
         for (SgStatement *st = func->lexNext(); st != func->lastNodeOfStmt(); st = st->lexNext())
         {
+            fillUseStatement(st, useMod, modByAllUse, modByAllUse);
+
             if (st->variant() == CONTAINS_STMT)
                 break;
 
             if (isSgExecutableStatement(st))
             {
                 if (st->variant() == PROC_STAT)
-                {
-                    if (string(st->symbol()->identifier()).find("_spf_") != string::npos)
-                        continue;
-
-                    changeNameAndSwap(st->symbol(), swaped);
-
-                    const vector<SgSymbol*> attrs1 = getAttributes<SgStatement*, SgSymbol*>(st, set<int>({ VARIABLE_NAME }));
-                    if (attrs1.size() > 0)
-                    {
-                        if (attrs1.size() != 1)
-                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                        SgSymbol *toSwap = st->symbol();
-                        st->setSymbol(*attrs1[0]);
-
-                        deleteAttributes(st, set<int>({ VARIABLE_NAME }));
-                        st->addAttribute(VARIABLE_NAME, toSwap, sizeof(SgSymbol));
-                    }
-                }
+                    changeNameAndSwap(st->symbol(), swaped, replaced, modByAllUse);
                 else
                     for (int z = 0; z < 3; ++z)
-                        restoreInFunc(st->expr(z), swaped, byUseMapping);
+                        restoreInFunc(st->expr(z), swaped, byUseMapping, replaced, modByAllUse);             
+            }
+        }
+    }
+    
+    if (currModuleRename->size() != swaped.size())
+    {
+        for (auto& elem : *currModuleRename)
+        {
+            auto itS = swaped.find(elem.first);
+            if (itS == swaped.end())
+            {
+                elem.first->changeName(elem.second.first.c_str());
+                swap(elem.second.first, elem.second.second);
             }
         }
     }

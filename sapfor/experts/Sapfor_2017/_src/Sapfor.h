@@ -139,6 +139,7 @@ enum passes {
     PURE_SAVE_TO_PARAMS,
     PURE_MODULE_TO_PARAMS,
 
+    TEST_PASS,
     EMPTY_PASS
 };
 
@@ -281,7 +282,8 @@ static void setPassValues()
     passNames[PURE_COMMON_TO_PARAMS] = "PURE_COMMON_TO_PARAMS";
     passNames[PURE_SAVE_TO_PARAMS] = "PURE_SAVE_TO_PARAMS";
     passNames[PURE_MODULE_TO_PARAMS] = "PURE_MODULE_TO_PARAMS";
-    
+
+    passNames[TEST_PASS] = "TEST_PASS";
 }
 
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

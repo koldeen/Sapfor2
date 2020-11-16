@@ -937,15 +937,15 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs, bool isF
     }
     
     map <string, vector<vector<SgType*> > >::iterator it = interfaceProcedures.find(name);
-    bool canFoundinterface = !(it == interfaceProcedures.end());
+    bool canFoundInterface = !(it == interfaceProcedures.end());
 
     //try to find function on current file
     //TODO: add support of many files
     //TODO: module functions with the same name
     vector<int> argsBits;
-    if (canFoundinterface == false)
+    if (canFoundInterface == false)
     {
-#if DEB
+#ifdef DEB
         map<string, vector<graph_node*>> tmp;
         for (graph_node* ndl = node_list; ndl; ndl = ndl->next)
             tmp[ndl->name].push_back(ndl);
@@ -973,9 +973,9 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs, bool isF
         }
 
         it = interfaceProcedures.find(name);
-        canFoundinterface = !(it == interfaceProcedures.end());
+        canFoundInterface = !(it == interfaceProcedures.end());
 
-        if (canFoundinterface == false)
+        if (canFoundInterface == false)
         {
             Error("Can not find interface for procedure %s", name.c_str(), 900, first_do_par);
             ret = false;
@@ -988,7 +988,7 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs, bool isF
                 argsBits = fillBitsOfArgs(isSgProgHedrStmt(ndl->st_header));
     }
     
-    if (canFoundinterface)
+    if (canFoundInterface)
     {
         bool found = false;
 
@@ -1051,7 +1051,7 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs, bool isF
                         subs = subs->rhs();
                     }
 
-                    SgArrayType* inCall = isSgArrayType(typeInCall);                    
+                    SgArrayType* inCall = isSgArrayType(typeInCall);
                     SgArrayType* inProt = isSgArrayType(typeInProt);
                     if (countOfSubscrInCall == 0)
                     {
@@ -1089,9 +1089,12 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs, bool isF
                             }
                             else
                             {
+                                if (options.isOn(O_PL2) && dvm_parallel_dir->expr(0) == NULL)
+                                    dimSizeInProt = inCall->dimension();
+
                                 const int arrayDim = isPrivate(argInCall->lhs()->symbol()->identifier()) ? inCall->dimension() : 1;
 
-                                if (isSgArrayType(typeInProt)) // inconsistency
+                                if (isSgArrayType(typeInProt) && (!options.isOn(O_PL2) || dvm_parallel_dir->expr(0) != NULL)) // inconsistency
                                 {
                                     typeInCall = NULL;
 #ifdef DEB

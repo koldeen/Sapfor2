@@ -1924,7 +1924,7 @@ SgExpression *HeaderForArrayInParallelDir(SgSymbol *ar, SgStatement *st)
        Error("'%s' isn't distributed array", ar->identifier(), 72, st);   
        return NULL;
     }
-    if(HEADER_OF_REPLICATED(ar) && HEADER_OF_REPLICATED(ar) != 0)
+    if(HEADER_OF_REPLICATED(ar) && *HEADER_OF_REPLICATED(ar) != 0)
        return DVM000(*HEADER_OF_REPLICATED(ar));
     if(!HEADER_OF_REPLICATED(ar)) 
     {
@@ -2046,6 +2046,7 @@ int AnalyzeRegion(SgStatement *reg_dir) //AnalyzeLoopBody()  AnalyzeBlock()
     tie_list = NULL;
     save = cur_st;
     analyzing = 1;
+    
     for (stmt = reg_dir->lexNext(); stmt; stmt = stmt->lexNext())
     {
         cur_st = stmt;
@@ -2312,8 +2313,9 @@ int AnalyzeRegion(SgStatement *reg_dir) //AnalyzeLoopBody()  AnalyzeBlock()
         }
         {SgStatement *end_stmt;
         end_stmt = isSgLogIfStmt(stmt->controlParent()) ? stmt->controlParent() : stmt;
+      
         if (inparloop && isParallelLoopEndStmt(end_stmt,par_do)) //end of parallel loop
-        {
+        {  
             inparloop = 0; dvm_parallel_dir = NULL; private_list = NULL;  cur_region->cur_do_dir = NULL;
             red_struct_list = NULL;
         }
@@ -6799,10 +6801,18 @@ SgExpression *FirstArrayElementSubscriptsForHandler(SgSymbol *ar)
  // Li = AR_header(rank+2+i)
  int i;
  SgExpression *esl=NULL, *el=NULL;
+ SgExpression *bound[MAX_DIMS], *ebound;
+ 
  SgSymbol *shead = HeaderSymbolForHandler(ar);
- int rank = Rank(ar);   
+ int rank = Rank(ar); 
+ for (i = rank; i; i--)
+    bound[i-1] = Calculate(LowerBound(ar,i-1));  
  for (i = rank; i; i--) {
-    esl = new SgExprListExp(* new SgArrayRefExp(*shead,*new SgExprListExp(*new SgValueExp(rank+2+i)))); 
+    if(bound[i-1]->isInteger() && !IS_BY_USE(ar))
+       ebound =  new SgValueExp(bound[i-1]->valueInteger());
+    else
+       ebound =  new SgArrayRefExp(*shead,*new SgExprListExp(*new SgValueExp(rank+2+i)));
+    esl = new SgExprListExp(*ebound); 
     esl->setRhs(el);
     el = esl;
  }

@@ -2739,6 +2739,16 @@ gettok()
                 else
                     nextch = saveptr;
         }
+        if (opt_in_out) {
+                opt_in_out = 0;
+                saveptr = nextch;
+                ijk = getkwd();
+                if ((ijk != UNKNOWN) && ((ijk == IN) || (ijk == OUT)))
+                    return(ijk);
+                else
+                    nextch = saveptr;
+        }
+
 	/*        if (opt_l_s) {
                 opt_l_s = 0;
                 saveptr = nextch;

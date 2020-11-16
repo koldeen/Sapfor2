@@ -652,6 +652,40 @@ bool duplicateFunctions(const map<string, vector<FuncInfo*>> &allFuncs, const ma
     return checkOk;
 }
 
+static void changeFuncNameInDvmDirs(SgExpression* ex, const string& to, const string& from, map<SgSymbol*, string>& changed)
+{
+    if (ex)
+    {
+        if (ex->variant() == VAR_REF)
+        {
+            auto s = ex->symbol();
+            if (s->identifier() == from || from.find("::") != string::npos && from.find(s->identifier()) != string::npos)
+            {
+                changed[s] = s->identifier();
+                s->changeName(to.c_str());
+            }
+        }
+
+        changeFuncNameInDvmDirs(ex->lhs(), to, from, changed);
+        changeFuncNameInDvmDirs(ex->rhs(), to, from, changed);
+    }
+}
+
+static map<SgSymbol*, string> changeFuncNameInDvmDirs(const string& to, const string &from, SgStatement* func)
+{
+    map<SgSymbol*, string> changed;
+    SgStatement* st = func;
+    SgStatement* last = st->lastNodeOfStmt();
+    while (st != last)
+    {
+        if (isDVM_stat(st))
+            for (int z = 0; z < 3; ++z)
+                changeFuncNameInDvmDirs(st->expr(z), to, from, changed);
+        st = st->lexNext();
+    }
+    return changed;
+}
+
 static map<FuncInfo*, set<FuncInfo*>> getUniqCopies(const vector<FuncInfo*> &toCmp)
 {
     map<string, set<FuncInfo*>> dict;
@@ -661,9 +695,17 @@ static map<FuncInfo*, set<FuncInfo*>> getUniqCopies(const vector<FuncInfo*> &toC
         SgSymbol *s = elem->funcPointer->GetOriginal()->symbol();
         string saveName = s->identifier();
         s->changeName(cmpName.c_str());
+        
+        map<SgSymbol*, string> changed;
+        if (elem->funcPointer->GetOriginal()->variant() == FUNC_HEDR)
+            changed = changeFuncNameInDvmDirs(cmpName, saveName, elem->funcPointer->GetOriginal());
+
         const char* buf = elem->funcPointer->GetOriginal()->unparse();
         dict[buf].insert(elem);
+
         s->changeName(saveName.c_str());
+        for (auto& elem : changed)
+            elem.first->changeName(elem.second.c_str());
     }
 
     map<FuncInfo*, set<FuncInfo*>> uniq;
@@ -682,7 +724,7 @@ static map<FuncInfo*, set<FuncInfo*>> getUniqCopies(const vector<FuncInfo*> &toC
 static map<string, set<FuncInfo*>> removed;
 static map<string, set<SgStatement*>> copied;
 static map<string, string> newNamesOfUniqCopies;
-static map<SgSymbol*, pair<string, string>> replaced;
+map<SgSymbol*, pair<string, string>> replaced;
 static map<string, set<SgStatement*>> hiddenInterfaceBlocks;
 
 static bool removeThisFunctions(const string &file, const map<FuncInfo*, set<FuncInfo*>> &uniqCopies, const vector<FuncInfo*>& toRem)
@@ -731,18 +773,23 @@ static void restoreFunctions(const string &file)
 
 static string clearName(const string &in)
 {
+    char fromChar;
     if (in.find('.') == string::npos)
-        return in;
-    else
     {
-        string ret = in;
-        auto it = ret.rfind('.');
-        if (it == string::npos)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-        ret = ret.substr(it + 1);
-        return ret;
+        if (in.find("::") == string::npos)
+            return in;
+        else
+            fromChar = ':';
     }
+    else
+        fromChar = '.';
+
+    string ret = in;
+    auto it = ret.rfind(fromChar);
+    if (it == string::npos)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    ret = ret.substr(it + 1);
+    return ret;
 }
 
 static void createCopies(const string &file, const string &baseName, const  map<FuncInfo*, set<FuncInfo*>> &uniqCopies)
@@ -754,6 +801,9 @@ static void createCopies(const string &file, const string &baseName, const  map<
         ++newNum;
 
         SgStatement* duplicated = duplicateProcedure(toCopy.first->funcPointer->GetOriginal(), clearName(newName), true, true);
+        if (duplicated->variant() == FUNC_HEDR)
+            changeFuncNameInDvmDirs(clearName(newName), toCopy.first->funcPointer->GetOriginal()->symbol()->identifier(), duplicated);
+
         copied[toCopy.first->funcPointer->GetOriginal()->fileName()].insert(duplicated);
         newNamesOfUniqCopies[toCopy.first->funcName] = newName;
         for (auto &theSame : toCopy.second)
@@ -893,6 +943,7 @@ static void replaceNewNames(const map<string, vector<FuncInfo*>> &allFuncs)
         {
             if (func->funcPointer->GetOriginal()->variant() < 0)
                 continue;
+
             SgStatement* p = func->funcPointer->GetOriginal();
             doReplacements(p, p->lastNodeOfStmt());
             hiddenInterfaces(p);

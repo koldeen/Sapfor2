@@ -244,10 +244,14 @@ int main(int argc, char *argv[]){
         {  
             parloop_by_handler = 2;
             options.setOn(O_HOST);
+            options.setOn(O_PL2);
            // options.setOn(NO_CUDA);
         }
         else if (!strcmp(argv[0], "-Opl"))         /*ACC*/
-            parloop_by_handler = 1; 
+        {
+            parloop_by_handler = 1;
+            options.setOn(O_PL);
+        }
        else if (!strcmp(argv[0], "-oneThread"))   /*ACC*/
             options.setOn(ONE_THREAD);
         else if (!strcmp(argv[0], "-noTfm"))       /*ACC*/
@@ -349,6 +353,8 @@ int main(int argc, char *argv[]){
     {
         (void)fprintf(stderr, "Warning: -Opl/Opl2 option is ignored in debug mode\n");
         parloop_by_handler = 0;
+        options.setOff(O_PL);
+        options.setOff(O_PL2);
     }
 
     if (openmp && ACC_program)

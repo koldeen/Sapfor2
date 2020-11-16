@@ -229,9 +229,9 @@ static bool isNonDistrArray(SgSymbol *symb)
     return array->GetNonDistributeFlag();    
 }
 
-static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
+static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
 {
-    vector<SgStatement*> result;
+    SgStatement* result = NULL;
 
     if (assign->variant() != ASSIGN_STAT)
         return result;
@@ -336,9 +336,7 @@ static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile 
     if (leftSections.size() != rightSections.size())
     {
         __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
-#ifdef _WIN32
         messagesForFile.push_back(Messages(WARR, assign->lineNumber(), R94, L"can not convert array assign to loop", 2001));
-#endif
     }
     else
     {
@@ -504,14 +502,13 @@ static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile 
         __spf_print(1, "%s", string(retVal->unparse()).c_str());
     }
 
-    result.push_back(retVal);
-    
+    result = retVal;    
     return result;
 }
 
-static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
+static SgStatement* convertFromStmtToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
 {
-    vector<SgStatement*> result;
+    SgStatement* result = NULL;
 
     if (assign->variant() != ASSIGN_STAT)
         return result;
@@ -654,9 +651,7 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
         rightSections.size() != assignSections.size())
     {
         __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
-#ifdef _WIN32
         messagesForFile.push_back(Messages(WARR, assign->lineNumber(), R95, L"can not convert array assign to loop", 2001));
-#endif
     }
     else
     {
@@ -802,15 +797,14 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
 
     __spf_print(1, "%s", string(retVal->unparse()).c_str());
 
-    result.push_back(retVal);
-
+    result = retVal;
     return result;
 }
 
 
-static vector<SgStatement*> convertFromSumToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
+static SgStatement* convertFromSumToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
 {
-    vector <SgStatement*> result;
+    SgStatement* result = NULL;
 
     if (assign->expr(0) == NULL || assign->expr(1) == NULL)
         return result;
@@ -957,24 +951,33 @@ static vector<SgStatement*> convertFromSumToLoop(SgStatement *assign, SgFile *fi
     
     SgAssignStmt *init = new SgAssignStmt(*(assign->expr(0)), *(new SgValueExp(0)));   //      sum = 0 
 
-    __spf_print(1, "%s\n", " _______ ");
-    __spf_print(1, "%s", string(init->unparse()).c_str());
-
     SgExpression *newRightPart = new SgExpression(ADD_OP);
     newRightPart->setLhs(copy->expr(0)->copyPtr());
     newRightPart->setRhs(copy->expr(1));
     copy->setExpression(1, *newRightPart);
+        
+    result = new SgIfStmt(*new SgValueExp(true));
+    result->insertStmtAfter(*retVal, *result);
+    result->insertStmtAfter(*init, *result);
 
-    result.push_back(retVal);
-    result.push_back(init);
-    __spf_print(1, "%s", string(retVal->unparse()).c_str());
+    __spf_print(1, "%s\n", " ----------- ");
+    __spf_print(1, "%s", string(result->unparse()).c_str());
 
+    // add SPF ANALYSIS REDUCTION(SUM(<var>)) after convertion
+    SgStatement* redDir = new SgStatement(SPF_ANALYSIS_DIR);
+    SgExpression* list = new SgExpression(EXPR_LIST,
+        new SgExpression(REDUCTION_OP,
+            new SgExpression(EXPR_LIST,
+                new SgExpression(ARRAY_OP, new SgKeywordValExp("sum"), new SgVarRefExp(init->expr(0)->symbol())))));
+    redDir->setExpression(0, list);
+    retVal->addAttribute(SPF_ANALYSIS_DIR, redDir, sizeof(SgStatement));
+    
     return result;
 }
 
-static vector<SgStatement*> convertFromWhereToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
+static SgStatement* convertFromWhereToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
 {
-    vector <SgStatement*> result;
+    SgStatement* result;
     
     if (assign->expr(0) == NULL || assign->expr(1) == NULL)
         return result;
@@ -989,7 +992,7 @@ static vector<SgStatement*> convertFromWhereToLoop(SgStatement *assign, SgFile *
                 assign->expr(1)->symbol()->identifier()))
         return result;
     */
-    __spf_print(1, "%s\n", " _______ ");
+    __spf_print(1, "%s\n", " ----------- ");
 
     SgForStmt *retVal = NULL;
     SgStatement *copy = assign->copyPtr();
@@ -1130,9 +1133,10 @@ static vector<SgStatement*> convertFromWhereToLoop(SgStatement *assign, SgFile *
     
     retVal->setLexNext(*ret);
   
-    __spf_print(1, "%s\n", " _______ ");
+    __spf_print(1, "%s\n", " ----------- ");
     __spf_print(1, "%s", string(retVal->unparse()).c_str());
 
+    result = retVal;
     return result;
 }
 
@@ -1300,32 +1304,14 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                 firstExec = NULL;
             }
 
-            bool isFCALL = false;
             if (st->variant() == ASSIGN_STAT || st->variant() == WHERE_NODE)
             {
-                vector<SgStatement*> conv;
-                if (st->expr(1)->variant() == FUNC_CALL )
+                SgStatement* conv = NULL;
+                if (st->expr(1)->variant() == FUNC_CALL)
                 {
                     const string fName = st->expr(1)->symbol()->identifier();
                     if (fName == "sum")
-                    {
                         conv = convertFromSumToLoop(st, file, messagesForFile);
-                        // add SPF ANALYSIS REDUCTION(SUM(<var>)) after convertion
-                        if (conv.size())
-                        {
-                            if (fName == "sum" && conv.size() != 2)
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                            SgStatement* redDir = new SgStatement(SPF_ANALYSIS_DIR);
-                            SgExpression* list = new SgExpression(EXPR_LIST, 
-                                new SgExpression(REDUCTION_OP, 
-                                    new SgExpression(EXPR_LIST, 
-                                        new SgExpression(ARRAY_OP, new SgKeywordValExp("sum"), new SgVarRefExp(conv[1]->expr(0)->symbol())))));
-                            redDir->setExpression(0, list);
-
-                            conv[0]->addAttribute(SPF_ANALYSIS_DIR, redDir, sizeof(SgStatement));
-                            isFCALL = true;
-                        }
-                    }
                 }
                 else
                 {
@@ -1340,42 +1326,35 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                     }
                 }
 
-                //TODO: need to check
-                if (conv.size() != 0)
+                if (conv)
                 {
                     auto currFile = st->getFileId();
                     auto currProj = st->getProject();
 
-                    for (int i = conv.size() - 1; i >= 0 ; --i)
-                        st->insertStmtBefore(*(conv[i]), *st->controlParent());
+                    st->insertStmtBefore(*conv, *st->controlParent());
+                    toMove.push_back(make_pair(st, conv));
 
-                    if (conv.size() >= 1)
-                        toMove.push_back(make_pair(st, conv[0]));
-
-                    for (int i = 0; i < conv.size(); ++i)
+                    if (conv->variant() != ASSIGN_STAT)
                     {
-                        if (conv[i]->variant() != ASSIGN_STAT)
+                        SgStatement* end = conv->lastNodeOfStmt();
+                        for (SgStatement* st1 = conv; st1 != end; st1 = st1->lexNext())
                         {
-                            SgStatement *end = conv[i]->lastNodeOfStmt();
-                            for (SgStatement *st1 = conv[i]; st1 != end; st1 = st1->lexNext())
-                            {
-                                st1->setlineNumber(getNextNegativeLineNumber());
-                                st1->setLocalLineNumber(st->lineNumber());
-                                st1->setFileId(currFile);
-                                st1->setProject(currProj);
-                            }
-                            end->setlineNumber(getNextNegativeLineNumber());
-                            end->setLocalLineNumber(st->lineNumber());
-                            end->setFileId(currFile);
-                            end->setProject(currProj);
+                            st1->setlineNumber(getNextNegativeLineNumber());
+                            st1->setLocalLineNumber(st->lineNumber());
+                            st1->setFileId(currFile);
+                            st1->setProject(currProj);
                         }
-                        else
-                        {
-                            conv[i]->setlineNumber(getNextNegativeLineNumber());
-                            conv[i]->setLocalLineNumber(st->lineNumber());
-                            conv[i]->setFileId(currFile);
-                            conv[i]->setProject(currProj);
-                        }
+                        end->setlineNumber(getNextNegativeLineNumber());
+                        end->setLocalLineNumber(st->lineNumber());
+                        end->setFileId(currFile);
+                        end->setProject(currProj);
+                    }
+                    else
+                    {
+                        conv->setlineNumber(getNextNegativeLineNumber());
+                        conv->setLocalLineNumber(st->lineNumber());
+                        conv->setFileId(currFile);
+                        conv->setProject(currProj);
                     }
                 }
             }
@@ -1426,6 +1405,19 @@ static bool isUnderParallelLoop(SgStatement *st)
         st = st->controlParent();
     }
     return isUnder;
+}
+
+static bool hasParallelDir(SgStatement* st)
+{
+    bool has = false;
+    SgStatement* last = st->lastNodeOfStmt();
+    while (st != last)
+    {
+        if (st->variant() == FOR_NODE && st->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
+            has = true;
+        st = st->lexNext();
+    }
+    return has;
 }
 
 static void addToDeclSet(SgExpression *exp, set<SgSymbol*> &symbolSet)
@@ -1487,26 +1479,24 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
                 else
                 {
                     if (data->lineNumber() < 0 && 
-                        (isUnderParallelLoop(st) || (notDeletedVectorAssign(st) && st->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)))
+                        (isUnderParallelLoop(st) || (notDeletedVectorAssign(st) && hasParallelDir(data))))
                     {
                         toMove.push_back(make_pair(st, data));
+                        if (st->lexPrev()->variant() == DVM_REMOTE_ACCESS_DIR)
+                            toMove.push_back(make_pair(st->lexPrev(), (SgStatement*)NULL));
                         st->insertStmtAfter(*data, *st->controlParent());
 
-                        //data->addAttribute(ASSIGN_STAT, st, sizeof(SgStatement*));
-                        if (data->variant() == FOR_NODE)
+                        if (data->variant() == FOR_NODE || data->variant() == IF_NODE)
                         {
                             for (auto st_loc = data; st_loc != data->lastNodeOfStmt(); st_loc = st_loc->lexNext())
                                 if (st_loc->variant() == FOR_NODE)
                                     newDeclarations.insert(st_loc->symbol());
                         }
-                        else if (data->variant() == ASSIGN_STAT)
+                        else if (data->variant() == ASSIGN_STAT && data->lexNext()->variant() == FOR_NODE)
                         {
-                            if (data->lexNext()->variant() == FOR_NODE)
-                            {
-                                for (auto st_loc = data->lexNext(); st_loc != data->lexNext()->lastNodeOfStmt(); st_loc = st_loc->lexNext())
-                                    if (st_loc->variant() == FOR_NODE)
-                                        newDeclarations.insert(st_loc->symbol());
-                            }
+                            for (auto st_loc = data->lexNext(); st_loc != data->lexNext()->lastNodeOfStmt(); st_loc = st_loc->lexNext())
+                                if (st_loc->variant() == FOR_NODE)
+                                    newDeclarations.insert(st_loc->symbol());
                         }
                     }
                 }

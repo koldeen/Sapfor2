@@ -333,11 +333,15 @@ static void findFuncCalls(SgStatement *parent, SgExpression *curr, vector<FuncIn
     {
         for (auto &proc : entryProcs)
         {
-            string nameOfCallFunc = curr->symbol()->identifier();
-            correctNameIfContains(NULL, curr, nameOfCallFunc, containsFunctions, prefix);
+            vector<string> nameOfCallFunc;
+            nameOfCallFunc.push_back(curr->symbol()->identifier());
+            nameOfCallFunc.push_back(OriginalSymbol(curr->symbol())->identifier());
 
-            proc->callsFrom.insert(nameOfCallFunc);
-            proc->detailCallsFrom.push_back(make_pair(nameOfCallFunc, line));
+            for (auto& elem : nameOfCallFunc)
+                correctNameIfContains(NULL, curr, elem, containsFunctions, prefix);
+
+            proc->callsFrom.insert(nameOfCallFunc.begin(), nameOfCallFunc.end());
+            proc->detailCallsFrom.push_back(make_pair(nameOfCallFunc[0], line)); // only main call
             proc->pointerDetailCallsFrom.push_back(make_pair(curr, FUNC_CALL));
             proc->parentForPointer.push_back(parent);
 
@@ -953,13 +957,17 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
             //printf("var %d, line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == PROC_STAT)
             {
-                string pureNameOfCallFunc = removeString("call ", st->symbol()->identifier());
-                correctNameIfContains(st, NULL, pureNameOfCallFunc, containsFunctions, prefix);
+                vector<string> pureNameOfCallFunc;
+                pureNameOfCallFunc.push_back(removeString("call ", st->symbol()->identifier()));
+                pureNameOfCallFunc.push_back(removeString("call ", OriginalSymbol(st->symbol())->identifier()));
+
+                for (auto& elem : pureNameOfCallFunc)
+                    correctNameIfContains(st, NULL, elem, containsFunctions, prefix);
 
                 for (auto &proc : entryProcs)
                 {                    
-                    proc->callsFrom.insert(pureNameOfCallFunc);
-                    proc->detailCallsFrom.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));
+                    proc->callsFrom.insert(pureNameOfCallFunc.begin(), pureNameOfCallFunc.end());
+                    proc->detailCallsFrom.push_back(make_pair(pureNameOfCallFunc[0], st->lineNumber())); // only main call
                     proc->pointerDetailCallsFrom.push_back(make_pair(st, PROC_STAT));
                     proc->parentForPointer.push_back(st);
 

@@ -215,6 +215,9 @@ void MessageManager::setWinHandler(const int winH)
     WinHandler = winH;
 }
 
+//from get_information.cpp
+extern bool showDebug;
+
 static int send(SOCKET& client, const wstring& messageIn)
 {
     wstring message = messageIn;
@@ -225,6 +228,12 @@ static int send(SOCKET& client, const wstring& messageIn)
 
     string result = utf8_encode(message);
     string size = std::to_string(result.size());
+
+    if (showDebug)
+    {
+        wprintf(L"%s: Original message '%s'", CLIENT, message.c_str());
+        printf("%s: Converted message '%s'", CLIENT, result.c_str());
+    }
 
     int err = send(client, size.c_str(), size.size(), 0);
     __print(CLIENT, "Send message size: %d", (int)result.size());
@@ -237,8 +246,9 @@ static int send(SOCKET& client, const wstring& messageIn)
     char buf;
     recv(client, &buf, 1, 0);
 
-    err = send(client, result.c_str(), result.size(), 0);
-    __print(CLIENT, "Send message size %d", (int)result.size());
+    err = send(client, result.c_str(), result.size(), 0);    
+    __print(CLIENT, "Send message with size %d", (int)result.size());
+
     if (err != result.size())
     {
         __print(CLIENT, "Error of send(): %d", err); // exit

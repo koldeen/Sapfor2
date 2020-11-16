@@ -152,7 +152,7 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     list({ PREPROC_SPF, CORRECT_VAR_DECL }) <= Pass(FILL_PAR_REGIONS_LINES);
 
-    list({ LOOP_ANALYZER_COMP_DIST, CONVERT_LOOP_TO_ASSIGN }) << list({ CREATE_DISTR_DIRS, CREATE_PARALLEL_DIRS, INSERT_PARALLEL_DIRS });
+    Pass(LOOP_ANALYZER_COMP_DIST) <= list({ CREATE_DISTR_DIRS, CREATE_PARALLEL_DIRS, INSERT_PARALLEL_DIRS });
     
     Pass(CALL_GRAPH2) <= list({ ONLY_ARRAY_GRAPH, CREATE_NESTED_LOOPS, FIND_FUNC_TO_INCLUDE, CHECK_FUNC_TO_INCLUDE, CHECK_ARGS_DECL});
 
@@ -182,7 +182,7 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
                                    EXTRACT_SHADOW_DIRS, REVERT_SUBST_EXPR, CREATE_REMOTES, UNPARSE_FILE, REMOVE_AND_CALC_SHADOW,
                                    REVERSE_CREATED_NESTED_LOOPS, PREDICT_SCHEME, CALCULATE_STATS_SCHEME, REVERT_SPF_DIRS, CLEAR_SPF_DIRS, TRANSFORM_SHADOW_IF_FULL,
                                    RESTORE_LOOP_FROM_ASSIGN, RESTORE_LOOP_FROM_ASSIGN_BACK, INSERT_REGIONS, REMOVE_COPIES, RESTORE_COPIES, SHADOW_GROUPING,
-                                   SWAP_LOOPS, RESTORE_SWAP_LOOPS });
+                                   SWAP_LOOPS, RESTORE_SWAP_LOOPS, TEST_PASS });
         
     //only for print
     if (printTree)

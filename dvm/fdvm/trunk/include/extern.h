@@ -13,6 +13,7 @@ extern int needkwd;
 extern int implkwd;
 extern int optkwd;
 extern int opt_kwd_;
+extern int opt_in_out;
 extern int as_op_kwd_;
 extern int opt_kwd_hedr;
 extern int opt_kwd_r;

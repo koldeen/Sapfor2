@@ -45,6 +45,10 @@ void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string, vecto
         {
             if (sizes[k].first == -1 && sizes[k].second == -1)
             {
+                // parallize this loops with TIE regime
+                if (array->IsLoopArray())
+                    continue;
+
                 if (arraysWithErrors.find(array) == arraysWithErrors.end())
                 {
                     auto declPlaces = array->GetDeclInfo();

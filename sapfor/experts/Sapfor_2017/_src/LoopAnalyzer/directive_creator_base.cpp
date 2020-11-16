@@ -725,8 +725,8 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                 pair<int, int> mainAccess = mainArray.mainAccess;
                 const int dimPos = mainArray.dimentionPos;
 
-                //change array to template if ACROSS was not found
-                if (mainArray.underAcross == false)
+                //change array to template if ACROSS was not found or not loop_array
+                if (mainArray.underAcross == false && !(mpiProgram == 1 && mainArray.arrayRef->IsLoopArray()))
                 {
                     set<DIST::Array*> realArrayRef;
                     getRealArrayRefs(mainArray.arrayRef, mainArray.arrayRef, realArrayRef, arrayLinksByFuncCalls);
@@ -1661,7 +1661,8 @@ void selectParallelDirectiveForVariant(File* file, ParallelRegion* currParReg,
                         local = SgStatement::getStatementByFileAndLine(loop->loop->fileName(), loop->altLineNum);
                     checkNull(local, convertFileName(__FILE__).c_str(), __LINE__);
 
-                    local->insertStmtBefore(*result, *local->controlParent());
+                    if (local->variant() == FOR_NODE)
+                        local->insertStmtBefore(*result, *local->controlParent());
                 }
                 else
 #endif

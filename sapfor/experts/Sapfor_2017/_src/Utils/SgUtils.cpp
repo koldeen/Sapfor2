@@ -2095,7 +2095,10 @@ void printSymbolTable(SgFile *file, string filter)
             if (filter != s->identifier())
                 need = false;
         if (need)
-            printf("[%d] %s type %d (%s), location %d line\n", s->id(), s->identifier(), t ? t->variant() : -1, t ? tag[t->variant()] : "", s->scope()->lineNumber());
+        {
+            int line = s->scope() ? s->scope()->lineNumber() : -1;
+            printf("[%d] %s type %d (%s), location %d line\n", s->id(), s->identifier(), t ? t->variant() : -1, t ? tag[t->variant()] : "", line);
+        }
     }
 }
 

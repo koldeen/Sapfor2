@@ -68,6 +68,8 @@
 #include "Transformations/swap_array_dims.h"
 #include "Transformations/function_purifying.h"
 
+#include "Inliner/inliner.h"
+
 #include "dvm.h"
 #include "Sapfor.h"
 #include "Utils/PassManager.h"
@@ -1014,7 +1016,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             else
                 regionInserter.insertDirectives(&parallelRegions);
 
-            //remove privates from loops out of DVMH region
+            //remove privates from loops out of DVMH region 
+            //remove parallel directives from loops out of DVMH region 
             map<int, LoopGraph*> mapLoopGraph;
             createMapLoopGraph(loopForFile, mapLoopGraph);
             for (auto& loopPair : mapLoopGraph)
@@ -1023,17 +1026,23 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 if (loop->directive && loop->inDvmhRegion <= 0)
                 {
                     SgStatement* lexPrev = loop->loop->GetOriginal()->lexPrev();
+
                     if (lexPrev->variant() == DVM_PARALLEL_ON_DIR)
                     {
-                        SgExprListExp* list = isSgExprListExp(lexPrev->expr(1));
-                        if (list)
+                        if (mpiProgram == 1)
+                            lexPrev->deleteStmt();
+                        else
                         {
-                            vector<SgExpression*> newList;
-                            for (SgExpression* ex = list; ex; ex = ex->rhs())
-                                if (ex->lhs()->variant() != ACC_PRIVATE_OP)
-                                    newList.push_back(ex->lhs());
+                            SgExprListExp* list = isSgExprListExp(lexPrev->expr(1));
+                            if (list)
+                            {
+                                vector<SgExpression*> newList;
+                                for (SgExpression* ex = list; ex; ex = ex->rhs())
+                                    if (ex->lhs()->variant() != ACC_PRIVATE_OP)
+                                        newList.push_back(ex->lhs());
 
-                            lexPrev->setExpression(1, makeExprList(newList));
+                                lexPrev->setExpression(1, makeExprList(newList));
+                            }
                         }
                     }
                 }
@@ -1058,15 +1067,18 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CONVERT_SAVE_TO_MODULE)
             convertSaveToModule(file);
         else if (curr_regime == PROCESS_IO)
-            preprocessOpenOperators(file, filesInfo);        
+            preprocessOpenOperators(file, filesInfo);
         else if (curr_regime == CONVERT_STRUCTURES_TO_SIMPLE)
             replaceStructuresToSimpleTypes(file);
         else if (curr_regime == PURE_INTENT_INSERT)
             intentInsert(getObjectForFileFromMap(file_name, allFuncInfo));
-        
+        else if (curr_regime == TEST_PASS)
+        {
+        //test pass
+        }
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, allIncludeFiles);
     } // end of FOR by files
-        
+
     if (internalExit != 0)
         throw -1;
 
@@ -1942,6 +1954,17 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         swapLoopsForParallel(loopGraph, SPF_messages, -1);
     else if (curr_regime == CREATE_PARALLEL_DIRS)
         filterParallelDirectives(loopGraph, createdDirectives);
+    else if (curr_regime == INLINE_PROCEDURES)
+	{
+        inliner("alex.f", "sum_", 25, allFuncInfo, SPF_messages); // DEBUG
+        /*for (auto &tup : inDataProc)
+        {
+            bool error = inliner(std::get<0>(tup), std::get<1>(tup), std::get<2>(tup), allFuncInfo, SPF_messages);
+            if (error)
+                internalExit = 1;
+        }*/
+	}
+
 
 #if _WIN32
     const float elapsed = duration_cast<milliseconds>(high_resolution_clock::now() - timeForPass).count() / 1000.;
@@ -2175,6 +2198,7 @@ static SgProject* createProject(const char *proj_name)
         mpiProgram = 1;
         keepDvmDirectives = 0;
         ignoreIO = 1;
+        parallizeFreeLoops = 0;
     }
 
     return project;
@@ -2243,6 +2267,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
 
             runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
+
+            runPass(CONVERT_LOOP_TO_ASSIGN, proj_name, folderName);
 
             runAnalysis(*project, INSERT_PARALLEL_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
@@ -2370,6 +2396,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case PURE_COMMON_TO_PARAMS:
     case PURE_SAVE_TO_PARAMS:
     case PURE_MODULE_TO_PARAMS:
+    case TEST_PASS:
         runAnalysis(*project, curr_regime, false);
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)
@@ -2618,10 +2645,7 @@ int main(int argc, char **argv)
                     exit(0);
                 }
                 else if (string(curr_arg) == "-mpi")
-                {
                     mpiProgram = 1;
-                    ignoreIO = 1;
-                }
                 else if (string(curr_arg) == "-pppa")
                 {
                     int code = pppa_analyzer(argc - i, argv + i);
@@ -2649,7 +2673,11 @@ int main(int argc, char **argv)
         }
 
         if (mpiProgram == 1)
+        {
             keepDvmDirectives = 0;
+            ignoreIO = 1;
+            parallizeFreeLoops = 0;
+        }
 
         if (runAsClient)
         {

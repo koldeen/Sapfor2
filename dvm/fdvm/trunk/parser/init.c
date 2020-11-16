@@ -20,6 +20,7 @@ int     optkwd;                 /* set if stmt needs optional keyword */
 int     implkwd;                /* set if processing  IMPLICIT statement */
 /*!!!*/
 int     opt_kwd_;               /* set if stmt needs optional keyword (fdvm.gram)*/
+int     opt_in_out;             /* set if stmt needs keyword IN  or OUT*/
 int     as_op_kwd_;             /* set if stmt needs keyword ASSIGNMENT  or OPERATOR */
 int     opt_kwd_hedr;           /* set if stmt needs after type specification */
 int     opt_kwd_r;              /* set if stmt needs optional keyword followed by '(' (fdvm.gram)*/

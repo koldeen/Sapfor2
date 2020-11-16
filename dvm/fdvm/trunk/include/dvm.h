@@ -2169,7 +2169,7 @@ void ConvertLoopWithLabelToEnddoLoop (SgStatement *stat); /*OMP*/
 enum OPTIONS {
     AUTO_TFM = 0, ONE_THREAD, SPEED_TEST_L0, SPEED_TEST_L1, GPU_O0, GPU_O1, RTC, C_CUDA, OPT_EXP_COMP,
     O_HOST, NO_CUDA, NO_BL_INFO, LOOP_ANALYSIS, PRIVATE_ANALYSIS, IO_RTS, READ_ALL, NO_REMOTE, NO_PURE_FUNC, 
-    GPU_IRR_ACC, NUM_OPT};
+    GPU_IRR_ACC, O_PL, O_PL2, NUM_OPT};
 // ONE_THREAD - compile one thread CUDA-kernels only for across (TODO for all CUDA-kernels)
 // SPEED_TEST_L0, SPEED_TEST_L1 - debug options for speed testof CUDA-kernels for across
 // RTC - enable CUDA run-time compilation of all CUDA-kernels
@@ -2255,6 +2255,10 @@ public:
                 states[OPT_EXP_COMP] = true;
             }
         }
+
+        if (states[O_PL2])
+            states[O_HOST] = true;
+
         //freeze all changes after initialization
         freezed = true;
     }

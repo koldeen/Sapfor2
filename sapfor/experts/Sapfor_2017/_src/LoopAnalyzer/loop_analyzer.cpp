@@ -1493,6 +1493,9 @@ static set<string> getPrivatesFromModule(SgStatement *mod,
     SgStatement *end = mod->lastNodeOfStmt();
     while (mod != end && mod->lineNumber() > 0)
     {
+        if (mod->variant() == CONTAINS_STMT)
+            break;
+
         if (mod->variant() == USE_STMT)
         {
             auto itF = modulesByName.find(mod->symbol()->identifier());

@@ -321,8 +321,14 @@ static vector<SgExpression*>
             }
             else if (!dirForLoop->arrayRef->IsTemplate())
             {
-                auto tmplP = dirForLoop->arrayRef->GetTemplateArray(regId, false);
-                auto links = dirForLoop->arrayRef->GetLinksWithTemplate(regId);
+                set<DIST::Array*> realRefsLocal;
+                getRealArrayRefs(dirForLoop->arrayRef, dirForLoop->arrayRef, realRefsLocal, arrayLinksByFuncCalls);
+
+                if (realRefsLocal.size() == 0)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                auto tmplP = (*realRefsLocal.begin())->GetTemplateArray(regId, false);
+                auto links = (*realRefsLocal.begin())->GetLinksWithTemplate(regId);
 
                 auto tmplP_et = pairs.first->GetTemplateArray(regId, false);
                 auto links_et = pairs.first->GetLinksWithTemplate(regId);
@@ -507,6 +513,9 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
     else
         directive += ") ON " + mapTo->GetShortName() + "(";
 
+    SgArrayRefExp* arrayExpr = NULL;
+    string arrayExprS = "";
+
     SgSymbol* symbForPar;
     if (arrayRef->IsTemplate())
     {
@@ -518,8 +527,8 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
     else
         symbForPar = getFromModule(byUseInFunc, arrayRef->GetDeclSymbol()->GetOriginal(), usedInLoop);
 
-    SgArrayRefExp* arrayExpr = new SgArrayRefExp(*symbForPar);
-    string arrayExprS = "";
+    arrayExpr = new SgArrayRefExp(*symbForPar);
+    arrayExprS = "";
     for (int i = 0; i < (int)onTo.size(); ++i)
     {
         const pair<int, int>& coeffs = onTo[i].second;
@@ -540,6 +549,7 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
             arrayExpr->addSubscript(*genSgExpr(file, onTo[i].first, coeffs));
         }
     }
+
     if (!mpiProgram)
     {
         directive += arrayExprS + ")";

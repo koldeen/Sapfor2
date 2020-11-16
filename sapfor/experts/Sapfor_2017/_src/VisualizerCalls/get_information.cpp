@@ -59,7 +59,7 @@ extern set<short*> allocated;
 extern set<int*> allocatedInt;
 extern bool runAsClient;
 
-static bool showDebug = false;
+bool showDebug = false;
 static const string interruptEx = "Interrupted by user";
 
 static inline int strLen(const short* shString)
@@ -144,16 +144,17 @@ static void setOptions(const short *options)
     staticShadowAnalysis = intOptions[STATIC_SHADOW_ANALYSIS];
     staticPrivateAnalysis = intOptions[STATIC_PRIVATE_ANALYSIS];
     out_free_form = intOptions[FREE_FORM];
-    keepSpfDirs = intOptions[KEEP_SPF_DIRECTIVES];
-    parallizeFreeLoops = (mpiProgram == 1) ? 0 : intOptions[PARALLIZE_FREE_LOOPS];
+    keepSpfDirs = intOptions[KEEP_SPF_DIRECTIVES];    
     maxShadowWidth = intOptions[MAX_SHADOW_WIDTH];
     out_upper_case = intOptions[OUTPUT_UPPER];
     langOfMessages = intOptions[TRANSLATE_MESSAGES];
     removeNestedIntervals = (intOptions[KEEP_LOOPS_CLOSE_NESTING] == 1);
     showDebug = (intOptions[DEBUG_PRINT_ON] == 1);
-    mpiProgram = (mpiProgram != 1) ? intOptions[MPI_PROGRAM] : mpiProgram;
-    ignoreIO = (mpiProgram == 1) ? 1 : intOptions[IGNORE_IO_SAPFOR];
-    keepDvmDirectives = (mpiProgram == 1) ? 0 : intOptions[KEEP_DVM_DIRECTIVES];
+
+    mpiProgram =         (mpiProgram != 1) ? intOptions[MPI_PROGRAM] : mpiProgram;
+    parallizeFreeLoops = (mpiProgram == 1) ? 0 : intOptions[PARALLIZE_FREE_LOOPS];
+    ignoreIO =           (mpiProgram == 1) ? 1 : intOptions[IGNORE_IO_SAPFOR];
+    keepDvmDirectives =  (mpiProgram == 1) ? 0 : intOptions[KEEP_DVM_DIRECTIVES];
 
     string optAnalisys = splited.size() > ANALYSIS_OPTIONS ? splited[ANALYSIS_OPTIONS] : "";
 }
@@ -582,11 +583,11 @@ int SPF_GetGraphVizOfFunctions(void*& context, short *options, short *projName, 
         //erase last "|"
         graph.erase(graph.end() - 1);
 
-        copyStringToShort(result, graph, false);
+        copyStringToShort(result, graph);
         retSize = (int)graph.size();
 
         if (showDebug)
-            printf("GraphViz: %s\n", graph.c_str());
+            printf("GraphViz: '%s'\n", graph.c_str());
     }
     catch (int ex)
     {

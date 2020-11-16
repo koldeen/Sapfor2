@@ -399,7 +399,7 @@ void findDeadFunctionsAndFillCalls(map<string, vector<FuncInfo*>> &allFuncInfo, 
 
             for (auto& func : it.second)
                 if (func->deadFunction)
-                    itM->second.push_back(Messages(NOTE, func->linesNum.first, R47, L"This function is not called in current project", 1015));            
+                    itM->second.push_back(Messages(ERROR, func->linesNum.first, R47, L"This function is not called in current project", 1015));
         }
     }
 

@@ -1399,13 +1399,17 @@ across_spec: COMMA needkeyword ACROSS in_out_across
                {$$ = make_llnd(fi,ACROSS_OP,$4,$5,SMNULL);}
            ;
 
-in_out_across:  LEFTPAR opt_key_word opt_in_out dependent_array_list RIGHTPAR
+in_out_across:  LEFTPAR opt_keyword_in_out opt_in_out dependent_array_list RIGHTPAR
                 {  if($3)
                      $$ = make_llnd(fi,DDOT,$3,$4,SMNULL);
                    else
                      $$ = $4;
                 }
              ;
+
+opt_keyword_in_out:
+            { opt_in_out = YES; }
+            ;
 
 opt_in_out:  IN  COLON
             {
