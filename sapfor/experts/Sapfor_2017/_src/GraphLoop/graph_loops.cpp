@@ -444,6 +444,9 @@ static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops, vec
 
 static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
 {
+    if (currLoopRef == NULL)
+        return;
+
     SgStatement *spfStat = new SgStatement(SPF_ANALYSIS_DIR);
     spfStat->setlineNumber(currLoopRef->lineNumber());
     spfStat->setFileName(currLoopRef->fileName());
@@ -533,6 +536,12 @@ static void findArrayRefs(LoopGraph *loop)
     }
 }
 
+static bool isLoopStat(SgStatement* st)
+{
+    const int var = st->variant();
+    return (var == FOR_NODE || var == WHILE_NODE);
+}
+
 void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector<SpfInterval*> &intervalTree, vector<Messages> &messages, int mpiProgram)
 {
     map<int, SpfInterval*> mapIntervals;
@@ -586,7 +595,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
             }
 
             //printf("new st with var = %d, on line %d\n", st->variant(), st->lineNumber());
-            if (st->variant() == FOR_NODE)
+            if (isLoopStat(st))
             {
                 LoopGraph *newLoop = new LoopGraph();
                 newLoop->lineNum = st->lineNumber();
@@ -613,13 +622,17 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 vector<int> tmpLines;
 
                 newLoop->fileName = st->fileName();
-                newLoop->perfectLoop = ((SgForStmt*)st)->isPerfectLoopNest();
+                newLoop->perfectLoop = isSgForStmt(st) ? ((SgForStmt*)st)->isPerfectLoopNest() : 1;
                 newLoop->hasGoto = hasGoto(st, st->lastNodeOfStmt(), newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);
                 newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } ); // FORMAT_STAT
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
                 newLoop->hasDvmIntervals = hasThisIds(st, tmpLines, { DVM_INTERVAL_DIR, DVM_ENDINTERVAL_DIR, DVM_EXIT_INTERVAL_DIR });
+                newLoop->isFor = isSgForStmt(st) ? true : false;
+                newLoop->inCanonicalFrom = isSgForStmt(st) ? true : false;
+
                 if (mpiProgram == 0)
-                    newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops, messages);
+                    if (isSgForStmt(st))
+                        newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops, messages);
 
                 auto itTime = mapIntervals.find(newLoop->lineNum);
                 if (itTime != mapIntervals.end() && itTime->second->exec_time != 0)
@@ -629,54 +642,62 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                     //messages.push_back(Messages(NOTE, newLoop->lineNum, R137, L"Can not find execution time in statistic", 3016));
                 }
 
-                SgForStmt *currLoopRef = ((SgForStmt*)st);
+                SgForStmt *currLoopRef = isSgForStmt(st);
 
-                std::tuple<int, int, int> loopInfoSES;
-                newLoop->countOfIters = calculateLoopIters(currLoopRef->start(), currLoopRef->end(), currLoopRef->step(), loopInfoSES);
-                if (newLoop->countOfIters != 0)
+                if (currLoopRef)
                 {
-                    newLoop->calculatedCountOfIters = newLoop->countOfIters;
-                    newLoop->startVal = std::get<0>(loopInfoSES);
-                    newLoop->endVal = std::get<1>(loopInfoSES);
-                    newLoop->stepVal = std::get<2>(loopInfoSES);
-                }
-                else
-                {
-                    SgExpression *start = currLoopRef->start();
-                    SgExpression *end = currLoopRef->end();
-                    SgExpression *step = currLoopRef->step();
-
-                    Expression *endE = NULL;
-                    Expression *startE = NULL;
-                    if (step == NULL)
+                    std::tuple<int, int, int> loopInfoSES;
+                    newLoop->countOfIters = calculateLoopIters(currLoopRef->start(), currLoopRef->end(), currLoopRef->step(), loopInfoSES);
+                    if (newLoop->countOfIters != 0)
                     {
-                        startE = new Expression(start);
-                        endE = new Expression(end);
+                        newLoop->calculatedCountOfIters = newLoop->countOfIters;
+                        newLoop->startVal = std::get<0>(loopInfoSES);
+                        newLoop->endVal = std::get<1>(loopInfoSES);
+                        newLoop->stepVal = std::get<2>(loopInfoSES);
                     }
                     else
                     {
-                        int res = -1;
-                        int err = CalculateInteger(step, res);
-                        if (err == 0 && res != 0)
+                        SgExpression* start = currLoopRef->start();
+                        SgExpression* end = currLoopRef->end();
+                        SgExpression* step = currLoopRef->step();
+
+                        if (start == NULL || end == NULL)
+                            newLoop->inCanonicalFrom = false;
+
+                        Expression* endE = NULL;
+                        Expression* startE = NULL;
+                        if (step == NULL)
                         {
-                            if (res > 0)
+                            startE = new Expression(start);
+                            endE = new Expression(end);
+                        }
+                        else
+                        {
+                            int res = -1;
+                            int err = CalculateInteger(step, res);
+                            if (err == 0 && res != 0)
                             {
-                                startE = new Expression(start);
-                                endE = new Expression(&((*end - *start + *step) / *step));
-                            }
-                            else
-                            {
-                                endE = new Expression(end);
-                                endE = new Expression(&((*start - *end + *step) / *step));
+                                if (res > 0)
+                                {
+                                    startE = new Expression(start);
+                                    endE = new Expression(&((*end - *start + *step) / *step));
+                                }
+                                else
+                                {
+                                    endE = new Expression(end);
+                                    endE = new Expression(&((*start - *end + *step) / *step));
+                                }
                             }
                         }
-                    }
 
-                    newLoop->startEndExpr = std::make_pair(startE, endE);
+                        newLoop->startEndExpr = std::make_pair(startE, endE);
+                    }
                 }
+                else
+                    newLoop->startEndExpr = std::make_pair((Expression*)NULL, (Expression*)NULL);
 
                 newLoop->loop = new Statement(st);
-                newLoop->loopSymbol = st->symbol()->identifier();
+                newLoop->loopSymbol = st->symbol() ? st->symbol()->identifier() : "unknown";
                 findArrayRefs(newLoop);
 
                 SgStatement *lexPrev = st->lexPrev();
@@ -698,8 +719,8 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
             }
             else if (st->variant() == CONTROL_END)
             {
-                if (st->controlParent()->variant() == FOR_NODE)
-                {                    
+                if (isLoopStat(st->controlParent()))
+                {
                     parentLoops.pop_back();
                     if (parentLoops.size() != 0)
                         currLoop = parentLoops.back();
@@ -736,7 +757,8 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
 
 void LoopGraph::recalculatePerfect()
 {
-    perfectLoop = ((SgForStmt*)(loop->GetOriginal()))->isPerfectLoopNest();
+    auto loopRef = loop->GetOriginal();
+    perfectLoop = isSgForStmt(loopRef) ? ((SgForStmt*)(loop->GetOriginal()))->isPerfectLoopNest() : perfectLoop;
     for (auto &loop : children)
         loop->recalculatePerfect();
 }

@@ -1955,15 +1955,30 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == CREATE_PARALLEL_DIRS)
         filterParallelDirectives(loopGraph, createdDirectives);
     else if (curr_regime == INLINE_PROCEDURES)
-	{
-        inliner("alex.f", "sum_", 25, allFuncInfo, SPF_messages); // DEBUG
+    {
+        map<SgStatement*, set<SgSymbol*>> newSymbsToDeclare;
+        map<string, FuncInfo*> tmpM;
+        createMapOfFunc(allFuncInfo, tmpM);
+        for (auto& elem : tmpM)
+        {
+            if (elem.second->isMain)
+            {
+                inliner(elem.second->funcName, allFuncInfo, SPF_messages, newSymbsToDeclare); // DEBUG
+                break;
+            }
+        }
+        //inliner("lhsinit", 1574, allFuncInfo, SPF_messages); // DEBUG
+        //inliner("pro_hz", 1326, allFuncInfo, SPF_messages); // DEBUG
+        
         /*for (auto &tup : inDataProc)
         {
             bool error = inliner(std::get<0>(tup), std::get<1>(tup), std::get<2>(tup), allFuncInfo, SPF_messages);
             if (error)
                 internalExit = 1;
         }*/
-	}
+
+        createDeclarations(newSymbsToDeclare);
+    }
 
 
 #if _WIN32
@@ -2698,6 +2713,26 @@ int main(int argc, char **argv)
     {
         printStackTrace();
         printf("exception occurred\n");
+        for (auto& byFile : SPF_messages)
+        {
+            for (auto& message : byFile.second)
+            {
+                string toPrint = "";
+                for (int z = 0; z < message.engMessage.size(); ++z)
+                    toPrint += message.engMessage[z];
+                string type;
+                if (message.type == WARR)
+                    type = "WARR";
+                else if (message.type == ERROR)
+                    type = "ERROR";
+                else if (message.type == NOTE)
+                    type = "NOTE";
+                else 
+                    type = "UNKN";
+
+                printf("%s - [#%d: %s: line %d]: %s\n", type.c_str(), message.group, byFile.first.c_str(), message.line, toPrint.c_str());
+            }
+        }
     }
 
     deleteAllAllocatedData(withDel);

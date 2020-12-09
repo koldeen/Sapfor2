@@ -279,7 +279,6 @@ parF detectExpressionType(SgExpression *exp) {
            else
                return UNKNOWN_T;
        }
-
 }
 
 //TODO:: add values
@@ -341,7 +340,7 @@ static void findFuncCalls(SgStatement *parent, SgExpression *curr, vector<FuncIn
                 correctNameIfContains(NULL, curr, elem, containsFunctions, prefix);
 
             proc->callsFrom.insert(nameOfCallFunc.begin(), nameOfCallFunc.end());
-            proc->detailCallsFrom.push_back(make_pair(nameOfCallFunc[0], line)); // only main call
+            proc->detailCallsFrom.push_back(make_pair(nameOfCallFunc[1], line)); // original name of call
             proc->pointerDetailCallsFrom.push_back(make_pair(curr, FUNC_CALL));
             proc->parentForPointer.push_back(parent);
 
@@ -967,7 +966,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                 for (auto &proc : entryProcs)
                 {                    
                     proc->callsFrom.insert(pureNameOfCallFunc.begin(), pureNameOfCallFunc.end());
-                    proc->detailCallsFrom.push_back(make_pair(pureNameOfCallFunc[0], st->lineNumber())); // only main call
+                    proc->detailCallsFrom.push_back(make_pair(pureNameOfCallFunc[1], st->lineNumber())); // original name of call
                     proc->pointerDetailCallsFrom.push_back(make_pair(st, PROC_STAT));
                     proc->parentForPointer.push_back(st);
 
@@ -1563,17 +1562,21 @@ static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<stri
 {
     for (int k = 0; k < (int)childs.size(); ++k)
     {
-        SgForStmt *loop = isSgForStmt(getStatByLine(currF->filename(), childs[k]->lineNum, statByLine));
-        if (loop == NULL)
+        auto stat = getStatByLine(currF->filename(), childs[k]->lineNum, statByLine);
+        if (stat == NULL)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-        if (loop->lineNumber() != childs[k]->lineNum)
+        SgForStmt *loop = isSgForStmt(stat);
+        if (loop == NULL && stat->variant() != WHILE_NODE)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (loop && loop->lineNumber() != childs[k]->lineNum)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         // TODO: find loop variable in common block or module
 
-        //dont check loop outside of parallel region
-        if (childs[k]->region)
+        //dont check loop outside of parallel region and DO_WHILE
+        if (childs[k]->region && loop)
         {
             for (int i = 0; i < (int)childs[k]->calls.size(); ++i)
             {

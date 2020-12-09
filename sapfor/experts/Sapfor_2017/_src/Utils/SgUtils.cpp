@@ -1942,7 +1942,7 @@ bool ifSymbolExists(SgFile *file, const string &symbName)
     return false;
 }
 
-string checkSymbNameAndCorrect(const string& symbName, const string complite)
+int checkSymbNameAndCorrect(const string& symbName, int complite)
 {
     set<string> existedSymbols;
     //if (existedSymbols.size() == 0)
@@ -1960,6 +1960,36 @@ string checkSymbNameAndCorrect(const string& symbName, const string complite)
         }
 
         if (SgFile::switchToFile(oldFile->filename()) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+
+    string base = symbName;
+    int retNum = complite;
+    while (existedSymbols.find(base + std::to_string(retNum)) != existedSymbols.end())
+        retNum++;
+    //existedSymbols.insert(retName);
+
+    return retNum;
+}
+
+string checkSymbNameAndCorrect(const string& symbName, const string complite)
+{
+    set<string> existedSymbols;
+    //if (existedSymbols.size() == 0)
+    {
+        string oldFileName = current_file->filename();
+        for (int i = 0; i < CurrentProject->numberOfFiles(); ++i)
+        {
+            SgFile* file = &(CurrentProject->file(i));
+            SgSymbol* s = file->firstSymbol();
+            while (s)
+            {
+                existedSymbols.insert(s->identifier());
+                s = s->next();
+            }
+        }
+
+        if (SgFile::switchToFile(oldFileName) == -1)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
 
@@ -2127,7 +2157,7 @@ SgStatement* getFuncStat(SgStatement *st, const set<int> additional)
     return iterator;
 }
 
-SgStatement* duplicateProcedure(SgStatement *toDup, const string &newName, bool withAttributes, bool withComment, bool withSameLines)
+SgStatement* duplicateProcedure(SgStatement *toDup, const string &newName, bool withAttributes, bool withComment, bool withSameLines, bool dontInsert)
 {
     if (toDup == NULL)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -2136,19 +2166,67 @@ SgStatement* duplicateProcedure(SgStatement *toDup, const string &newName, bool 
 
     SgStatement* global = toDup;
     while (global->variant() != GLOBAL)
+    {        
         global = global->controlParent();
+        /*if (isSgProgHedrStmt(global))
+        {
+            auto last = global->lastNodeOfStmt();
+            // check for contains
+            for (auto st = global; st != last; st = st->lexNext())
+            {
+                if (st->variant() == CONTAINS_STMT)
+                {
+                    global = st;
+                    break;
+                }
+            }
+            if (global->variant() == CONTAINS_STMT)
+                break;
+        }*/
+    }
 
-    SgSymbol* orig = toDup->symbol();
+    SgSymbol* orig = toDup->symbol();    
     SgSymbol* copied = &orig->copySubprogram(*global);
-    
-    copied->changeName(newName.c_str());
+
+    //XXX: remove all extra functions
+    if (global->lexNext()->symbol()->identifier() != string(copied->identifier()))
+    {
+        vector<SgStatement*> toDel;
+        SgStatement* st = global->lexNext();
+        if (!isSgProgHedrStmt(st))
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        while (st)
+        {
+            if (st->symbol() == copied)
+                break;
+            toDel.push_back(st);
+            st = st->lastNodeOfStmt()->lexNext();
+        }
+
+        if (st == NULL)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        if (!isSgProgHedrStmt(st))
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        if (st->symbol()->identifier() != string(copied->identifier()))
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        for (auto& elem : toDel)
+            elem->extractStmt();
+
+        if (global->lexNext()->symbol()->identifier() != string(copied->identifier()))
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
 
     //move 
     SgStatement* toMove = global->lexNext()->extractStmt();
-    toDup->insertStmtBefore(*toMove, *toDup->controlParent());
+    if (dontInsert == false)
+        toDup->insertStmtBefore(*toMove, *toDup->controlParent());
+    //change name
+    if (newName != "")
+        copied->changeName(newName.c_str());
 
-    map<SgStatement*, SgStatement*> origCopySt;
-    map<SgExpression*, SgExpression*> origCopyEx;
+    if (!withAttributes && !withComment && !withSameLines)
+        return toMove;
 
     // set line numbers, pointer to attributes and comments
     for (auto origStat = toDup, copyStat = toMove;
@@ -2343,15 +2421,16 @@ SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& sIn, ve
 
     for (int z = 1; z < s.size(); ++z)
     {
+        auto tmpDecl = s[z]->makeVarDeclStmt();
         if (inits)
         {
             if ((*inits)[z])
                 decl->addVar(*new SgExpression(ASSGN_OP, new SgVarRefExp(s[z]), (*inits)[z]));
             else
-                decl->addVar(*new SgVarRefExp(s[z]));
+                decl->addVar(*tmpDecl->expr(0)->lhs());
         }
         else
-            decl->addVar(*new SgVarRefExp(s[z]));
+            decl->addVar(*tmpDecl->expr(0)->lhs());
     }
 
     if (place)

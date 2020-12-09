@@ -1419,7 +1419,8 @@ static bool checkCorrectness(const ParallelDirective &dir,
     {
         auto dirArrayRef = arrayLinksWithDirArray[array.first];
 
-        if (array.first != dir.arrayRef2 && array.first != dir.arrayRef)
+        if (array.first != dir.arrayRef2 && array.first != dir.arrayRef || 
+            dir.arrayRef2 == dir.arrayRef) // ACROSS
         {
             vector<dist> derivedRule(array.first->GetDimSize());
 

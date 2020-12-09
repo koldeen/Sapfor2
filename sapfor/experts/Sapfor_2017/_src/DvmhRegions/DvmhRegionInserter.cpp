@@ -711,9 +711,8 @@ static string getInterfaceBlock(SgStatement* func, const FuncParam& pars)
     string oldFile = current_file->filename();
     if (!func->switchToFile())
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    func->symbol()->copySubprogram(*current_file->firstStatement());
 
-    auto copy = current_file->firstStatement()->lexNext()->extractStmt();
+    auto copy = duplicateProcedure(func, "", false, false, false, true);
 
     const set<string> ident(pars.identificators.begin(), pars.identificators.end());
 

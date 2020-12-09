@@ -53,6 +53,7 @@ int printCommonBlocks(const char *fileName, const std::map<std::string, CommonBl
 void groupDeclarations(SgFile *file);
 
 bool ifSymbolExists(SgFile *file, const std::string &symbName);
+int checkSymbNameAndCorrect(const std::string& symbName, int complite);
 std::string checkSymbNameAndCorrect(const std::string& symbName, const std::string complite = "_");
 const CommonBlock* isArrayInCommon(const std::map<std::string, CommonBlock> &commonBlocks, const DIST::Array *array);
 
@@ -63,7 +64,7 @@ std::map<std::string, std::set<std::string>> createMapOfModuleUses(SgFile* file)
 void printSymbolTable(SgFile *file, std::string filter = "");
 SgStatement* getFuncStat(SgStatement *st, const std::set<int> additional = std::set<int>());
 std::map<SgStatement*, std::vector<DefUseList>> createDefUseMapByPlace();
-SgStatement* duplicateProcedure(SgStatement* toDup, const std::string& newName, bool withAttributes = false, bool withComment = false, bool withSameLines = true);
+SgStatement* duplicateProcedure(SgStatement* toDup, const std::string& newName, bool withAttributes = false, bool withComment = false, bool withSameLines = true, bool dontInsert = false);
 
 void fillModuleUse(SgFile* file, std::map<std::string, std::set<std::string>>& moduleUses, std::map<std::string, std::string>& moduleDecls);
 void filterModuleUse(std::map<std::string, std::set<std::string>>& moduleUses, std::map<std::string, std::string>& moduleDecls);

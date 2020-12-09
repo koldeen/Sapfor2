@@ -71,6 +71,8 @@ public:
         calculatedCountOfIters = 0;
         executionTimeInSec = -1.0;
         inDvmhRegion = 0;
+        isFor = false;
+        inCanonicalFrom = false;
     }
 
     ~LoopGraph()
@@ -109,12 +111,13 @@ public:
     bool hasLimitsToParallel() const
     {
         return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || hasNonPureProcedures ||
-               hasUnknownArrayAssigns || hasNonRectangularBounds || hasIndirectAccess || hasWritesToNonDistribute || hasDifferentAlignRules || hasDvmIntervals;
+               hasUnknownArrayAssigns || hasNonRectangularBounds || hasIndirectAccess || hasWritesToNonDistribute || hasDifferentAlignRules || hasDvmIntervals ||
+               !isFor;
     }
     
     bool hasLimitsToSplit() const
     {
-        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasStops;
+        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasStops || !isFor;
     }
 
     void addConflictMessages(std::vector<Messages> *messages)
@@ -158,6 +161,9 @@ public:
 
         if (hasDvmIntervals)
             messages->push_back(Messages(NOTE, line, R145, L"DVM intervals prevent parallelization of this loop", 3006));
+
+        if (!isFor || !inCanonicalFrom)
+            messages->push_back(Messages(NOTE, line, R178, L"This type of loop is not supported by the system", 3006));
     }
 
     void setNewRedistributeRules(const std::vector<std::pair<DIST::Array*, DistrVariant*>> &newRedistributeRules)
@@ -395,6 +401,10 @@ public:
     bool hasNonPureProcedures;
     
     bool hasDvmIntervals;
+
+    bool isFor;
+
+    bool inCanonicalFrom;
 
     std::vector<LoopGraph*> children;
     std::vector<LoopGraph*> funcChildren;

@@ -653,7 +653,7 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
     {
         if (loops[i]->region)
         {            
-            if (loops[i]->countOfIters == 0 && loops[i]->region)
+            if (loops[i]->countOfIters == 0 && loops[i]->region && loops[i]->isFor)
             {
                 wstring bufE, bufR;
                 __spf_printToLongBuf(bufE, L"Can not calculate count of iterations for this loop, information about iterations in all loops in parallel regions '%s' will be ignored", 

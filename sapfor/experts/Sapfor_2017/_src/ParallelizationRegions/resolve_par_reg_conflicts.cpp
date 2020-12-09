@@ -992,18 +992,16 @@ static void copyFunction(ParallelRegion *region,
         SgSymbol *newFuncSymb = NULL;
         SgFile *file = func->funcPointer->GetOriginal()->getFile();
         string newFuncName = string(funcSymb->identifier()) + suffix;
-
+                
         // create copy function symbol and copy function for original function
-        newFuncSymb = &(funcSymb->copySubprogram(*(file->firstStatement())));
-        newFuncSymb = &newFuncSymb->copy();
-        newFuncSymb->changeName(newFuncName.c_str());
-        file->firstStatement()->lexNext()->setSymbol(*newFuncSymb);
+        SgStatement* copyFunc = duplicateProcedure(funcStat, newFuncName, false, false, false);
+        newFuncSymb = copyFunc->symbol();
 
         if (SgFile::switchToFile(func->fileName) == -1)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         // set line numbers
-        for (auto origStat = funcStat, copyStat = file->firstStatement()->lexNext();
+        for (auto origStat = funcStat, copyStat = copyFunc;
              origStat != funcStat->lastNodeOfStmt()->lexNext();
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
@@ -1015,8 +1013,8 @@ static void copyFunction(ParallelRegion *region,
         }
 
         // replace all func calls in copy function
-        Statement *begin = new Statement(file->firstStatement()->lexNext());
-        Statement *end = new Statement(file->firstStatement()->lexNext()->lastNodeOfStmt());
+        Statement *begin = new Statement(copyFunc);
+        Statement *end = new Statement(copyFunc->lastNodeOfStmt());
         pair<Statement*, Statement*> beginEnd = make_pair(begin, end);
         pair<int, int> newLines = make_pair(beginEnd.first->lineNumber(), beginEnd.second->lineNumber());
         ParallelRegionLines newFuncLines(newLines, beginEnd);
@@ -1026,7 +1024,7 @@ static void copyFunction(ParallelRegion *region,
             replaceSymbol(current_file->filename(), newFuncLines, func->funcName, newFuncSymb);
 
         // try to find common-block and add new if common-block exists
-        for (auto origStat = funcStat, copyStat = file->firstStatement()->lexNext();
+        for (auto origStat = funcStat, copyStat = copyFunc;
              origStat && (!isSgExecutableStatement(origStat) || isSPF_stat(origStat));
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
@@ -1111,10 +1109,6 @@ static void copyFunction(ParallelRegion *region,
                 break;
             }
         }
-
-        // move copy function to original function
-        newFuncStat = file->firstStatement()->lexNext()->extractStmt();
-        funcStat->insertStmtBefore(*newFuncStat, *funcStat->controlParent());
     }
     else
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);

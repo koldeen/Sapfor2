@@ -1107,8 +1107,11 @@ static void doReplacement(SgExpression *ex, const map<string, int> &idsToIdx, co
             auto it = idsToIdx.find(key);
             if (it != idsToIdx.end())
             {
-                const int value = *values.find(it->second)->second.begin();
-                ex->setLhs(*new SgValueExp(value));
+                if (values.find(it->second) != values.end())
+                {
+                    const int value = *values.find(it->second)->second.begin();
+                    ex->setLhs(*new SgValueExp(value));
+                }
             }
         }
 
@@ -2291,7 +2294,6 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                             tmpLoops.push_back(tmpLoop);
 
                             map<SgSymbol*, ArrayInfo> toConvert;
-
                             ArrayInfo toAdd;
                             SgSymbol *arrayS = notMapped.second.first;
                             toAdd.dimSize = ((SgArrayType*)arrayS->type())->dimension();

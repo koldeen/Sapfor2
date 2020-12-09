@@ -60,20 +60,63 @@ SgStatement* createStatFromExprs(const vector<Expression*> &exprs)
     return result;
 }
 
+static void removeDoubleRealign(vector<vector<Expression*>>& realigns)
+{
+    if (realigns.size() < 2)
+        return;
+    vector<bool> save;
+    for (int z = 0; z < realigns.size(); ++z)
+        save.push_back(true);
+
+    bool changed = false;
+    for (int z = 1; z < realigns.size(); ++z)
+    {
+        if (string(realigns[z][0]->unparse()) == realigns[z - 1][0]->unparse())
+        {
+            save[z - 1] = false;
+            changed = true;
+        }
+        else
+        {
+            //TODO: check list and remove
+        }
+    }
+
+    if (!changed)
+        return;
+
+    vector<vector<Expression*>> newVal;
+    for (int z = 0; z < realigns.size(); ++z)
+        if (save[z])
+            newVal.push_back(realigns[z]);
+    realigns = newVal;
+}
+
 static void filterInsertMap(map<int, vector<vector<Expression*>>> &toInsertMap)
 {
     for (auto it = toInsertMap.begin(); it != toInsertMap.end(); ++it)
     {
         vector<vector<Expression*>> newVal;
-        for (int z = 1; z < it->second.size(); ++z)
+
+        vector<vector<Expression*>> realign, redis;
+        for (int z = 0; z < it->second.size(); ++z)
         {
-            //removeDoubleRedistribute
             if (it->second[z].size() == 4)
-                if (it->second[z].size() == it->second[z - 1].size())
-                    continue;
-            newVal.push_back(it->second[z - 1]);
+                redis.push_back(it->second[z]);
+            else if (it->second[z].size() == 5)
+                realign.push_back(it->second[z]);
+            else 
+                newVal.push_back(it->second[z]);
         }
-        newVal.push_back(it->second.back());
+        //removeDoubleRedistribute
+        //TODO: deprecated?
+        for (auto& elem : redis)
+            newVal.push_back(elem);
+
+        //removeDoubleRealign
+        removeDoubleRealign(realign);
+        for (auto& elem : realign)
+            newVal.push_back(elem);
 
         //sort by type
         map<int, vector<vector<Expression*>>> toSort;

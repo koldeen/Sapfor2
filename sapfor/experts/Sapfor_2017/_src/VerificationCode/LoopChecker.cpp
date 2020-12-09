@@ -72,29 +72,39 @@ bool EndDoLoopChecker(SgFile *file, vector<Messages> &currMessages)
             if (st->variant() == FOR_NODE)
             {
                 SgForStmt *currSt = (SgForStmt*)st;
-
-                set<string> globalPriv;
-                if (globalParallelSection.privVars.size())
-                    globalPriv = globalParallelSection.privVars;
-                auto res = parseOmpDirs(st, globalPriv, true);
-
                 if (currSt->isEnddoLoop() == 0)
                 {
                     __spf_print(1, "  ERROR: Loop on line %d does not have END DO\n", st->lineNumber());
-#if _WIN32
                     currMessages.push_back(Messages(ERROR, st->lineNumber(), R51, L"This loop does not have END DO format", 1018));
-#endif                    
                     checkOK = false;
+                }
+                else
+                {
+                    set<string> globalPriv;
+                    if (globalParallelSection.privVars.size())
+                        globalPriv = globalParallelSection.privVars;
+                    auto res = parseOmpDirs(st, globalPriv, true);
                 }
             }
 
             if (st->variant() == FORALL_NODE || st->variant() == FORALL_STAT)
             {
                 __spf_print(1, "  ERROR: Loop on line %d does not have END DO\n", st->lineNumber());
-#if _WIN32
                 currMessages.push_back(Messages(ERROR, st->lineNumber(), R50, L"This loop does not have END DO format", 1018));
-#endif          
                 checkOK = false;
+            }
+
+            if (st->variant() == WHILE_NODE)
+            {
+                auto last = st->lastNodeOfStmt();
+                auto str = string(last->unparse());
+                convertToLower(str);
+                if (last->variant() != CONTROL_END || str.find("enddo") == string::npos)
+                {
+                    __spf_print(1, "  ERROR: Loop on line %d does not have END DO\n", st->lineNumber());
+                    currMessages.push_back(Messages(ERROR, st->lineNumber(), R50, L"This loop does not have END DO format", 1018));
+                    checkOK = false;
+                }
             }
 
             st = st->lexNext();
@@ -167,9 +177,7 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<Paral
                 if (needToReport)
                 {
                     __spf_print(1, "The equivalence operator is not supported yet at line %d of file %s\n", st->lineNumber(), st->fileName());
-#if _WIN32
                     currMessages[st->fileName()].push_back(Messages(WARR, st->lineNumber(), R70, L"An equivalence operator is not supported yet", 1038));
-#endif
                 }
             }
 
@@ -177,9 +185,7 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<Paral
             {
                 checkOK = false;
                 __spf_print(1, "The PAUSE operator is not supported yet at line %d of file %s\n", st->lineNumber(), st->fileName());
-#if _WIN32
                 currMessages[st->fileName()].push_back(Messages(ERROR, st->lineNumber(), R69, L"An PAUSE operator is deprecated to parallel", 1038));
-#endif
             }
             st = st->lexNext();
         }
@@ -254,12 +260,12 @@ bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, 
                         to_wstring(vars[i].getName()).c_str(), to_wstring(vars[j].getName()).c_str(), to_wstring(block.first).c_str(),
                         to_wstring(vars[i].getDeclarated()->fileName()).c_str(), vars[i].getDeclarated()->lineNumber(),
                         to_wstring(vars[j].getDeclarated()->fileName()).c_str(), vars[j].getDeclarated()->lineNumber());
-#if _WIN32
+
                     __spf_printToLongBuf(messageR, R71,
                         to_wstring(vars[i].getName()).c_str(), to_wstring(vars[j].getName()).c_str(), to_wstring(block.first).c_str(),
                         to_wstring(vars[i].getDeclarated()->fileName()).c_str(), vars[i].getDeclarated()->lineNumber(),
                         to_wstring(vars[j].getDeclarated()->fileName()).c_str(), vars[j].getDeclarated()->lineNumber());
-#endif
+
                     const int line = currUse->getDeclaratedPlace()->lineNumber();
                     currMessages.push_back(Messages(typeMessage, line, messageR, messageE, 1039));
                 }
@@ -291,7 +297,7 @@ bool FunctionsChecker(SgFile *file, map<string, pair<string, int>> &funcNames, m
             {
                 __spf_print(1, "the same function name in different places was found: func %s, palces %s:%d and %s:%d\n", 
                             it->first.c_str(), it->second.first.c_str(), it->second.second, file->filename(), st->lineNumber());
-#if _WIN32
+
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"Function '%s' was declared in more than one place: '%s':%d and '%s':%d",
                                                 to_wstring(funcName).c_str(), to_wstring(it->second.first).c_str(),
@@ -303,7 +309,7 @@ bool FunctionsChecker(SgFile *file, map<string, pair<string, int>> &funcNames, m
 
                 currMessages[st->fileName()].push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1048));
                 currMessages[it->second.first].push_back(Messages(ERROR, it->second.second, messageR, messageE, 1048));
-#endif
+
                 checkOK = false;
             }
         }

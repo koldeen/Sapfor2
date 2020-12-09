@@ -89,7 +89,7 @@ static char* ConvertShortToChar(const short* source, int& strL)
     return dist;
 }
 
-static void setOptions(const short *options)
+static void setOptions(const short* options, bool isBuildParallel = false)
 {
     if (!optionNames[STATIC_SHADOW_ANALYSIS])
     {
@@ -108,6 +108,7 @@ static void setOptions(const short *options)
         optionNames[DEBUG_PRINT_ON] = "DEBUG_PRINT_ON";
         optionNames[MPI_PROGRAM] = "MPI_PROGRAM";
         optionNames[IGNORE_IO_SAPFOR] = "IGNORE_IO_SAPFOR";
+        optionNames[KEEP_SPF_DIRECTIVES_AMONG_TRANSFORMATIONS] = "KEEP_SPF_DIRECTIVES_AMONG_TRANSFORMATIONS";
         optionNames[EMPTY_OPTION] = "EMPTY_OPTION";
     }
 
@@ -144,7 +145,10 @@ static void setOptions(const short *options)
     staticShadowAnalysis = intOptions[STATIC_SHADOW_ANALYSIS];
     staticPrivateAnalysis = intOptions[STATIC_PRIVATE_ANALYSIS];
     out_free_form = intOptions[FREE_FORM];
-    keepSpfDirs = intOptions[KEEP_SPF_DIRECTIVES];    
+    if (isBuildParallel)
+        keepSpfDirs = intOptions[KEEP_SPF_DIRECTIVES];
+    else
+        keepSpfDirs = intOptions[KEEP_SPF_DIRECTIVES_AMONG_TRANSFORMATIONS];
     maxShadowWidth = intOptions[MAX_SHADOW_WIDTH];
     out_upper_case = intOptions[OUTPUT_UPPER];
     langOfMessages = intOptions[TRANSLATE_MESSAGES];
@@ -909,7 +913,7 @@ int SPF_CreateParallelVariant(void*& context, int winHandler, short *options, sh
 
     allPredictorStats.clear();
     clearGlobalMessagesBuffer();
-    setOptions(options);
+    setOptions(options, true);
 
     int retSize = 0;
     try
