@@ -37,6 +37,7 @@ bool removeNestedIntervals = false; // nested intervals removal flag
 int langOfMessages = 1; // 0 - ENG, 1 - RUS
 int mpiProgram = 0; // detected mpi calls
 int ignoreIO = 0; // ignore io checker for arrays (DVM IO limitations)
+int parseForInlining = 0; // special regime for files parsing for inliner
 
 uint64_t currentAvailMemory = 0;
 int QUALITY; // quality of conflicts search in graph
@@ -125,6 +126,7 @@ std::map<std::string, std::string> outData; // file -> new unparsed text
 //for SPF INLINE PROCEDURES
 std::vector<std::tuple<std::string, std::string, int>> inDataProc; // [<file, proc, line>]
 std::vector<FuncInfo*> inDataAllProc; // all procedures
+std::map<std::string, std::vector<SgStatement*>> hiddenData; // [<file -> all hidden stmts]
 //
 
 //module includes across all files, need to correct lines and out versions

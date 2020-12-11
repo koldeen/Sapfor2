@@ -892,7 +892,7 @@ spec:	  type_dcl
 
 interface: INTERFACE in_dcl
 	    { $$ = get_bfnd(fi, INTERFACE_STMT, SMNULL, LLNULL, LLNULL, LLNULL); 
-             /* add_scope_level($$, NO); */    
+              add_scope_level($$, NO);     
             }
 	| INTERFACE in_dcl name
 	    { PTR_SYMB s;
@@ -900,7 +900,7 @@ interface: INTERFACE in_dcl
 	      s = make_procedure($3, LOCAL);
 	      s->variant = INTERFACE_NAME;
 	      $$ = get_bfnd(fi, INTERFACE_STMT, s, LLNULL, LLNULL, LLNULL);
-              /*add_scope_level($$, NO);*/
+              add_scope_level($$, NO);
 	    }
 	| INTERFACEOPERATOR in_dcl LEFTPAR operator RIGHTPAR 
 	    { PTR_SYMB s;
@@ -908,7 +908,7 @@ interface: INTERFACE in_dcl
 	      s = make_function($4, global_default, LOCAL);
 	      s->variant = INTERFACE_NAME;
 	      $$ = get_bfnd(fi, INTERFACE_OPERATOR, s, LLNULL, LLNULL, LLNULL);
-              /*add_scope_level($$, NO);*/
+              add_scope_level($$, NO);
 	    }
 	| INTERFACEASSIGNMENT in_dcl LEFTPAR EQUAL RIGHTPAR
 	    { PTR_SYMB s;
@@ -917,13 +917,13 @@ interface: INTERFACE in_dcl
 	      s = make_procedure(look_up_sym("="), LOCAL);
 	      s->variant = INTERFACE_NAME;
 	      $$ = get_bfnd(fi, INTERFACE_ASSIGNMENT, s, LLNULL, LLNULL, LLNULL);
-              /*add_scope_level($$, NO);*/
+              add_scope_level($$, NO);
 	    }
 	| ENDINTERFACE  opt_unit_name 
 	    { parstate = INDCL;
               $$ = get_bfnd(fi, CONTROL_END, SMNULL, LLNULL, LLNULL, LLNULL); 
 	      /*process_interface($$);*/ /*podd 01.02.03*/
-              /*delete_beyond_scope_level(pred_bfnd);*/
+              delete_beyond_scope_level(pred_bfnd);
 	    }
 	;
 

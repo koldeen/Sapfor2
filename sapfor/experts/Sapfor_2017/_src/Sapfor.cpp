@@ -2114,6 +2114,58 @@ static SgProject* createProject(const char *proj_name)
 
     Statement::activeConsistentchecker();
 
+    //hide duplicated functions
+    for (int z = 0; z < project->numberOfFiles(); ++z)
+    {
+        SgFile* file = &(project->file(z));
+
+        const string fileN = file->filename();
+        auto first = file->firstStatement();
+        SgStatement* lastValid = NULL;
+        for (SgStatement* st = first->lexNext(), *stPrev = first; 
+             st; 
+             st = st->lexNext(), stPrev = stPrev->lexNext())
+        {
+            if (st->comments())
+            {
+                string comm(st->comments());
+                if (comm.find("!SPF SHADOW FILES") != string::npos)
+                {
+                    if (st->variant() == CONTROL_END)
+                        lastValid = st;
+                    else
+                        lastValid = stPrev;
+                    break;
+                }
+            }
+        }
+
+        if (lastValid)
+        {
+            vector<SgStatement*> toExtract;
+            auto st = lastValid->lexNext();
+            while (st)
+            {
+                toExtract.push_back(st);
+                st = st->lastNodeOfStmt();
+                st = st->lexNext();
+            }
+
+            /*for (auto st = lastValid->lexNext(); st; st = st->lexNext())
+                ;*/
+
+            set<int> validVars = { PROG_HEDR, FUNC_HEDR, PROC_HEDR, BLOCK_DATA, MODULE_STMT };
+            for (auto& elem : toExtract)
+            {
+                int var = elem->variant();
+                if (validVars.find(var) == validVars.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                hiddenData[fileN].push_back(elem->extractStmt());
+            }
+            lastValid->setLexNext((SgStatement*)NULL);
+        }
+    }
+
     //dump symbol table and symbol use
     /*printSymbolTable(current_file);
     for (auto st = current_file->firstStatement()->lexNext(); st; st = st->lexNext())
@@ -2425,7 +2477,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         break;
     case PARSE_FILES:
         {
-            int err = parseFiles(proj_name, filesCompilationOrder);
+            int err = parseFiles(proj_name, filesCompilationOrder, parseForInlining);
             if (err != 0)
                 throw err;
         }

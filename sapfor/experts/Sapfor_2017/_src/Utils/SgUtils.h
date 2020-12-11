@@ -73,7 +73,7 @@ std::string unparseProjectToString(SgFile* file, const int curr_regime);
 
 SgStatement* makeDeclaration(SgStatement* curr, const std::vector<SgSymbol*>& s, std::vector<SgExpression*>* inits = NULL);
 
-int parseFiles(const char* proj, std::vector<std::string>& filesCompilationOrder);
+int parseFiles(const char* proj, std::vector<std::string>& filesCompilationOrder, int parseForInlining);
 int pppaAnalyzer(const char* options);
 
 int getNextFreeLabel();

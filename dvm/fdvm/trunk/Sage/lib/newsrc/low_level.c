@@ -65,6 +65,7 @@ int *evaluateExpression();
 PTR_SYMB duplicateSymbolOfRoutine();
 void SetCurrentFileTo();
 void UnparseProgram_ThroughAllocBuffer();
+void updateTypesAndSymbolsInBodyOfRoutine();
 
 extern int write_nodes();
 extern char* Tool_Unparse2_LLnode(); 
@@ -7505,6 +7506,7 @@ PTR_SYMB symb;
     case FUNCTION_NAME:
     case PROCEDURE_NAME:
     case PROCESS_NAME:
+    case MODULE_NAME:
       body = SYMB_FUNC_HEDR(symb);
       if (!body)
         body = getFunctionHeaderAllFile(symb);
@@ -8900,32 +8902,144 @@ void updatesSymbolsInTypeExpressions(PTR_BFND new_stmt)
    for( symb=first_new; symb; symb = SYMB_NEXT(symb)) 
       replaceSymbInTypeOfSymbols(symb,first_new);
 }
-
-void updateTypesAndSymbolsInBodyOfRoutine(PTR_SYMB symb, PTR_BFND stmt, PTR_BFND new_stmt, PTR_BFND where)
+/*podd 05.12.20*/
+void updateSymbInInterfaceBlock(PTR_BFND block)
 {
-    PTR_SYMB oldsymb, param, newsymb, until, const_list, first_const_name;
-    PTR_BFND last;
+    PTR_BFND last, stmt;
+    PTR_SYMB symb, newsymb;
+    last = getLastNodeOfStmt(block);
+    stmt = BIF_NEXT(block);
+    while(stmt != last)
+    {
+        symb = BIF_SYMB(stmt);
+        if(symb && (BIF_CODE(stmt) == FUNC_HEDR || BIF_CODE(stmt) == PROC_HEDR))
+        {           
+            newsymb = duplicateSymbolLevel1(symb);
+            SYMB_SCOPE(newsymb) = block;
+            updateTypesAndSymbolsInBodyOfRoutine(newsymb, stmt, stmt);
+            stmt = BIF_NEXT(getLastNodeOfStmt(stmt));
+        } 
+        else
+            stmt = BIF_NEXT(stmt); 
+    }  
+}
+
+updateSymbolsOfList(PTR_LLND slist, PTR_BFND struct_stmt)
+{  
+    PTR_LLND ll;
+    PTR_SYMB symb, newsymb;
+    for(ll=slist; ll; ll=ll->entry.Template.ll_ptr2)
+    {
+        symb = NODE_SYMB(ll->entry.Template.ll_ptr1); 
+        if(symb)
+        {  
+           newsymb = duplicateSymbolLevel1(symb); 
+           SYMB_SCOPE(newsymb) = struct_stmt;  
+           NODE_SYMB(ll->entry.Template.ll_ptr1) = newsymb;  
+        }
+    }
+}
+
+void updateSymbolsOfStructureFields(PTR_BFND struct_stmt)
+{
+    PTR_BFND last, stmt;
+    last = getLastNodeOfStmt(struct_stmt);
+    for(stmt=BIF_NEXT(struct_stmt); stmt!=last; stmt=BIF_NEXT(stmt))
+    {   
+        if(BIF_CODE(stmt) == VAR_DECL || BIF_CODE(stmt) == VAR_DECL_90)
+           updateSymbolsOfList(stmt->entry.Template.ll_ptr1, struct_stmt);
+    }
+}
+
+void updateSymbolsInStructures(PTR_BFND new_stmt)
+{
+    PTR_BFND last, stmt;
+    last = getLastNodeOfStmt(new_stmt);
+    for(stmt=BIF_NEXT(new_stmt); stmt!=last; stmt=BIF_NEXT(stmt))
+    {
+        if( BIF_CODE(stmt) == STRUCT_DECL)
+        {
+            updateSymbolsOfStructureFields(stmt);
+            stmt = getLastNodeOfStmt(stmt);
+        } 
+    }
+}
+
+void updateSymbolsInInterfaceBlocks(PTR_BFND new_stmt)
+{
+    PTR_BFND last, stmt;
+    last = getLastNodeOfStmt(new_stmt);
+    for(stmt=BIF_NEXT(new_stmt); stmt!=last; stmt=BIF_NEXT(stmt))
+    {
+        if(BIF_CODE(stmt) == INTERFACE_STMT || BIF_CODE(stmt) == INTERFACE_ASSIGNMENT || BIF_CODE(stmt) == INTERFACE_OPERATOR )
+        {   
+            updateSymbInInterfaceBlock(stmt); 
+            stmt = getLastNodeOfStmt(stmt);
+        }
+    }
+}
+
+PTR_BFND getHedrOfSymb(PTR_SYMB symb, PTR_BFND new_stmt)
+{
+    PTR_BFND last, stmt;
+    last = getLastNodeOfStmt(new_stmt);
+    for(stmt = new_stmt; stmt != last; stmt = BIF_NEXT(stmt))
+    {   
+        if((stmt->variant == FUNC_HEDR || stmt->variant == PROC_HEDR) && BIF_SYMB(stmt) && !strcmp(symb->ident,BIF_SYMB(stmt)->ident))   
+            return stmt; 
+    }
+    return NULL;
+}
+
+void updateTypesAndSymbolsInBodyOfRoutine(PTR_SYMB new_symb, PTR_BFND stmt, PTR_BFND new_stmt)
+{
+    PTR_SYMB oldsymb, newsymb, until, const_list, first_const_name;
+    PTR_BFND last, last_new;
     PTR_TYPE type;
-    
-    if (!stmt)
-        return;
+    PTR_SYMB symb, ptsymb, ptref;
+    if (!stmt || !new_stmt)
+        return; 
+    symb =  BIF_SYMB(stmt);
+    BIF_SYMB(new_stmt) = new_symb;
+    new_symb->decl = 1;
+    if(SYMB_CODE(new_symb) == PROGRAM_NAME)
+        new_symb->entry.prog_decl.prog_hedr = new_stmt;
+    else 
+        SYMB_FUNC_HEDR(new_symb) = new_stmt;
+    last_new = getLastNodeOfStmt(new_stmt);
+    updateTypeAndSymbolInStmts(new_stmt, last_new, symb, new_symb);
+            
+    /* we have to propagate change in the param list in the new body */
+    if(SYMB_CODE(new_symb) == PROGRAM_NAME || SYMB_CODE(new_symb) == MODULE_NAME)
+        ptsymb = ptref = SMNULL;
+    else
+    {
+        ptsymb = SYMB_FUNC_PARAM(new_symb);
+        ptref  = SYMB_FUNC_PARAM(symb);
+    }
+    while (ptsymb)
+    {
+        SYMB_SCOPE(ptsymb) = new_stmt;
+        updateTypeAndSymbolInStmts(new_stmt, last_new, ptref, ptsymb);
+        ptsymb = SYMB_NEXT_DECL(ptsymb);        
+        ptref  = SYMB_NEXT_DECL(ptref);
+    }
+
     const_list = first_const_name = SMNULL; /* to make a list of constant names  */
 
-    last = getLastNodeOfStmt(stmt);
-
-    if (BIF_NEXT(last) && BIF_CODE(BIF_NEXT(last)) != COMMENT_STAT)
+    last = getLastNodeOfStmt(stmt);    
+    if (BIF_NEXT(last) && BIF_CODE(BIF_NEXT(last)) != COMMENT_STAT && stmt != new_stmt)
         until = BIF_SYMB(BIF_NEXT(last));
     else
-        until = SYMB_NEXT(last_file_symbol);    //last_file_symbol is last symbol of source file's Symbol Table
+        until = SYMB_NEXT(last_file_symbol);    /*last_file_symbol is last symbol of source file's Symbol Table */
 
-    param = SYMB_FUNC_PARAM(symb);
     for (oldsymb = SYMB_NEXT(symb); oldsymb && oldsymb != until; oldsymb = SYMB_NEXT(oldsymb))
     {
         if (SYMB_SCOPE(oldsymb) == stmt)
         {              
             if (SYMB_TEMPLATE_DUMMY1(oldsymb) != IO)  /*is not a dummy parameter */
             {
-                newsymb = duplicateSymbolOfRoutine(oldsymb, where);
+                newsymb = duplicateSymbolLevel1(oldsymb); 
                 if(SYMB_CODE(newsymb)==CONST_NAME) 
                 {
                     if(first_const_name == SMNULL)
@@ -8938,22 +9052,25 @@ void updateTypesAndSymbolsInBodyOfRoutine(PTR_SYMB symb, PTR_BFND stmt, PTR_BFND
                     const_list = newsymb;
                 }
 
+                if((SYMB_CODE(newsymb)==FUNCTION_NAME || SYMB_CODE(newsymb)==PROCEDURE_NAME) && SYMB_FUNC_HEDR(oldsymb)) 
+                   updateTypesAndSymbolsInBodyOfRoutine(newsymb, SYMB_FUNC_HEDR(oldsymb), getHedrOfSymb(oldsymb,new_stmt));              
+               
                 SYMB_SCOPE(newsymb) = new_stmt;
-                updateTypeAndSymbolInStmts(new_stmt, getLastNodeOfStmt(new_stmt), oldsymb, newsymb);
+                updateTypeAndSymbolInStmts(new_stmt, last_new, oldsymb, newsymb);
             }
         }
     }
     updateConstantSymbolsInParameterValues(first_const_name); /*podd 26.02.19*/
     updatesSymbolsInTypeExpressions(new_stmt);                /*podd 26.02.19*/
-
+    updateSymbolsInInterfaceBlocks(new_stmt);                 /*podd 07.12.20*/
+    updateSymbolsInStructures(new_stmt);                      /*podd 07.12.20*/
 }
 
 PTR_SYMB duplicateSymbolOfRoutine(PTR_SYMB symb, PTR_BFND where)
 {
     PTR_SYMB newsymb;
-    PTR_BFND body, newbody, last, before, cp;
-    PTR_SYMB ptsymb, ptref;
-    
+    PTR_BFND body, newbody, last;
+             
     if (!symb)
         return NULL;
 
@@ -8962,12 +9079,10 @@ PTR_SYMB duplicateSymbolOfRoutine(PTR_SYMB symb, PTR_BFND where)
         Message("duplicateSymbolAcrossFiles; Not a symbol node", 0);
         return NULL;
     }
-    
+   
     newsymb = duplicateSymbolLevel1(symb);
-    newsymb->dovar = 1;
-    symb->dovar = 1;
-    /* need a function resetDovar for all files and all symb to be called before*/
-    SYMB_SCOPE(newsymb) = where;
+
+    SYMB_SCOPE(newsymb) = SYMB_SCOPE(symb); /*where*/
 
     /* to be updated later Not that simple*/
     switch (SYMB_CODE(symb))
@@ -8975,13 +9090,11 @@ PTR_SYMB duplicateSymbolOfRoutine(PTR_SYMB symb, PTR_BFND where)
     case FUNCTION_NAME:
     case PROCEDURE_NAME:
     case PROGRAM_NAME:
+    case MODULE_NAME:
 
-        body = getBodyOfSymb(symb);
-        if (body && (cp = BIF_CP(body)) && cp->variant != INTERFACE_STMT && cp->variant != INTERFACE_ASSIGNMENT && cp->variant != INTERFACE_OPERATOR) /*20.04.17*/
-        {
-            before = getNodeBefore(body);
+            body = getBodyOfSymb(symb);
             last = getLastNodeOfStmt(body);
-            newbody = duplicateStmtsNoExtract(body);
+            newbody = duplicateStmtsNoExtract(body);  
             if (where)
             {
                 if (BIF_CODE(where) == GLOBAL)
@@ -8989,37 +9102,14 @@ PTR_SYMB duplicateSymbolOfRoutine(PTR_SYMB symb, PTR_BFND where)
                 else
                     insertBfndListIn(newbody, where, BIF_CP(where));
             }
-            BIF_SYMB(newbody) = newsymb;
-            if(SYMB_CODE(newsymb) == PROGRAM_NAME)
-               newsymb->entry.prog_decl.prog_hedr = newbody;
-            else 
-               SYMB_FUNC_HEDR(newsymb) = newbody;
-            last = getLastNodeOfStmt(newbody);
-            updateTypeAndSymbolInStmts(newbody, last, symb, newsymb);
-            
-            /* we have to propagate change in the param list in the new body */
-            if(SYMB_CODE(newsymb) == PROGRAM_NAME)
-               ptsymb = ptref = SMNULL;
-            else
-            {
-               ptsymb = SYMB_FUNC_PARAM(newsymb);
-               ptref  = SYMB_FUNC_PARAM(symb);
-            }
-            while (ptsymb)
-            {
-                SYMB_SCOPE(ptsymb) = newbody;
-                updateTypeAndSymbolInStmts(newbody, last, ptref, ptsymb);
-                ptsymb = SYMB_NEXT_DECL(ptsymb);
-                ptref  = SYMB_NEXT_DECL(ptref);
-            }
-            /* update the all the symbol and type used in the statement */
-            updateTypesAndSymbolsInBodyOfRoutine(symb, body, newbody, where);
+            /* update the all the symbol and type used in the program unit */
+            updateTypesAndSymbolsInBodyOfRoutine(newsymb, body, newbody);
 
                         /*          printf(">>>>>>>>>>>>>>>>>>>>>>\n");
                                     UnparseProgram(stdout);
                                     printf("<<<<<<<<<<<<<<<<<<<<<<\n");     */
-        }
-        break;
+        
+            break;
     }
     return newsymb;
 }

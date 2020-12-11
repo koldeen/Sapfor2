@@ -190,7 +190,7 @@ public:
     inline SgStatement *controlParent(); // the enclosing control statement
 
     inline void setLexNext(SgStatement &s); // change the lexical ordering
-
+    inline void setLexNext(SgStatement* s);
 #ifndef __SPF
     // change the control parent.
     // DEPRECATED IN SAPFOR!!
@@ -3413,6 +3413,17 @@ inline void  SgStatement::setLexNext(SgStatement &s)
     checkConsistence();
 #endif
     BIF_NEXT(thebif) = s.thebif; 
+}
+
+inline void  SgStatement::setLexNext(SgStatement* s)
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    if (s)
+        BIF_NEXT(thebif) = s->thebif;
+    else
+        BIF_NEXT(thebif) = NULL;
 }
 
 inline SgStatement * SgStatement::lastDeclaration()

@@ -109,6 +109,7 @@ static void setOptions(const short* options, bool isBuildParallel = false)
         optionNames[MPI_PROGRAM] = "MPI_PROGRAM";
         optionNames[IGNORE_IO_SAPFOR] = "IGNORE_IO_SAPFOR";
         optionNames[KEEP_SPF_DIRECTIVES_AMONG_TRANSFORMATIONS] = "KEEP_SPF_DIRECTIVES_AMONG_TRANSFORMATIONS";
+        optionNames[PARSE_FOR_INLINE] = "PARSE_FOR_INLINE";
         optionNames[EMPTY_OPTION] = "EMPTY_OPTION";
     }
 
@@ -159,6 +160,8 @@ static void setOptions(const short* options, bool isBuildParallel = false)
     parallizeFreeLoops = (mpiProgram == 1) ? 0 : intOptions[PARALLIZE_FREE_LOOPS];
     ignoreIO =           (mpiProgram == 1) ? 1 : intOptions[IGNORE_IO_SAPFOR];
     keepDvmDirectives =  (mpiProgram == 1) ? 0 : intOptions[KEEP_DVM_DIRECTIVES];
+
+    parseForInlining = 0;// intOptions[PARSE_FOR_INLINE];
 
     string optAnalisys = splited.size() > ANALYSIS_OPTIONS ? splited[ANALYSIS_OPTIONS] : "";
 }
@@ -2036,7 +2039,7 @@ const wstring Sapfor_RunAnalysis(const char* analysisName_c, const char* options
         else if (whichRun == "SPF_ParseFiles")
             retCode = SPF_ParseFiles(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize);
         else if (whichRun == "SPF_ParseFilesWithOrder")
-            retCode = SPF_ParseFilesWithOrder(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+            retCode = SPF_ParseFilesWithOrder(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);        
         else if (whichRun == "SPF_StatisticAnalyzer")
             retCode = SPF_StatisticAnalyzer(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize);
         else if (whichRun == "SPF_GetPassesStateStr")

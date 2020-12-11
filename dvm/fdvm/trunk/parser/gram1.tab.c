@@ -5995,7 +5995,7 @@ yyreduce:
   case 77:
 #line 1245 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi, INTERFACE_STMT, SMNULL, LLNULL, LLNULL, LLNULL); 
-             /* add_scope_level($$, NO); */    
+              add_scope_level((yyval.bf_node), NO);     
             ;}
     break;
 
@@ -6006,7 +6006,7 @@ yyreduce:
 	      s = make_procedure((yyvsp[(3) - (3)].hash_entry), LOCAL);
 	      s->variant = INTERFACE_NAME;
 	      (yyval.bf_node) = get_bfnd(fi, INTERFACE_STMT, s, LLNULL, LLNULL, LLNULL);
-              /*add_scope_level($$, NO);*/
+              add_scope_level((yyval.bf_node), NO);
 	    ;}
     break;
 
@@ -6017,7 +6017,7 @@ yyreduce:
 	      s = make_function((yyvsp[(4) - (5)].hash_entry), global_default, LOCAL);
 	      s->variant = INTERFACE_NAME;
 	      (yyval.bf_node) = get_bfnd(fi, INTERFACE_OPERATOR, s, LLNULL, LLNULL, LLNULL);
-              /*add_scope_level($$, NO);*/
+              add_scope_level((yyval.bf_node), NO);
 	    ;}
     break;
 
@@ -6029,7 +6029,7 @@ yyreduce:
 	      s = make_procedure(look_up_sym("="), LOCAL);
 	      s->variant = INTERFACE_NAME;
 	      (yyval.bf_node) = get_bfnd(fi, INTERFACE_ASSIGNMENT, s, LLNULL, LLNULL, LLNULL);
-              /*add_scope_level($$, NO);*/
+              add_scope_level((yyval.bf_node), NO);
 	    ;}
     break;
 
@@ -6038,7 +6038,7 @@ yyreduce:
     { parstate = INDCL;
               (yyval.bf_node) = get_bfnd(fi, CONTROL_END, SMNULL, LLNULL, LLNULL, LLNULL); 
 	      /*process_interface($$);*/ /*podd 01.02.03*/
-              /*delete_beyond_scope_level(pred_bfnd);*/
+              delete_beyond_scope_level(pred_bfnd);
 	    ;}
     break;
 

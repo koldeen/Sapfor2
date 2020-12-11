@@ -2776,19 +2776,23 @@ static set<FileInfo*> applyModuleDeclsForFile(FileInfo *forFile, const map<strin
                                               const map<string, string>& moduleDelc, 
                                               const map<string, set<string>>& mapModuleDeps,
                                               const map<string, set<string>>& modDirectOrder,
-                                              vector<string> &optSplited)
+                                              vector<string> &optSplited, 
+                                              bool includeForInline = false)
 {
     set<FileInfo*> retFilesMod;
 
     auto itF = mapModuleDeps.find(forFile->fileName);
-    if (itF == mapModuleDeps.end())
+    if (itF == mapModuleDeps.end() && !includeForInline)
         return retFilesMod;
 
     vector<string> toIncl;
     set<string> done;
-    for (auto& mod : itF->second)
-        if (moduleDelc.find(mod) != moduleDelc.end())
-            createIncludeOrder(toIncl, moduleDelc, modDirectOrder, done, mod);
+    if (itF != mapModuleDeps.end())
+    {
+        for (auto& mod : itF->second)
+            if (moduleDelc.find(mod) != moduleDelc.end())
+                createIncludeOrder(toIncl, moduleDelc, modDirectOrder, done, mod);
+    }
 
     //rewrite files to the next iter of parse    
     set<FileInfo*> allFiles;
@@ -2845,9 +2849,22 @@ static set<FileInfo*> applyModuleDeclsForFile(FileInfo *forFile, const map<strin
         included.insert(incl);
     }
 
-    string data = include + mainText;
+    vector<string> toInclEnds;
+    for (auto& file : mapFiles)
+        if (file.second != forFile)
+            toInclEnds.push_back(file.second->fileName);
+
+    string includeLast = "";
+    if (toInclEnds.size())
+        includeLast += "!SPF SHADOW FILES\n";
+
+    for (auto& incl : toInclEnds)
+        includeLast += "      include '" + incl + "'\n";
+
+    string data = include + mainText + includeLast;
     writeFileFromStr(forFile->fileName, data);
-    forFile->intcludesAdded = toIncl.size();
+
+    forFile->intcludesAdded = toIncl.size() + toInclEnds.size();
 
     retFilesMod.insert(forFile);
     return retFilesMod;
@@ -2866,7 +2883,8 @@ static inline void restoreOriginalText(const FileInfo& file)
 }
 
 extern "C" int parse_file(int argc, char* argv[], char* proj_name);
-static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToInclude,
+static vector<string> parseList(vector<FileInfo>& listOfProject, 
+                                bool needToInclude, bool needToIncludeForInline,
                                 const map<string, set<string>> &mapModuleDeps, 
                                 const map<string, string> &moduleDelc,
                                 const map<string, set<string>> &modDirectOrder)
@@ -2940,9 +2958,12 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
             set<FileInfo*> filesModified;
             StdCapture::BeginCapture();
             if (needToInclude)
-                filesModified = applyModuleDeclsForFile(&elem, mapFiles, moduleDelc, mapModuleDeps, modDirectOrder, optSplited);
+                filesModified = applyModuleDeclsForFile(&elem, mapFiles, moduleDelc, mapModuleDeps, modDirectOrder, optSplited, needToIncludeForInline);
+            else if (needToIncludeForInline) //TODO for modules
+                filesModified = applyModuleDeclsForFile(&elem, mapFiles, moduleDelc, mapModuleDeps, modDirectOrder, optSplited, true);
+
             int retCode = parse_file(optSplited.size(), toParse, "dvm.proj");
-            if (needToInclude)
+            if (needToInclude || needToIncludeForInline)
             {
                 for (auto &elem : filesModified)
                     restoreOriginalText(*elem);
@@ -2965,7 +2986,7 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
             StdCapture::EndCapture();
             errorMessage = StdCapture::GetCapture();
 
-            if (needToInclude)
+            if (needToInclude || needToIncludeForInline)
                 restoreOriginalText(listOfProject);
         }
         catch (...)
@@ -2973,7 +2994,7 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
             StdCapture::EndCapture();
             errorMessage = StdCapture::GetCapture();
 
-            if (needToInclude)
+            if (needToInclude || needToIncludeForInline)
                 restoreOriginalText(listOfProject);
         }
         errors.push_back(errorMessage);
@@ -3130,7 +3151,7 @@ static map<string, set<string>> createModuleOrder(const map<string, string> &mod
 }
 
 
-int parseFiles(const char* proj, vector<string>& filesCompilationOrder)
+int parseFiles(const char* proj, vector<string>& filesCompilationOrder, int parseForInlining)
 {
     FILE* list = fopen(proj, "r");
     if (!list)
@@ -3218,7 +3239,7 @@ int parseFiles(const char* proj, vector<string>& filesCompilationOrder)
 #else
             sendMessage_1lvl(L"running " + std::to_wstring((iters + 1)) + L" iteration of syntax analisys");
 #endif
-            errors = parseList(listOfProject, iters != 0, mapModuleDeps, moduleDelc, modDirectOrder);
+            errors = parseList(listOfProject, iters != 0, (parseForInlining != 0), mapModuleDeps, moduleDelc, modDirectOrder);
             changed = createMapOfUse(errors, listOfProject, mapModuleDeps);
             if (iters != 0)
                 if (lastChanged <= changed)

@@ -12,6 +12,7 @@ extern int langOfMessages;
 extern bool removeNestedIntervals;
 extern int mpiProgram;
 extern int ignoreIO;
+extern int parseForInlining;
 
 extern "C" int out_free_form;
 extern "C" int out_upper_case;
@@ -166,6 +167,7 @@ enum options {
     MPI_PROGRAM,
     IGNORE_IO_SAPFOR,
     KEEP_SPF_DIRECTIVES_AMONG_TRANSFORMATIONS,
+    PARSE_FOR_INLINE,
     EMPTY_OPTION
 };
 
