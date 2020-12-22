@@ -106,14 +106,17 @@ static int getNestedLevel(SgStatement* loop_stmt)
 {
     int depth = 0;
     SgStatement *current_loop = loop_stmt->lexNext();
-    SgStatement *controlEnd = current_loop->lastNodeOfStmt();
-
-    while (isSgForStmt(current_loop) && isSgControlEndStmt(controlEnd)) {
+    SgStatement* controlEnd = loop_stmt->lastNodeOfStmt()->lexPrev();
+    SgStatement *controlEnd2 = current_loop->lastNodeOfStmt();
+    
+    while (isSgForStmt(current_loop) && isSgControlEndStmt(controlEnd) && controlEnd == controlEnd2)
+    {
         current_loop = current_loop->lexNext();
         controlEnd = controlEnd->lexPrev();
+        controlEnd2 = current_loop->lastNodeOfStmt();
         depth++;
     }
-
+    
     return depth;
 }
 
