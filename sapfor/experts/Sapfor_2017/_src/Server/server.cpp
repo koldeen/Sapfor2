@@ -74,7 +74,7 @@ void Sleep(int millisec) { usleep(millisec * 2000); }
 
 #define SERV "[SERVER]"
 
-static const char* version = "2";
+static const char* VERSION = "2";
 
 extern void __bst_create(const char* name);
 extern bool __bst_tryToLock();
@@ -369,8 +369,8 @@ static bool doCommand(SOCKET& spfSoc, SOCKET& javaSoc, SOCKET& serverSoc1, SOCKE
     }
     else if (command.find("get_version:") == 0)
     {
-        __print(SERV, "Get version of server: %s", version);
-        returnToJava = version;
+        __print(SERV, "Get version of server: %s", VERSION);
+        returnToJava = string(VERSION) + " |" + __DATE__ + "| |" + __TIME__ + "|\n";
         return true;
     }
     else
@@ -595,7 +595,6 @@ int main(int argc, char** argv)
                         else
                         {
                             memcpy(buf, returnToJava.c_str(), sizeof(char) * returnToJava.size());
-                            buf[returnToJava.size()] = '\n';
                             needToRecv = returnToJava.size();
                         }
 
@@ -604,6 +603,7 @@ int main(int argc, char** argv)
                         {
                             closesocket(javaSoc);
                             javaSoc = INVALID_SOCKET;
+                            break;
                         }
                         else
                         {
@@ -611,7 +611,6 @@ int main(int argc, char** argv)
                             if (needToRecv > 1)
                                 continue;
                         }
-
                     }
                     break;
                 }
