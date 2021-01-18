@@ -91,6 +91,33 @@ static set<string> fillFromIntent(SgStatement* header)
             for (int i = 0; i < s->numberOfVars(); i++)
                 intentS.insert(s->var(i)->symbol()->identifier());
         }
+        else
+        {
+            //check intent in decl
+            SgExpression* ex = stmt->expr(2);
+            bool containsIntent = false;
+            while (ex)
+            {
+                if (ex->lhs())
+                {
+                    int var = ex->lhs()->variant();
+                    if (var == IN_OP || var == INOUT_OP || var == OUT_OP)
+                        containsIntent = true;
+                }
+                ex = ex->rhs();
+            }
+
+            if (containsIntent)
+            {
+                SgExpression* ex = stmt->expr(0);
+                while (ex)
+                {
+                    if (ex->lhs() && ex->lhs()->symbol())
+                        intentS.insert(ex->lhs()->symbol()->identifier());
+                    ex = ex->rhs();
+                }
+            }
+        }
     }
     return intentS;
 }
@@ -224,51 +251,21 @@ void intentInsert(const vector<FuncInfo*>& allFuncInfo)
     }
 }*/
 
-static void collectForChange(map<string, vector<FuncInfo*>> funcsName, set<FuncInfo*>& allForChange, FuncInfo* start)
+static void collectForChange(set<FuncInfo*>& allForChange, FuncInfo* start)
 {
     allForChange.insert(start);
-    for (auto& call : start->pointerDetailCallsFrom)
+    bool chagned = true;
+    while (chagned)
     {
-        bool found = false;
-        if (call.second == FUNC_CALL)
-        {
-            SgFunctionCallExp* callExp = (SgFunctionCallExp*)call.first;
-            for (auto& func : funcsName[callExp->funName()->identifier()])
-            {
-                for (auto& callTo : func->callsTo)
-                {
-                    if (callTo == start)
-                    {
-                        collectForChange(funcsName, allForChange, func);
-                        found = true;
-                    }
-                    if (found)
-                        break;
-                }
-                if (found)
-                    break;
-            }
-        }
-        else
-        {
-            SgCallStmt* callSt = (SgCallStmt*)call.first;
-            for (auto& func : funcsName[callSt->name()->identifier()])
-            {
-                for (auto& callTo : func->callsTo)
-                {
-                    if (callTo == start)
-                    {
-                        collectForChange(funcsName, allForChange, func);
-                        found = true;
-                    }
-                    if (found)
-                        break;
-                }
+        set<FuncInfo*> newAdd;
+        for (auto& elem : allForChange)
+            for (auto& call : elem->callsFromV)
+                if (allForChange.find(call) == allForChange.end())
+                    newAdd.insert(call);
+        
+        chagned = newAdd.size() != 0;
 
-                if (found)
-                    break;
-            }
-        }
+        allForChange.insert(newAdd.begin(), newAdd.end());
     }
 }
 
@@ -526,7 +523,7 @@ void commonTransfer(const map<string, vector<FuncInfo*>>& allFuncInfo, const map
     map <FuncInfo*, set<string>> funcCommonDeclared;
     FuncInfo* start = NULL;
     set<FuncInfo*> allForChange;
-    map<string, vector<FuncInfo*>> funcsName;
+
     for (auto& byfile : allFuncInfo)
     {
         if (SgFile::switchToFile(byfile.first) == -1)
@@ -561,17 +558,11 @@ void commonTransfer(const map<string, vector<FuncInfo*>>& allFuncInfo, const map
 
             if (func->isMain)
                 start = func;
-
-            if (!funcsName.count(func->funcName))
-                funcsName[func->funcName] = vector<FuncInfo*>();
-
-            if (!func->isInterface)
-                funcsName[func->funcName].push_back(func);
         }
     }
 
     checkNull(start, convertFileName(__FILE__).c_str(), __LINE__);
-    collectForChange(funcsName, allForChange, start);
+    collectForChange(allForChange, start);
     allForChange.erase(start);
 
     for (auto& func : allForChange)
@@ -747,24 +738,16 @@ void saveTransfer(const map<string, vector<FuncInfo*>>& allFuncInfo)
 {
     FuncInfo* start;
     set<FuncInfo*> allForChange;
-    map<string, vector<FuncInfo*>> funcsName;
     map<FuncInfo*, set<FuncInfo*>> funcAddedVarsFuncs;
 
     for (auto& byfile : allFuncInfo)
-    {
         for (auto& func : byfile.second)
-        {
             if (func->isMain)
                 start = func;
-            if (!funcsName.count(func->funcName))
-                funcsName[func->funcName] = vector<FuncInfo*>();
-            if (!func->isInterface)
-                funcsName[func->funcName].push_back(func);
-        }
-    }
 
-    collectForChange(funcsName, allForChange, start);
+    collectForChange(allForChange, start);
     allForChange.erase(start);
+
     for (auto& func : allForChange)
     {
         if (SgFile::switchToFile(func->fileName) == -1)
@@ -1108,24 +1091,17 @@ static void fillUsedVars(set<SgSymbol*>& usedVars, SgExpression* exp)
 void moduleTransfer(const map<string, vector<FuncInfo*>>& allFuncInfo)
 {
     FuncInfo* start;
-    set<FuncInfo*> allForChange;
-    map<string, vector<FuncInfo*>> funcsName;
+    set<FuncInfo*> allForChange;    
     map<FuncInfo*, set<SgSymbol*>> funcAddedVarsMods;
+
     for (auto& byfile : allFuncInfo)
-    {
         for (auto& func : byfile.second)
-        {
             if (func->isMain)
                 start = func;
-            if (!funcsName.count(func->funcName))
-                funcsName[func->funcName] = vector<FuncInfo*>();
-            if (!func->isInterface)
-                funcsName[func->funcName].push_back(func);
-        }
-    }
 
-    collectForChange(funcsName, allForChange, start);
+    collectForChange(allForChange, start);
     allForChange.erase(start);
+
     for (auto& func : allForChange)
     {
         if (SgFile::switchToFile(func->fileName) == -1)

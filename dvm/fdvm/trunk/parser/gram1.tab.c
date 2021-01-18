@@ -1949,96 +1949,96 @@ static const yytype_uint16 yyrline[] =
     2915,  2917,  2919,  2921,  2923,  2925,  2927,  2929,  2931,  2935,
     2936,  2947,  3021,  3033,  3035,  3039,  3170,  3220,  3264,  3306,
     3364,  3366,  3368,  3407,  3450,  3461,  3462,  3466,  3471,  3472,
-    3476,  3478,  3484,  3486,  3492,  3502,  3508,  3515,  3521,  3529,
-    3537,  3553,  3563,  3576,  3583,  3585,  3608,  3610,  3612,  3614,
-    3616,  3618,  3620,  3622,  3626,  3626,  3626,  3640,  3642,  3665,
-    3667,  3669,  3685,  3687,  3689,  3703,  3706,  3708,  3716,  3718,
-    3720,  3722,  3776,  3796,  3811,  3820,  3823,  3873,  3879,  3884,
-    3902,  3904,  3906,  3908,  3910,  3913,  3919,  3921,  3923,  3926,
-    3928,  3930,  3957,  3966,  3975,  3976,  3978,  3983,  3990,  3998,
-    4000,  4004,  4007,  4009,  4013,  4019,  4021,  4023,  4025,  4029,
-    4031,  4040,  4041,  4048,  4049,  4053,  4057,  4078,  4081,  4085,
-    4087,  4094,  4099,  4100,  4111,  4128,  4151,  4176,  4177,  4184,
-    4186,  4188,  4190,  4192,  4196,  4273,  4285,  4292,  4294,  4295,
-    4297,  4306,  4313,  4320,  4328,  4333,  4338,  4341,  4344,  4347,
-    4350,  4353,  4357,  4375,  4380,  4399,  4418,  4422,  4423,  4426,
-    4430,  4435,  4442,  4444,  4446,  4450,  4451,  4462,  4477,  4481,
-    4488,  4491,  4501,  4514,  4527,  4530,  4532,  4535,  4538,  4542,
-    4551,  4554,  4558,  4560,  4566,  4570,  4572,  4574,  4581,  4585,
-    4587,  4591,  4593,  4597,  4616,  4632,  4641,  4650,  4652,  4656,
-    4682,  4697,  4712,  4729,  4737,  4746,  4754,  4759,  4764,  4786,
-    4802,  4804,  4808,  4810,  4817,  4819,  4821,  4825,  4827,  4829,
-    4831,  4833,  4835,  4839,  4842,  4845,  4851,  4857,  4866,  4870,
-    4877,  4879,  4883,  4885,  4887,  4892,  4897,  4902,  4907,  4916,
-    4921,  4927,  4928,  4943,  4944,  4945,  4946,  4947,  4948,  4949,
-    4950,  4951,  4952,  4953,  4954,  4955,  4956,  4957,  4958,  4959,
-    4960,  4961,  4964,  4965,  4966,  4967,  4968,  4969,  4970,  4971,
-    4972,  4973,  4974,  4975,  4976,  4977,  4978,  4979,  4980,  4981,
-    4982,  4983,  4984,  4985,  4986,  4987,  4988,  4989,  4990,  4991,
-    4992,  4993,  4994,  4995,  4996,  4997,  4998,  4999,  5000,  5001,
-    5002,  5003,  5004,  5005,  5006,  5007,  5011,  5013,  5024,  5045,
-    5049,  5051,  5055,  5068,  5072,  5074,  5078,  5089,  5100,  5104,
-    5106,  5110,  5112,  5114,  5129,  5141,  5161,  5181,  5203,  5209,
-    5218,  5226,  5232,  5240,  5247,  5253,  5262,  5266,  5272,  5280,
-    5294,  5308,  5313,  5329,  5344,  5372,  5374,  5378,  5380,  5384,
-    5413,  5436,  5457,  5458,  5462,  5483,  5485,  5489,  5497,  5501,
-    5506,  5508,  5510,  5512,  5518,  5520,  5524,  5534,  5538,  5540,
-    5545,  5547,  5551,  5555,  5561,  5571,  5573,  5577,  5579,  5581,
-    5588,  5606,  5607,  5611,  5613,  5617,  5624,  5634,  5663,  5678,
-    5685,  5703,  5705,  5709,  5723,  5749,  5762,  5778,  5780,  5783,
-    5785,  5791,  5795,  5823,  5825,  5829,  5837,  5843,  5846,  5904,
-    5968,  5970,  5973,  5977,  5981,  5985,  6002,  6014,  6018,  6022,
-    6032,  6037,  6042,  6049,  6058,  6058,  6069,  6080,  6082,  6086,
-    6097,  6101,  6103,  6107,  6118,  6122,  6124,  6128,  6140,  6142,
-    6149,  6151,  6155,  6171,  6179,  6190,  6192,  6196,  6199,  6204,
-    6214,  6216,  6220,  6222,  6231,  6232,  6236,  6238,  6243,  6244,
-    6245,  6246,  6247,  6248,  6249,  6250,  6251,  6252,  6253,  6256,
-    6261,  6265,  6269,  6273,  6286,  6290,  6294,  6298,  6301,  6303,
-    6305,  6309,  6311,  6315,  6319,  6321,  6325,  6330,  6334,  6338,
-    6340,  6344,  6353,  6356,  6362,  6369,  6372,  6374,  6378,  6380,
-    6384,  6396,  6398,  6402,  6406,  6408,  6412,  6414,  6416,  6418,
-    6420,  6422,  6424,  6428,  6432,  6436,  6440,  6444,  6451,  6457,
-    6462,  6465,  6468,  6481,  6483,  6487,  6489,  6494,  6500,  6506,
-    6512,  6518,  6524,  6530,  6536,  6542,  6551,  6557,  6574,  6576,
-    6584,  6592,  6594,  6598,  6602,  6604,  6608,  6610,  6618,  6622,
-    6634,  6637,  6655,  6657,  6661,  6663,  6667,  6669,  6673,  6677,
-    6681,  6690,  6694,  6698,  6703,  6707,  6719,  6721,  6725,  6730,
-    6734,  6736,  6740,  6742,  6746,  6751,  6758,  6781,  6783,  6785,
-    6787,  6789,  6793,  6804,  6808,  6823,  6830,  6837,  6838,  6842,
-    6846,  6854,  6858,  6862,  6870,  6875,  6889,  6891,  6895,  6897,
-    6906,  6908,  6910,  6912,  6948,  6952,  6956,  6960,  6964,  6976,
-    6978,  6982,  6985,  6987,  6991,  6996,  7003,  7006,  7014,  7018,
-    7023,  7025,  7032,  7037,  7041,  7045,  7049,  7053,  7057,  7060,
-    7062,  7066,  7068,  7070,  7074,  7078,  7090,  7092,  7096,  7098,
-    7102,  7105,  7108,  7112,  7118,  7130,  7132,  7136,  7138,  7142,
-    7150,  7162,  7163,  7165,  7169,  7173,  7175,  7183,  7187,  7190,
-    7192,  7196,  7200,  7202,  7203,  7204,  7205,  7206,  7207,  7208,
-    7209,  7210,  7211,  7212,  7213,  7214,  7215,  7216,  7217,  7218,
-    7219,  7220,  7221,  7222,  7223,  7224,  7225,  7226,  7227,  7230,
-    7236,  7242,  7248,  7254,  7258,  7264,  7265,  7266,  7267,  7268,
-    7269,  7270,  7271,  7272,  7275,  7280,  7285,  7291,  7297,  7303,
-    7308,  7314,  7320,  7326,  7333,  7339,  7345,  7352,  7356,  7358,
-    7364,  7371,  7377,  7383,  7389,  7395,  7401,  7407,  7413,  7419,
-    7425,  7431,  7437,  7447,  7452,  7458,  7462,  7468,  7469,  7470,
-    7471,  7474,  7482,  7488,  7494,  7499,  7505,  7512,  7518,  7522,
-    7528,  7529,  7530,  7531,  7532,  7533,  7536,  7545,  7549,  7555,
-    7562,  7569,  7576,  7585,  7591,  7597,  7601,  7607,  7608,  7611,
-    7617,  7623,  7627,  7634,  7635,  7638,  7644,  7650,  7655,  7663,
-    7669,  7674,  7681,  7685,  7691,  7692,  7693,  7694,  7695,  7696,
-    7697,  7698,  7699,  7700,  7701,  7705,  7710,  7715,  7722,  7727,
-    7733,  7739,  7744,  7749,  7754,  7758,  7763,  7768,  7772,  7777,
-    7781,  7787,  7792,  7798,  7803,  7809,  7819,  7823,  7827,  7831,
-    7837,  7840,  7844,  7845,  7846,  7847,  7848,  7849,  7850,  7853,
-    7857,  7861,  7863,  7865,  7869,  7871,  7873,  7877,  7879,  7883,
-    7885,  7889,  7892,  7895,  7900,  7902,  7904,  7906,  7908,  7912,
-    7916,  7921,  7925,  7927,  7931,  7933,  7937,  7941,  7945,  7949,
-    7951,  7955,  7956,  7957,  7958,  7959,  7960,  7963,  7967,  7971,
-    7975,  7977,  7979,  7983,  7985,  7989,  7994,  7995,  8000,  8001,
-    8005,  8009,  8011,  8015,  8016,  8017,  8020,  8024,  8028,  8031,
-    8033,  8037,  8041,  8043,  8047,  8048,  8049,  8052,  8056,  8060,
-    8064,  8066,  8070,  8072,  8074,  8076,  8079,  8083,  8087,  8089,
-    8093,  8097,  8099,  8103,  8105,  8107,  8109,  8111,  8115,  8117,
-    8121,  8123,  8127,  8129
+    3476,  3478,  3484,  3486,  3492,  3505,  3511,  3518,  3524,  3532,
+    3540,  3556,  3566,  3579,  3586,  3588,  3611,  3613,  3615,  3617,
+    3619,  3621,  3623,  3625,  3629,  3629,  3629,  3643,  3645,  3668,
+    3670,  3672,  3688,  3690,  3692,  3706,  3709,  3711,  3719,  3721,
+    3723,  3725,  3779,  3799,  3814,  3823,  3826,  3876,  3882,  3887,
+    3905,  3907,  3909,  3911,  3913,  3916,  3922,  3924,  3926,  3929,
+    3931,  3933,  3960,  3969,  3978,  3979,  3981,  3986,  3993,  4001,
+    4003,  4007,  4010,  4012,  4016,  4022,  4024,  4026,  4028,  4032,
+    4034,  4043,  4044,  4051,  4052,  4056,  4060,  4081,  4084,  4088,
+    4090,  4097,  4102,  4103,  4114,  4131,  4154,  4179,  4180,  4187,
+    4189,  4191,  4193,  4195,  4199,  4276,  4288,  4295,  4297,  4298,
+    4300,  4309,  4316,  4323,  4331,  4336,  4341,  4344,  4347,  4350,
+    4353,  4356,  4360,  4378,  4383,  4402,  4421,  4425,  4426,  4429,
+    4433,  4438,  4445,  4447,  4449,  4453,  4454,  4465,  4480,  4484,
+    4491,  4494,  4504,  4517,  4530,  4533,  4535,  4538,  4541,  4545,
+    4554,  4557,  4561,  4563,  4569,  4573,  4575,  4577,  4584,  4588,
+    4590,  4594,  4596,  4600,  4619,  4635,  4644,  4653,  4655,  4659,
+    4685,  4700,  4715,  4732,  4740,  4749,  4757,  4762,  4767,  4789,
+    4805,  4807,  4811,  4813,  4820,  4822,  4824,  4828,  4830,  4832,
+    4834,  4836,  4838,  4842,  4845,  4848,  4854,  4860,  4869,  4873,
+    4880,  4882,  4886,  4888,  4890,  4895,  4900,  4905,  4910,  4919,
+    4924,  4930,  4931,  4946,  4947,  4948,  4949,  4950,  4951,  4952,
+    4953,  4954,  4955,  4956,  4957,  4958,  4959,  4960,  4961,  4962,
+    4963,  4964,  4967,  4968,  4969,  4970,  4971,  4972,  4973,  4974,
+    4975,  4976,  4977,  4978,  4979,  4980,  4981,  4982,  4983,  4984,
+    4985,  4986,  4987,  4988,  4989,  4990,  4991,  4992,  4993,  4994,
+    4995,  4996,  4997,  4998,  4999,  5000,  5001,  5002,  5003,  5004,
+    5005,  5006,  5007,  5008,  5009,  5010,  5014,  5016,  5027,  5048,
+    5052,  5054,  5058,  5071,  5075,  5077,  5081,  5092,  5103,  5107,
+    5109,  5113,  5115,  5117,  5132,  5144,  5164,  5184,  5206,  5212,
+    5221,  5229,  5235,  5243,  5250,  5256,  5265,  5269,  5275,  5283,
+    5297,  5311,  5316,  5332,  5347,  5375,  5377,  5381,  5383,  5387,
+    5416,  5439,  5460,  5461,  5465,  5486,  5488,  5492,  5500,  5504,
+    5509,  5511,  5513,  5515,  5521,  5523,  5527,  5537,  5541,  5543,
+    5548,  5550,  5554,  5558,  5564,  5574,  5576,  5580,  5582,  5584,
+    5591,  5609,  5610,  5614,  5616,  5620,  5627,  5637,  5666,  5681,
+    5688,  5706,  5708,  5712,  5726,  5752,  5765,  5781,  5783,  5786,
+    5788,  5794,  5798,  5826,  5828,  5832,  5840,  5846,  5849,  5907,
+    5971,  5973,  5976,  5980,  5984,  5988,  6005,  6017,  6021,  6025,
+    6035,  6040,  6045,  6052,  6061,  6061,  6072,  6083,  6085,  6089,
+    6100,  6104,  6106,  6110,  6121,  6125,  6127,  6131,  6143,  6145,
+    6152,  6154,  6158,  6174,  6182,  6193,  6195,  6199,  6202,  6207,
+    6217,  6219,  6223,  6225,  6234,  6235,  6239,  6241,  6246,  6247,
+    6248,  6249,  6250,  6251,  6252,  6253,  6254,  6255,  6256,  6259,
+    6264,  6268,  6272,  6276,  6289,  6293,  6297,  6301,  6304,  6306,
+    6308,  6312,  6314,  6318,  6322,  6324,  6328,  6333,  6337,  6341,
+    6343,  6347,  6356,  6359,  6365,  6372,  6375,  6377,  6381,  6383,
+    6387,  6399,  6401,  6405,  6409,  6411,  6415,  6417,  6419,  6421,
+    6423,  6425,  6427,  6431,  6435,  6439,  6443,  6447,  6454,  6460,
+    6465,  6468,  6471,  6484,  6486,  6490,  6492,  6497,  6503,  6509,
+    6515,  6521,  6527,  6533,  6539,  6545,  6554,  6560,  6577,  6579,
+    6587,  6595,  6597,  6601,  6605,  6607,  6611,  6613,  6621,  6625,
+    6637,  6640,  6658,  6660,  6664,  6666,  6670,  6672,  6676,  6680,
+    6684,  6693,  6697,  6701,  6706,  6710,  6722,  6724,  6728,  6733,
+    6737,  6739,  6743,  6745,  6749,  6754,  6761,  6784,  6786,  6788,
+    6790,  6792,  6796,  6807,  6811,  6826,  6833,  6840,  6841,  6845,
+    6849,  6857,  6861,  6865,  6873,  6878,  6892,  6894,  6898,  6900,
+    6909,  6911,  6913,  6915,  6951,  6955,  6959,  6963,  6967,  6979,
+    6981,  6985,  6988,  6990,  6994,  6999,  7006,  7009,  7017,  7021,
+    7026,  7028,  7035,  7040,  7044,  7048,  7052,  7056,  7060,  7063,
+    7065,  7069,  7071,  7073,  7077,  7081,  7093,  7095,  7099,  7101,
+    7105,  7108,  7111,  7115,  7121,  7133,  7135,  7139,  7141,  7145,
+    7153,  7165,  7166,  7168,  7172,  7176,  7178,  7186,  7190,  7193,
+    7195,  7199,  7203,  7205,  7206,  7207,  7208,  7209,  7210,  7211,
+    7212,  7213,  7214,  7215,  7216,  7217,  7218,  7219,  7220,  7221,
+    7222,  7223,  7224,  7225,  7226,  7227,  7228,  7229,  7230,  7233,
+    7239,  7245,  7251,  7257,  7261,  7267,  7268,  7269,  7270,  7271,
+    7272,  7273,  7274,  7275,  7278,  7283,  7288,  7294,  7300,  7306,
+    7311,  7317,  7323,  7329,  7336,  7342,  7348,  7355,  7359,  7361,
+    7367,  7374,  7380,  7386,  7392,  7398,  7404,  7410,  7416,  7422,
+    7428,  7434,  7440,  7450,  7455,  7461,  7465,  7471,  7472,  7473,
+    7474,  7477,  7485,  7491,  7497,  7502,  7508,  7515,  7521,  7525,
+    7531,  7532,  7533,  7534,  7535,  7536,  7539,  7548,  7552,  7558,
+    7565,  7572,  7579,  7588,  7594,  7600,  7604,  7610,  7611,  7614,
+    7620,  7626,  7630,  7637,  7638,  7641,  7647,  7653,  7658,  7666,
+    7672,  7677,  7684,  7688,  7694,  7695,  7696,  7697,  7698,  7699,
+    7700,  7701,  7702,  7703,  7704,  7708,  7713,  7718,  7725,  7730,
+    7736,  7742,  7747,  7752,  7757,  7761,  7766,  7771,  7775,  7780,
+    7784,  7790,  7795,  7801,  7806,  7812,  7822,  7826,  7830,  7834,
+    7840,  7843,  7847,  7848,  7849,  7850,  7851,  7852,  7853,  7856,
+    7860,  7864,  7866,  7868,  7872,  7874,  7876,  7880,  7882,  7886,
+    7888,  7892,  7895,  7898,  7903,  7905,  7907,  7909,  7911,  7915,
+    7919,  7924,  7928,  7930,  7934,  7936,  7940,  7944,  7948,  7952,
+    7954,  7958,  7959,  7960,  7961,  7962,  7963,  7966,  7970,  7974,
+    7978,  7980,  7982,  7986,  7988,  7992,  7997,  7998,  8003,  8004,
+    8008,  8012,  8014,  8018,  8019,  8020,  8023,  8027,  8031,  8034,
+    8036,  8040,  8044,  8046,  8050,  8051,  8052,  8055,  8059,  8063,
+    8067,  8069,  8073,  8075,  8077,  8079,  8082,  8086,  8090,  8092,
+    8096,  8100,  8102,  8106,  8108,  8110,  8112,  8114,  8118,  8120,
+    8124,  8126,  8130,  8132
 };
 #endif
 
@@ -8667,14 +8667,17 @@ yyreduce:
 #line 3493 "gram1.y"
     {
               if ((yyvsp[(2) - (2)].ll_node) != LLNULL)
+              {
 		 (yyval.ll_node) = make_llnd(fi, ARRAY_OP, (yyvsp[(1) - (2)].ll_node), (yyvsp[(2) - (2)].ll_node), SMNULL); 
+                 (yyval.ll_node)->type = global_string;
+              }
 	      else 
                  (yyval.ll_node) = (yyvsp[(1) - (2)].ll_node);
              ;}
     break;
 
   case 405:
-#line 3503 "gram1.y"
+#line 3506 "gram1.y"
     {
 	      (yyval.ll_node) = make_llnd(fi,BOOL_VAL, LLNULL, LLNULL, SMNULL);
 	      (yyval.ll_node)->entry.bval = 1;
@@ -8683,7 +8686,7 @@ yyreduce:
     break;
 
   case 406:
-#line 3509 "gram1.y"
+#line 3512 "gram1.y"
     {
 	      (yyval.ll_node) = make_llnd(fi,BOOL_VAL, LLNULL, LLNULL, SMNULL);
 	      (yyval.ll_node)->entry.bval = 0;
@@ -8692,7 +8695,7 @@ yyreduce:
     break;
 
   case 407:
-#line 3516 "gram1.y"
+#line 3519 "gram1.y"
     {
 	      (yyval.ll_node) = make_llnd(fi,FLOAT_VAL, LLNULL, LLNULL, SMNULL);
 	      (yyval.ll_node)->entry.string_val = copys(yytext);
@@ -8701,7 +8704,7 @@ yyreduce:
     break;
 
   case 408:
-#line 3522 "gram1.y"
+#line 3525 "gram1.y"
     {
 	      (yyval.ll_node) = make_llnd(fi,DOUBLE_VAL, LLNULL, LLNULL, SMNULL);
 	      (yyval.ll_node)->entry.string_val = copys(yytext);
@@ -8710,7 +8713,7 @@ yyreduce:
     break;
 
   case 409:
-#line 3530 "gram1.y"
+#line 3533 "gram1.y"
     {
 	      (yyval.ll_node) = make_llnd(fi,INT_VAL, LLNULL, LLNULL, SMNULL);
 	      (yyval.ll_node)->entry.ival = atoi(yytext);
@@ -8719,7 +8722,7 @@ yyreduce:
     break;
 
   case 410:
-#line 3538 "gram1.y"
+#line 3541 "gram1.y"
     { PTR_TYPE t;
 	      PTR_LLND p,q;
 	      (yyval.ll_node) = make_llnd(fi,STRING_VAL, LLNULL, LLNULL, SMNULL);
@@ -8738,7 +8741,7 @@ yyreduce:
     break;
 
   case 411:
-#line 3554 "gram1.y"
+#line 3557 "gram1.y"
     { PTR_TYPE t;
 	      (yyval.ll_node) = make_llnd(fi,STRING_VAL, LLNULL, LLNULL, SMNULL);
 	      (yyval.ll_node)->entry.string_val = copys(yytext);
@@ -8751,7 +8754,7 @@ yyreduce:
     break;
 
   case 412:
-#line 3564 "gram1.y"
+#line 3567 "gram1.y"
     { PTR_TYPE t;
 	      (yyval.ll_node) = make_llnd(fi,STRING_VAL, LLNULL, LLNULL, SMNULL);
 	      (yyval.ll_node)->entry.string_val = copys(yytext);
@@ -8764,7 +8767,7 @@ yyreduce:
     break;
 
   case 413:
-#line 3577 "gram1.y"
+#line 3580 "gram1.y"
     {
 	      (yyval.ll_node) = make_llnd(fi,COMPLEX_VAL, (yyvsp[(2) - (5)].ll_node), (yyvsp[(4) - (5)].ll_node), SMNULL);
 	      (yyval.ll_node)->type = global_complex;
@@ -8772,67 +8775,67 @@ yyreduce:
     break;
 
   case 414:
-#line 3584 "gram1.y"
+#line 3587 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 415:
-#line 3586 "gram1.y"
+#line 3589 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 416:
-#line 3609 "gram1.y"
+#line 3612 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,(yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),SMNULL); ;}
     break;
 
   case 417:
-#line 3611 "gram1.y"
+#line 3614 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,(yyvsp[(1) - (2)].ll_node),LLNULL,SMNULL); ;}
     break;
 
   case 418:
-#line 3613 "gram1.y"
+#line 3616 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,make_llnd(fi,DDOT,(yyvsp[(1) - (5)].ll_node),(yyvsp[(3) - (5)].ll_node),SMNULL),(yyvsp[(5) - (5)].ll_node),SMNULL); ;}
     break;
 
   case 419:
-#line 3615 "gram1.y"
+#line 3618 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,make_llnd(fi,DDOT,(yyvsp[(1) - (4)].ll_node),LLNULL,SMNULL),(yyvsp[(4) - (4)].ll_node),SMNULL); ;}
     break;
 
   case 420:
-#line 3617 "gram1.y"
+#line 3620 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT, make_llnd(fi,DDOT,LLNULL,(yyvsp[(2) - (4)].ll_node),SMNULL),(yyvsp[(4) - (4)].ll_node),SMNULL); ;}
     break;
 
   case 421:
-#line 3619 "gram1.y"
+#line 3622 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,make_llnd(fi,DDOT,LLNULL,LLNULL,SMNULL),(yyvsp[(3) - (3)].ll_node),SMNULL); ;}
     break;
 
   case 422:
-#line 3621 "gram1.y"
+#line 3624 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,LLNULL,(yyvsp[(2) - (2)].ll_node),SMNULL); ;}
     break;
 
   case 423:
-#line 3623 "gram1.y"
+#line 3626 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,LLNULL,LLNULL,SMNULL); ;}
     break;
 
   case 424:
-#line 3626 "gram1.y"
+#line 3629 "gram1.y"
     {in_vec=YES;;}
     break;
 
   case 425:
-#line 3626 "gram1.y"
+#line 3629 "gram1.y"
     {in_vec=NO;;}
     break;
 
   case 426:
-#line 3627 "gram1.y"
+#line 3630 "gram1.y"
     { PTR_TYPE array_type;
              (yyval.ll_node) = make_llnd (fi,CONSTRUCTOR_REF,(yyvsp[(4) - (6)].ll_node),LLNULL,SMNULL); 
              /*$$->type = $2->type;*/ /*28.02.03*/
@@ -8847,81 +8850,81 @@ yyreduce:
     break;
 
   case 427:
-#line 3641 "gram1.y"
+#line 3644 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 428:
-#line 3643 "gram1.y"
+#line 3646 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 429:
-#line 3666 "gram1.y"
+#line 3669 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node), LLNULL, EXPR_LIST); ;}
     break;
 
   case 430:
-#line 3668 "gram1.y"
+#line 3671 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (4)].ll_node), (yyvsp[(4) - (4)].ll_node), EXPR_LIST); endioctl(); ;}
     break;
 
   case 431:
-#line 3670 "gram1.y"
+#line 3673 "gram1.y"
     { stat_alloc = make_llnd(fi, SPEC_PAIR, (yyvsp[(4) - (5)].ll_node), (yyvsp[(5) - (5)].ll_node), SMNULL);
                   endioctl();
                 ;}
     break;
 
   case 432:
-#line 3686 "gram1.y"
+#line 3689 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node), LLNULL, EXPR_LIST); ;}
     break;
 
   case 433:
-#line 3688 "gram1.y"
+#line 3691 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (4)].ll_node), (yyvsp[(4) - (4)].ll_node), EXPR_LIST); endioctl(); ;}
     break;
 
   case 434:
-#line 3690 "gram1.y"
+#line 3693 "gram1.y"
     { stat_alloc = make_llnd(fi, SPEC_PAIR, (yyvsp[(4) - (5)].ll_node), (yyvsp[(5) - (5)].ll_node), SMNULL);
              endioctl();
            ;}
     break;
 
   case 435:
-#line 3703 "gram1.y"
+#line 3706 "gram1.y"
     {stat_alloc = LLNULL;;}
     break;
 
   case 436:
-#line 3707 "gram1.y"
+#line 3710 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node), LLNULL, EXPR_LIST); ;}
     break;
 
   case 437:
-#line 3709 "gram1.y"
+#line 3712 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), EXPR_LIST); ;}
     break;
 
   case 438:
-#line 3717 "gram1.y"
+#line 3720 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(1) - (1)].bf_node); ;}
     break;
 
   case 439:
-#line 3719 "gram1.y"
+#line 3722 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(1) - (1)].bf_node); ;}
     break;
 
   case 440:
-#line 3721 "gram1.y"
+#line 3724 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(1) - (1)].bf_node); ;}
     break;
 
   case 441:
-#line 3723 "gram1.y"
+#line 3726 "gram1.y"
     {
               (yyval.bf_node) = (yyvsp[(2) - (2)].bf_node);
               (yyval.bf_node)->entry.Template.ll_ptr3 = (yyvsp[(1) - (2)].ll_node);
@@ -8929,7 +8932,7 @@ yyreduce:
     break;
 
   case 442:
-#line 3777 "gram1.y"
+#line 3780 "gram1.y"
     { PTR_BFND biff;
 
 	      (yyval.bf_node) = get_bfnd(fi,CONTROL_END, SMNULL, LLNULL, LLNULL, LLNULL); 
@@ -8952,7 +8955,7 @@ yyreduce:
     break;
 
   case 443:
-#line 3799 "gram1.y"
+#line 3802 "gram1.y"
     {
               make_extend((yyvsp[(3) - (3)].symbol));
               (yyval.bf_node) = BFNULL; 
@@ -8961,7 +8964,7 @@ yyreduce:
     break;
 
   case 444:
-#line 3812 "gram1.y"
+#line 3815 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,CONTROL_END, SMNULL, LLNULL, LLNULL, LLNULL); 
 	    bind(); 
 	    delete_beyond_scope_level(pred_bfnd);
@@ -8970,12 +8973,12 @@ yyreduce:
     break;
 
   case 445:
-#line 3821 "gram1.y"
+#line 3824 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(1) - (1)].bf_node); ;}
     break;
 
   case 446:
-#line 3824 "gram1.y"
+#line 3827 "gram1.y"
     {
               (yyval.bf_node) = (yyvsp[(2) - (2)].bf_node);
               (yyval.bf_node)->entry.Template.ll_ptr3 = (yyvsp[(1) - (2)].ll_node);
@@ -8983,7 +8986,7 @@ yyreduce:
     break;
 
   case 447:
-#line 3874 "gram1.y"
+#line 3877 "gram1.y"
     { thiswasbranch = NO;
               (yyvsp[(1) - (2)].bf_node)->variant = LOGIF_NODE;
               (yyval.bf_node) = make_logif((yyvsp[(1) - (2)].bf_node), (yyvsp[(2) - (2)].bf_node));
@@ -8992,7 +8995,7 @@ yyreduce:
     break;
 
   case 448:
-#line 3880 "gram1.y"
+#line 3883 "gram1.y"
     {
               (yyval.bf_node) = (yyvsp[(1) - (2)].bf_node);
 	      set_blobs((yyval.bf_node), pred_bfnd, NEW_GROUP1); 
@@ -9000,7 +9003,7 @@ yyreduce:
     break;
 
   case 449:
-#line 3885 "gram1.y"
+#line 3888 "gram1.y"
     {
               (yyval.bf_node) = (yyvsp[(2) - (3)].bf_node);
               (yyval.bf_node)->entry.Template.ll_ptr3 = (yyvsp[(1) - (3)].ll_node);
@@ -9009,32 +9012,32 @@ yyreduce:
     break;
 
   case 450:
-#line 3903 "gram1.y"
+#line 3906 "gram1.y"
     { make_elseif((yyvsp[(4) - (7)].ll_node),(yyvsp[(7) - (7)].symbol)); lastwasbranch = NO; (yyval.bf_node) = BFNULL;;}
     break;
 
   case 451:
-#line 3905 "gram1.y"
+#line 3908 "gram1.y"
     { make_else((yyvsp[(3) - (3)].symbol)); lastwasbranch = NO; (yyval.bf_node) = BFNULL; ;}
     break;
 
   case 452:
-#line 3907 "gram1.y"
+#line 3910 "gram1.y"
     { make_endif((yyvsp[(3) - (3)].symbol)); (yyval.bf_node) = BFNULL; ;}
     break;
 
   case 453:
-#line 3909 "gram1.y"
+#line 3912 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(1) - (1)].bf_node); ;}
     break;
 
   case 454:
-#line 3911 "gram1.y"
+#line 3914 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi, CONTAINS_STMT, SMNULL, LLNULL, LLNULL, LLNULL); ;}
     break;
 
   case 455:
-#line 3914 "gram1.y"
+#line 3917 "gram1.y"
     { thiswasbranch = NO;
               (yyvsp[(1) - (2)].bf_node)->variant = FORALL_STAT;
               (yyval.bf_node) = make_logif((yyvsp[(1) - (2)].bf_node), (yyvsp[(2) - (2)].bf_node));
@@ -9043,37 +9046,37 @@ yyreduce:
     break;
 
   case 456:
-#line 3920 "gram1.y"
+#line 3923 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(1) - (1)].bf_node); ;}
     break;
 
   case 457:
-#line 3922 "gram1.y"
+#line 3925 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(2) - (2)].bf_node); (yyval.bf_node)->entry.Template.ll_ptr3 = (yyvsp[(1) - (2)].ll_node);;}
     break;
 
   case 458:
-#line 3924 "gram1.y"
+#line 3927 "gram1.y"
     { make_endforall((yyvsp[(3) - (3)].symbol)); (yyval.bf_node) = BFNULL; ;}
     break;
 
   case 459:
-#line 3927 "gram1.y"
+#line 3930 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(1) - (1)].bf_node); ;}
     break;
 
   case 460:
-#line 3929 "gram1.y"
+#line 3932 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(1) - (1)].bf_node); ;}
     break;
 
   case 461:
-#line 3931 "gram1.y"
+#line 3934 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(1) - (1)].bf_node); ;}
     break;
 
   case 462:
-#line 3958 "gram1.y"
+#line 3961 "gram1.y"
     { 	     
 	     /*  if($5 && $5->labdefined)
 		 execerr("no backward DO loops", (char *)NULL); */
@@ -9083,7 +9086,7 @@ yyreduce:
     break;
 
   case 463:
-#line 3967 "gram1.y"
+#line 3970 "gram1.y"
     {
                if( (yyvsp[(4) - (7)].label) && (yyvsp[(4) - (7)].label)->labdefined)
 		  err("No backward DO loops", 46);
@@ -9092,22 +9095,22 @@ yyreduce:
     break;
 
   case 464:
-#line 3975 "gram1.y"
+#line 3978 "gram1.y"
     { (yyval.ll_node) = LLNULL; ;}
     break;
 
   case 465:
-#line 3977 "gram1.y"
+#line 3980 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(5) - (6)].ll_node);;}
     break;
 
   case 466:
-#line 3979 "gram1.y"
+#line 3982 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(3) - (4)].ll_node);;}
     break;
 
   case 467:
-#line 3984 "gram1.y"
+#line 3987 "gram1.y"
     {  
                if( (yyvsp[(4) - (11)].label) && (yyvsp[(4) - (11)].label)->labdefined)
 		  err("No backward DO loops", 46);
@@ -9116,7 +9119,7 @@ yyreduce:
     break;
 
   case 468:
-#line 3991 "gram1.y"
+#line 3994 "gram1.y"
     {
                if( (yyvsp[(4) - (13)].label) && (yyvsp[(4) - (13)].label)->labdefined)
 		  err("No backward DO loops", 46);
@@ -9125,64 +9128,64 @@ yyreduce:
     break;
 
   case 469:
-#line 3999 "gram1.y"
+#line 4002 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi, CASE_NODE, (yyvsp[(4) - (4)].symbol), (yyvsp[(3) - (4)].ll_node), LLNULL, LLNULL); ;}
     break;
 
   case 470:
-#line 4001 "gram1.y"
+#line 4004 "gram1.y"
     { /*PTR_LLND p;*/
 	     /* p = make_llnd(fi, DEFAULT, LLNULL, LLNULL, SMNULL); */
 	      (yyval.bf_node) = get_bfnd(fi, DEFAULT_NODE, (yyvsp[(3) - (3)].symbol), LLNULL, LLNULL, LLNULL); ;}
     break;
 
   case 471:
-#line 4005 "gram1.y"
+#line 4008 "gram1.y"
     { make_endselect((yyvsp[(3) - (3)].symbol)); (yyval.bf_node) = BFNULL; ;}
     break;
 
   case 472:
-#line 4008 "gram1.y"
+#line 4011 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi, SWITCH_NODE, SMNULL, (yyvsp[(6) - (7)].ll_node), LLNULL, LLNULL) ; ;}
     break;
 
   case 473:
-#line 4010 "gram1.y"
+#line 4013 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi, SWITCH_NODE, SMNULL, (yyvsp[(7) - (8)].ll_node), LLNULL, (yyvsp[(1) - (8)].ll_node)) ; ;}
     break;
 
   case 474:
-#line 4014 "gram1.y"
+#line 4017 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(2) - (3)].ll_node); ;}
     break;
 
   case 475:
-#line 4020 "gram1.y"
+#line 4023 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 476:
-#line 4022 "gram1.y"
+#line 4025 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi, DDOT, (yyvsp[(1) - (2)].ll_node), LLNULL, SMNULL); ;}
     break;
 
   case 477:
-#line 4024 "gram1.y"
+#line 4027 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi, DDOT, LLNULL, (yyvsp[(2) - (2)].ll_node), SMNULL); ;}
     break;
 
   case 478:
-#line 4026 "gram1.y"
+#line 4029 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi, DDOT, (yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), SMNULL); ;}
     break;
 
   case 479:
-#line 4030 "gram1.y"
+#line 4033 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi, EXPR_LIST, (yyvsp[(1) - (1)].ll_node), LLNULL, SMNULL); ;}
     break;
 
   case 480:
-#line 4032 "gram1.y"
+#line 4035 "gram1.y"
     { PTR_LLND p;
 	      
 	      p = make_llnd(fi, EXPR_LIST, (yyvsp[(3) - (3)].ll_node), LLNULL, SMNULL);
@@ -9191,33 +9194,33 @@ yyreduce:
     break;
 
   case 481:
-#line 4040 "gram1.y"
+#line 4043 "gram1.y"
     { (yyval.symbol) = SMNULL; ;}
     break;
 
   case 482:
-#line 4042 "gram1.y"
+#line 4045 "gram1.y"
     { (yyval.symbol) = make_local_entity((yyvsp[(1) - (1)].hash_entry), CONSTRUCT_NAME, global_default,
                                      LOCAL); ;}
     break;
 
   case 483:
-#line 4048 "gram1.y"
+#line 4051 "gram1.y"
     {(yyval.hash_entry) = HSNULL;;}
     break;
 
   case 484:
-#line 4050 "gram1.y"
+#line 4053 "gram1.y"
     { (yyval.hash_entry) = (yyvsp[(1) - (1)].hash_entry);;}
     break;
 
   case 485:
-#line 4054 "gram1.y"
+#line 4057 "gram1.y"
     {(yyval.hash_entry) = look_up_sym(yytext);;}
     break;
 
   case 486:
-#line 4058 "gram1.y"
+#line 4061 "gram1.y"
     { PTR_SYMB s;
 	             s = make_local_entity( (yyvsp[(1) - (2)].hash_entry), CONSTRUCT_NAME, global_default, LOCAL);             
                     (yyval.ll_node) = make_llnd(fi, VAR_REF, LLNULL, LLNULL, s);
@@ -9225,22 +9228,22 @@ yyreduce:
     break;
 
   case 487:
-#line 4079 "gram1.y"
+#line 4082 "gram1.y"
     { (yyval.bf_node) = make_if((yyvsp[(4) - (5)].ll_node)); ;}
     break;
 
   case 488:
-#line 4082 "gram1.y"
+#line 4085 "gram1.y"
     { (yyval.bf_node) = make_forall((yyvsp[(4) - (6)].ll_node),(yyvsp[(5) - (6)].ll_node)); ;}
     break;
 
   case 489:
-#line 4086 "gram1.y"
+#line 4089 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi, EXPR_LIST, (yyvsp[(1) - (1)].ll_node), LLNULL, SMNULL); ;}
     break;
 
   case 490:
-#line 4088 "gram1.y"
+#line 4091 "gram1.y"
     { PTR_LLND p;	      
 	      p = make_llnd(fi, EXPR_LIST, (yyvsp[(3) - (3)].ll_node), LLNULL, SMNULL);
 	      add_to_lowLevelList(p, (yyvsp[(1) - (3)].ll_node));
@@ -9248,22 +9251,22 @@ yyreduce:
     break;
 
   case 491:
-#line 4095 "gram1.y"
+#line 4098 "gram1.y"
     {(yyval.ll_node) = make_llnd(fi, FORALL_OP, (yyvsp[(3) - (3)].ll_node), LLNULL, (yyvsp[(1) - (3)].symbol)); ;}
     break;
 
   case 492:
-#line 4099 "gram1.y"
+#line 4102 "gram1.y"
     { (yyval.ll_node)=LLNULL;;}
     break;
 
   case 493:
-#line 4101 "gram1.y"
+#line 4104 "gram1.y"
     { (yyval.ll_node)=(yyvsp[(2) - (2)].ll_node);;}
     break;
 
   case 494:
-#line 4117 "gram1.y"
+#line 4120 "gram1.y"
     { PTR_SYMB  s;
       	      if (!(s = (yyvsp[(1) - (1)].hash_entry)->id_attr))
               {
@@ -9275,7 +9278,7 @@ yyreduce:
     break;
 
   case 495:
-#line 4130 "gram1.y"
+#line 4133 "gram1.y"
     { PTR_SYMB s;
               PTR_LLND l;
               int vrnt;
@@ -9300,7 +9303,7 @@ yyreduce:
     break;
 
   case 496:
-#line 4153 "gram1.y"
+#line 4156 "gram1.y"
     { PTR_SYMB s;
               PTR_LLND l;
               int vrnt;
@@ -9324,12 +9327,12 @@ yyreduce:
     break;
 
   case 497:
-#line 4176 "gram1.y"
+#line 4179 "gram1.y"
     { (yyval.label) = LBNULL; ;}
     break;
 
   case 498:
-#line 4178 "gram1.y"
+#line 4181 "gram1.y"
     {
 	       (yyval.label)  = make_label_node(fi,convci(yyleng, yytext));
 	       (yyval.label)->scope = cur_scope();
@@ -9337,32 +9340,32 @@ yyreduce:
     break;
 
   case 499:
-#line 4185 "gram1.y"
+#line 4188 "gram1.y"
     { make_endwhere((yyvsp[(3) - (3)].symbol)); (yyval.bf_node) = BFNULL; ;}
     break;
 
   case 500:
-#line 4187 "gram1.y"
+#line 4190 "gram1.y"
     { make_elsewhere((yyvsp[(3) - (3)].symbol)); lastwasbranch = NO; (yyval.bf_node) = BFNULL; ;}
     break;
 
   case 501:
-#line 4189 "gram1.y"
+#line 4192 "gram1.y"
     { make_elsewhere_mask((yyvsp[(4) - (6)].ll_node),(yyvsp[(6) - (6)].symbol)); lastwasbranch = NO; (yyval.bf_node) = BFNULL; ;}
     break;
 
   case 502:
-#line 4191 "gram1.y"
+#line 4194 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi, WHERE_BLOCK_STMT, SMNULL, (yyvsp[(4) - (5)].ll_node), LLNULL, LLNULL); ;}
     break;
 
   case 503:
-#line 4193 "gram1.y"
+#line 4196 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi, WHERE_BLOCK_STMT, SMNULL, (yyvsp[(5) - (6)].ll_node), LLNULL, (yyvsp[(1) - (6)].ll_node)); ;}
     break;
 
   case 504:
-#line 4198 "gram1.y"
+#line 4201 "gram1.y"
     { PTR_LLND p, r;
              PTR_SYMB s1, s2 = SMNULL, s3, arg_list;
 	     PTR_HASH hash_entry;
@@ -9441,7 +9444,7 @@ yyreduce:
     break;
 
   case 505:
-#line 4274 "gram1.y"
+#line 4277 "gram1.y"
     { /*PTR_SYMB s;*/
 	
 	      /*s = make_scalar($2, TYNULL, LOCAL);*/
@@ -9450,7 +9453,7 @@ yyreduce:
     break;
 
   case 506:
-#line 4286 "gram1.y"
+#line 4289 "gram1.y"
     { PTR_SYMB p;
 
 	      p = make_scalar((yyvsp[(5) - (5)].hash_entry), TYNULL, LOCAL);
@@ -9460,17 +9463,17 @@ yyreduce:
     break;
 
   case 507:
-#line 4293 "gram1.y"
+#line 4296 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,CONT_STAT,SMNULL,LLNULL,LLNULL,LLNULL); ;}
     break;
 
   case 509:
-#line 4296 "gram1.y"
+#line 4299 "gram1.y"
     { inioctl = NO; ;}
     break;
 
   case 510:
-#line 4298 "gram1.y"
+#line 4301 "gram1.y"
     { PTR_LLND	p;
 
 	      p = make_llnd(fi,EXPR_LIST, (yyvsp[(10) - (10)].ll_node), LLNULL, SMNULL);
@@ -9482,7 +9485,7 @@ yyreduce:
     break;
 
   case 511:
-#line 4307 "gram1.y"
+#line 4310 "gram1.y"
     {
 	      (yyval.bf_node) = subroutine_call((yyvsp[(1) - (1)].symbol), LLNULL, LLNULL, PLAIN);
 /*	      match_parameters($1, LLNULL);
@@ -9492,7 +9495,7 @@ yyreduce:
     break;
 
   case 512:
-#line 4314 "gram1.y"
+#line 4317 "gram1.y"
     {
 	      (yyval.bf_node) = subroutine_call((yyvsp[(1) - (3)].symbol), LLNULL, LLNULL, PLAIN);
 /*	      match_parameters($1, LLNULL);
@@ -9502,7 +9505,7 @@ yyreduce:
     break;
 
   case 513:
-#line 4321 "gram1.y"
+#line 4324 "gram1.y"
     {
 	      (yyval.bf_node) = subroutine_call((yyvsp[(1) - (4)].symbol), (yyvsp[(3) - (4)].ll_node), LLNULL, PLAIN);
 /*	      match_parameters($1, $3);
@@ -9512,7 +9515,7 @@ yyreduce:
     break;
 
   case 514:
-#line 4329 "gram1.y"
+#line 4332 "gram1.y"
     {
 	      (yyval.bf_node) = get_bfnd(fi,RETURN_STAT,SMNULL,(yyvsp[(3) - (3)].ll_node),LLNULL,LLNULL);
 	      thiswasbranch = YES;
@@ -9520,7 +9523,7 @@ yyreduce:
     break;
 
   case 515:
-#line 4334 "gram1.y"
+#line 4337 "gram1.y"
     {
 	      (yyval.bf_node) = get_bfnd(fi,(yyvsp[(1) - (3)].token),SMNULL,(yyvsp[(3) - (3)].ll_node),LLNULL,LLNULL);
 	      thiswasbranch = ((yyvsp[(1) - (3)].token) == STOP_STAT);
@@ -9528,42 +9531,42 @@ yyreduce:
     break;
 
   case 516:
-#line 4339 "gram1.y"
+#line 4342 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi, CYCLE_STMT, (yyvsp[(3) - (3)].symbol), LLNULL, LLNULL, LLNULL); ;}
     break;
 
   case 517:
-#line 4342 "gram1.y"
+#line 4345 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi, EXIT_STMT, (yyvsp[(3) - (3)].symbol), LLNULL, LLNULL, LLNULL); ;}
     break;
 
   case 518:
-#line 4345 "gram1.y"
+#line 4348 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi, ALLOCATE_STMT,  SMNULL, (yyvsp[(5) - (6)].ll_node), stat_alloc, LLNULL); ;}
     break;
 
   case 519:
-#line 4348 "gram1.y"
+#line 4351 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi, DEALLOCATE_STMT, SMNULL, (yyvsp[(5) - (6)].ll_node), stat_alloc , LLNULL); ;}
     break;
 
   case 520:
-#line 4351 "gram1.y"
+#line 4354 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi, NULLIFY_STMT, SMNULL, (yyvsp[(4) - (5)].ll_node), LLNULL, LLNULL); ;}
     break;
 
   case 521:
-#line 4354 "gram1.y"
+#line 4357 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi, WHERE_NODE, SMNULL, (yyvsp[(4) - (8)].ll_node), (yyvsp[(6) - (8)].ll_node), (yyvsp[(8) - (8)].ll_node)); ;}
     break;
 
   case 522:
-#line 4372 "gram1.y"
+#line 4375 "gram1.y"
     {(yyval.ll_node) = LLNULL;;}
     break;
 
   case 523:
-#line 4376 "gram1.y"
+#line 4379 "gram1.y"
     {
 	      (yyval.bf_node)=get_bfnd(fi,GOTO_NODE,SMNULL,LLNULL,LLNULL,(PTR_LLND)(yyvsp[(3) - (3)].ll_node));
 	      thiswasbranch = YES;
@@ -9571,7 +9574,7 @@ yyreduce:
     break;
 
   case 524:
-#line 4381 "gram1.y"
+#line 4384 "gram1.y"
     { PTR_SYMB p;
 
 	      if((yyvsp[(3) - (3)].hash_entry)->id_attr)
@@ -9593,7 +9596,7 @@ yyreduce:
     break;
 
   case 525:
-#line 4400 "gram1.y"
+#line 4403 "gram1.y"
     { PTR_SYMB p;
 
 	      if((yyvsp[(3) - (7)].hash_entry)->id_attr)
@@ -9615,17 +9618,17 @@ yyreduce:
     break;
 
   case 526:
-#line 4419 "gram1.y"
+#line 4422 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,COMGOTO_NODE, SMNULL, (yyvsp[(4) - (7)].ll_node), (yyvsp[(7) - (7)].ll_node), LLNULL); ;}
     break;
 
   case 529:
-#line 4427 "gram1.y"
+#line 4430 "gram1.y"
     { (yyval.symbol) = make_procedure((yyvsp[(3) - (4)].hash_entry), YES); ;}
     break;
 
   case 530:
-#line 4431 "gram1.y"
+#line 4434 "gram1.y"
     { 
               (yyval.ll_node) = set_ll_list((yyvsp[(2) - (2)].ll_node), LLNULL, EXPR_LIST);
               endioctl();
@@ -9633,7 +9636,7 @@ yyreduce:
     break;
 
   case 531:
-#line 4436 "gram1.y"
+#line 4439 "gram1.y"
     { 
                (yyval.ll_node) = set_ll_list((yyvsp[(1) - (4)].ll_node), (yyvsp[(4) - (4)].ll_node), EXPR_LIST);
                endioctl();
@@ -9641,32 +9644,32 @@ yyreduce:
     break;
 
   case 532:
-#line 4443 "gram1.y"
+#line 4446 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 533:
-#line 4445 "gram1.y"
+#line 4448 "gram1.y"
     { (yyval.ll_node)  = make_llnd(fi, KEYWORD_ARG, (yyvsp[(1) - (2)].ll_node), (yyvsp[(2) - (2)].ll_node), SMNULL); ;}
     break;
 
   case 534:
-#line 4447 "gram1.y"
+#line 4450 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,LABEL_ARG,(yyvsp[(2) - (2)].ll_node),LLNULL,SMNULL); ;}
     break;
 
   case 535:
-#line 4450 "gram1.y"
+#line 4453 "gram1.y"
     { (yyval.token) = PAUSE_NODE; ;}
     break;
 
   case 536:
-#line 4451 "gram1.y"
+#line 4454 "gram1.y"
     { (yyval.token) = STOP_STAT; ;}
     break;
 
   case 537:
-#line 4462 "gram1.y"
+#line 4465 "gram1.y"
     { if(parstate == OUTSIDE)
 		{ PTR_BFND p;
 
@@ -9682,23 +9685,23 @@ yyreduce:
     break;
 
   case 538:
-#line 4477 "gram1.y"
+#line 4480 "gram1.y"
     { intonly = YES; ;}
     break;
 
   case 539:
-#line 4481 "gram1.y"
+#line 4484 "gram1.y"
     { intonly = NO; ;}
     break;
 
   case 540:
-#line 4489 "gram1.y"
+#line 4492 "gram1.y"
     { (yyvsp[(1) - (2)].bf_node)->entry.Template.ll_ptr2 = (yyvsp[(2) - (2)].ll_node);
 		  (yyval.bf_node) = (yyvsp[(1) - (2)].bf_node); ;}
     break;
 
   case 541:
-#line 4492 "gram1.y"
+#line 4495 "gram1.y"
     { PTR_LLND p, q = LLNULL;
 
 		  q = make_llnd(fi, KEYWORD_VAL, LLNULL, LLNULL, SMNULL);
@@ -9711,7 +9714,7 @@ yyreduce:
     break;
 
   case 542:
-#line 4502 "gram1.y"
+#line 4505 "gram1.y"
     { PTR_LLND p, q, r;
 
 		  p = make_llnd(fi, KEYWORD_VAL, LLNULL, LLNULL, SMNULL);
@@ -9727,7 +9730,7 @@ yyreduce:
     break;
 
   case 543:
-#line 4515 "gram1.y"
+#line 4518 "gram1.y"
     { PTR_LLND p, q, r;
 
 		  p = make_llnd(fi, KEYWORD_VAL, LLNULL, LLNULL, SMNULL);
@@ -9743,113 +9746,113 @@ yyreduce:
     break;
 
   case 544:
-#line 4528 "gram1.y"
+#line 4531 "gram1.y"
     { (yyvsp[(1) - (2)].bf_node)->entry.Template.ll_ptr2 = (yyvsp[(2) - (2)].ll_node);
 		  (yyval.bf_node) = (yyvsp[(1) - (2)].bf_node); ;}
     break;
 
   case 545:
-#line 4531 "gram1.y"
+#line 4534 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(1) - (1)].bf_node); ;}
     break;
 
   case 546:
-#line 4533 "gram1.y"
-    { (yyvsp[(1) - (2)].bf_node)->entry.Template.ll_ptr2 = (yyvsp[(2) - (2)].ll_node);
-		  (yyval.bf_node) = (yyvsp[(1) - (2)].bf_node); ;}
-    break;
-
-  case 547:
 #line 4536 "gram1.y"
     { (yyvsp[(1) - (2)].bf_node)->entry.Template.ll_ptr2 = (yyvsp[(2) - (2)].ll_node);
 		  (yyval.bf_node) = (yyvsp[(1) - (2)].bf_node); ;}
     break;
 
-  case 548:
+  case 547:
 #line 4539 "gram1.y"
+    { (yyvsp[(1) - (2)].bf_node)->entry.Template.ll_ptr2 = (yyvsp[(2) - (2)].ll_node);
+		  (yyval.bf_node) = (yyvsp[(1) - (2)].bf_node); ;}
+    break;
+
+  case 548:
+#line 4542 "gram1.y"
     { (yyvsp[(1) - (3)].bf_node)->entry.Template.ll_ptr2 = (yyvsp[(2) - (3)].ll_node);
 		  (yyvsp[(1) - (3)].bf_node)->entry.Template.ll_ptr1 = (yyvsp[(3) - (3)].ll_node);
 		  (yyval.bf_node) = (yyvsp[(1) - (3)].bf_node); ;}
     break;
 
   case 549:
-#line 4543 "gram1.y"
+#line 4546 "gram1.y"
     { (yyvsp[(1) - (4)].bf_node)->entry.Template.ll_ptr2 = (yyvsp[(2) - (4)].ll_node);
 		  (yyvsp[(1) - (4)].bf_node)->entry.Template.ll_ptr1 = (yyvsp[(4) - (4)].ll_node);
 		  (yyval.bf_node) = (yyvsp[(1) - (4)].bf_node); ;}
     break;
 
   case 550:
-#line 4552 "gram1.y"
+#line 4555 "gram1.y"
     { (yyvsp[(1) - (2)].bf_node)->entry.Template.ll_ptr2 = (yyvsp[(2) - (2)].ll_node);
 		  (yyval.bf_node) = (yyvsp[(1) - (2)].bf_node); ;}
     break;
 
   case 551:
-#line 4555 "gram1.y"
+#line 4558 "gram1.y"
     { (yyvsp[(1) - (3)].bf_node)->entry.Template.ll_ptr2 = (yyvsp[(2) - (3)].ll_node);
 		  (yyvsp[(1) - (3)].bf_node)->entry.Template.ll_ptr1 = (yyvsp[(3) - (3)].ll_node);
 		  (yyval.bf_node) = (yyvsp[(1) - (3)].bf_node); ;}
     break;
 
   case 552:
-#line 4559 "gram1.y"
+#line 4562 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(1) - (1)].bf_node); ;}
     break;
 
   case 553:
-#line 4561 "gram1.y"
+#line 4564 "gram1.y"
     { (yyvsp[(1) - (3)].bf_node)->entry.Template.ll_ptr1 = (yyvsp[(3) - (3)].ll_node);
 		  (yyval.bf_node) = (yyvsp[(1) - (3)].bf_node); ;}
     break;
 
   case 554:
-#line 4567 "gram1.y"
+#line 4570 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(1) - (3)].bf_node); ;}
     break;
 
   case 555:
-#line 4571 "gram1.y"
+#line 4574 "gram1.y"
     {(yyval.bf_node) = get_bfnd(fi, BACKSPACE_STAT, SMNULL, LLNULL, LLNULL, LLNULL);;}
     break;
 
   case 556:
-#line 4573 "gram1.y"
+#line 4576 "gram1.y"
     {(yyval.bf_node) = get_bfnd(fi, REWIND_STAT, SMNULL, LLNULL, LLNULL, LLNULL);;}
     break;
 
   case 557:
-#line 4575 "gram1.y"
+#line 4578 "gram1.y"
     {(yyval.bf_node) = get_bfnd(fi, ENDFILE_STAT, SMNULL, LLNULL, LLNULL, LLNULL);;}
     break;
 
   case 558:
-#line 4582 "gram1.y"
+#line 4585 "gram1.y"
     { (yyval.bf_node) = (yyvsp[(1) - (3)].bf_node); ;}
     break;
 
   case 559:
-#line 4586 "gram1.y"
+#line 4589 "gram1.y"
     {(yyval.bf_node) = get_bfnd(fi, OPEN_STAT, SMNULL, LLNULL, LLNULL, LLNULL);;}
     break;
 
   case 560:
-#line 4588 "gram1.y"
+#line 4591 "gram1.y"
     {(yyval.bf_node) = get_bfnd(fi, CLOSE_STAT, SMNULL, LLNULL, LLNULL, LLNULL);;}
     break;
 
   case 561:
-#line 4592 "gram1.y"
+#line 4595 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi, INQUIRE_STAT, SMNULL, LLNULL, (yyvsp[(4) - (4)].ll_node), LLNULL);;}
     break;
 
   case 562:
-#line 4594 "gram1.y"
+#line 4597 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi, INQUIRE_STAT, SMNULL, (yyvsp[(5) - (5)].ll_node), (yyvsp[(4) - (5)].ll_node), LLNULL);;}
     break;
 
   case 563:
-#line 4598 "gram1.y"
+#line 4601 "gram1.y"
     { PTR_LLND p;
 		  PTR_LLND q = LLNULL;
 
@@ -9871,7 +9874,7 @@ yyreduce:
     break;
 
   case 564:
-#line 4617 "gram1.y"
+#line 4620 "gram1.y"
     { PTR_LLND p;
 		  PTR_LLND q;
 
@@ -9887,7 +9890,7 @@ yyreduce:
     break;
 
   case 565:
-#line 4633 "gram1.y"
+#line 4636 "gram1.y"
     { PTR_LLND p;
 
 		  p = make_llnd(fi, KEYWORD_VAL, LLNULL, LLNULL, SMNULL);
@@ -9899,7 +9902,7 @@ yyreduce:
     break;
 
   case 566:
-#line 4644 "gram1.y"
+#line 4647 "gram1.y"
     { 
 		  (yyval.ll_node) = (yyvsp[(2) - (3)].ll_node);
 		  endioctl();
@@ -9907,17 +9910,17 @@ yyreduce:
     break;
 
   case 567:
-#line 4651 "gram1.y"
+#line 4654 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); endioctl();;}
     break;
 
   case 568:
-#line 4653 "gram1.y"
+#line 4656 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (4)].ll_node), (yyvsp[(4) - (4)].ll_node), EXPR_LIST); endioctl();;}
     break;
 
   case 569:
-#line 4657 "gram1.y"
+#line 4660 "gram1.y"
     { PTR_LLND p;
 		  PTR_LLND q;
  
@@ -9946,7 +9949,7 @@ yyreduce:
     break;
 
   case 570:
-#line 4683 "gram1.y"
+#line 4686 "gram1.y"
     { PTR_LLND p;
 		  PTR_LLND q;
 
@@ -9964,7 +9967,7 @@ yyreduce:
     break;
 
   case 571:
-#line 4698 "gram1.y"
+#line 4701 "gram1.y"
     { PTR_LLND p;
 		  PTR_LLND q;
 
@@ -9982,7 +9985,7 @@ yyreduce:
     break;
 
   case 572:
-#line 4713 "gram1.y"
+#line 4716 "gram1.y"
     { 
 		  PTR_LLND p;
 		  char *q;
@@ -10002,7 +10005,7 @@ yyreduce:
     break;
 
   case 573:
-#line 4730 "gram1.y"
+#line 4733 "gram1.y"
     { PTR_LLND p;
                   
 		  p = make_llnd(fi, KEYWORD_VAL, LLNULL, LLNULL, SMNULL);
@@ -10013,7 +10016,7 @@ yyreduce:
     break;
 
   case 574:
-#line 4738 "gram1.y"
+#line 4741 "gram1.y"
     { PTR_LLND p;
 		  p = make_llnd(fi, KEYWORD_VAL, LLNULL, LLNULL, SMNULL);
 		  p->entry.string_val = (char *)"*";
@@ -10023,7 +10026,7 @@ yyreduce:
     break;
 
   case 575:
-#line 4747 "gram1.y"
+#line 4750 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi, KEYWORD_VAL, LLNULL, LLNULL, SMNULL);
 		  (yyval.ll_node)->entry.string_val = copys(yytext);
 		  (yyval.ll_node)->type = global_string;
@@ -10031,17 +10034,17 @@ yyreduce:
     break;
 
   case 576:
-#line 4755 "gram1.y"
+#line 4758 "gram1.y"
     {(yyval.bf_node) = get_bfnd(fi, READ_STAT, SMNULL, LLNULL, LLNULL, LLNULL);;}
     break;
 
   case 577:
-#line 4760 "gram1.y"
+#line 4763 "gram1.y"
     {(yyval.bf_node) = get_bfnd(fi, WRITE_STAT, SMNULL, LLNULL, LLNULL, LLNULL);;}
     break;
 
   case 578:
-#line 4765 "gram1.y"
+#line 4768 "gram1.y"
     {
 	    PTR_LLND p, q, l;
 
@@ -10066,7 +10069,7 @@ yyreduce:
     break;
 
   case 579:
-#line 4787 "gram1.y"
+#line 4790 "gram1.y"
     { PTR_LLND p, q, r;
 		
 	     p = make_llnd(fi, KEYWORD_VAL, LLNULL, LLNULL, SMNULL);
@@ -10082,22 +10085,22 @@ yyreduce:
     break;
 
   case 580:
-#line 4803 "gram1.y"
+#line 4806 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node), LLNULL, EXPR_LIST);;}
     break;
 
   case 581:
-#line 4805 "gram1.y"
+#line 4808 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), EXPR_LIST);;}
     break;
 
   case 582:
-#line 4809 "gram1.y"
+#line 4812 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 583:
-#line 4811 "gram1.y"
+#line 4814 "gram1.y"
     {
 		  (yyvsp[(4) - (5)].ll_node)->entry.Template.ll_ptr1 = (yyvsp[(2) - (5)].ll_node);
 		  (yyval.ll_node) = (yyvsp[(4) - (5)].ll_node);
@@ -10105,64 +10108,64 @@ yyreduce:
     break;
 
   case 584:
-#line 4818 "gram1.y"
+#line 4821 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node), LLNULL, EXPR_LIST);  (yyval.ll_node)->type = (yyvsp[(1) - (1)].ll_node)->type;;}
     break;
 
   case 585:
-#line 4820 "gram1.y"
+#line 4823 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 586:
-#line 4822 "gram1.y"
+#line 4825 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 587:
-#line 4826 "gram1.y"
+#line 4829 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), EXPR_LIST); (yyval.ll_node)->type = (yyvsp[(1) - (3)].ll_node)->type;;}
     break;
 
   case 588:
-#line 4828 "gram1.y"
+#line 4831 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), EXPR_LIST); (yyval.ll_node)->type = (yyvsp[(1) - (3)].ll_node)->type;;}
     break;
 
   case 589:
-#line 4830 "gram1.y"
+#line 4833 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), EXPR_LIST); (yyval.ll_node)->type = (yyvsp[(1) - (3)].ll_node)->type;;}
     break;
 
   case 590:
-#line 4832 "gram1.y"
+#line 4835 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), EXPR_LIST); (yyval.ll_node)->type = (yyvsp[(1) - (3)].ll_node)->type;;}
     break;
 
   case 591:
-#line 4834 "gram1.y"
+#line 4837 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), EXPR_LIST); (yyval.ll_node)->type = (yyvsp[(1) - (3)].ll_node)->type;;}
     break;
 
   case 592:
-#line 4836 "gram1.y"
+#line 4839 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), EXPR_LIST); (yyval.ll_node)->type = (yyvsp[(1) - (3)].ll_node)->type;;}
     break;
 
   case 593:
-#line 4840 "gram1.y"
+#line 4843 "gram1.y"
     { (yyval.ll_node) =  set_ll_list((yyvsp[(1) - (1)].ll_node), LLNULL, EXPR_LIST);
 	          (yyval.ll_node)->type = global_complex; ;}
     break;
 
   case 594:
-#line 4843 "gram1.y"
+#line 4846 "gram1.y"
     { (yyval.ll_node) =  set_ll_list((yyvsp[(2) - (3)].ll_node), LLNULL, EXPR_LIST);
                   (yyval.ll_node)->type = (yyvsp[(2) - (3)].ll_node)->type; ;}
     break;
 
   case 595:
-#line 4846 "gram1.y"
+#line 4849 "gram1.y"
     {
 		  (yyvsp[(4) - (5)].ll_node)->entry.Template.ll_ptr1 = (yyvsp[(2) - (5)].ll_node);
 		  (yyval.ll_node) =  set_ll_list((yyvsp[(4) - (5)].ll_node), LLNULL, EXPR_LIST);
@@ -10171,7 +10174,7 @@ yyreduce:
     break;
 
   case 596:
-#line 4852 "gram1.y"
+#line 4855 "gram1.y"
     {
 		  (yyvsp[(4) - (5)].ll_node)->entry.Template.ll_ptr1 = (yyvsp[(2) - (5)].ll_node);
 		  (yyval.ll_node) =  set_ll_list((yyvsp[(4) - (5)].ll_node), LLNULL, EXPR_LIST);
@@ -10180,7 +10183,7 @@ yyreduce:
     break;
 
   case 597:
-#line 4858 "gram1.y"
+#line 4861 "gram1.y"
     {
 		  (yyvsp[(4) - (5)].ll_node)->entry.Template.ll_ptr1 = (yyvsp[(2) - (5)].ll_node);
 		  (yyval.ll_node) =  set_ll_list((yyvsp[(4) - (5)].ll_node), LLNULL, EXPR_LIST);
@@ -10189,37 +10192,37 @@ yyreduce:
     break;
 
   case 598:
-#line 4866 "gram1.y"
+#line 4869 "gram1.y"
     { inioctl = YES; ;}
     break;
 
   case 599:
-#line 4870 "gram1.y"
+#line 4873 "gram1.y"
     { startioctl();;}
     break;
 
   case 600:
-#line 4878 "gram1.y"
+#line 4881 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 601:
-#line 4880 "gram1.y"
+#line 4883 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(2) - (3)].ll_node); ;}
     break;
 
   case 602:
-#line 4884 "gram1.y"
+#line 4887 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 603:
-#line 4886 "gram1.y"
+#line 4889 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 604:
-#line 4888 "gram1.y"
+#line 4891 "gram1.y"
     {
 	      (yyval.ll_node) = make_llnd(fi,(yyvsp[(2) - (3)].token), (yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), SMNULL);
 	      set_expr_type((yyval.ll_node));
@@ -10227,7 +10230,7 @@ yyreduce:
     break;
 
   case 605:
-#line 4893 "gram1.y"
+#line 4896 "gram1.y"
     {
 	      (yyval.ll_node) = make_llnd(fi,MULT_OP, (yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), SMNULL);
 	      set_expr_type((yyval.ll_node));
@@ -10235,7 +10238,7 @@ yyreduce:
     break;
 
   case 606:
-#line 4898 "gram1.y"
+#line 4901 "gram1.y"
     {
 	      (yyval.ll_node) = make_llnd(fi,DIV_OP, (yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), SMNULL);
 	      set_expr_type((yyval.ll_node));
@@ -10243,7 +10246,7 @@ yyreduce:
     break;
 
   case 607:
-#line 4903 "gram1.y"
+#line 4906 "gram1.y"
     {
 	      (yyval.ll_node) = make_llnd(fi,EXP_OP, (yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), SMNULL);
 	      set_expr_type((yyval.ll_node));
@@ -10251,7 +10254,7 @@ yyreduce:
     break;
 
   case 608:
-#line 4908 "gram1.y"
+#line 4911 "gram1.y"
     {
 	      if((yyvsp[(1) - (2)].token) == SUBT_OP)
 		{
@@ -10263,7 +10266,7 @@ yyreduce:
     break;
 
   case 609:
-#line 4917 "gram1.y"
+#line 4920 "gram1.y"
     {
 	      (yyval.ll_node) = make_llnd(fi,CONCAT_OP, (yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), SMNULL);
 	      set_expr_type((yyval.ll_node));
@@ -10271,17 +10274,17 @@ yyreduce:
     break;
 
   case 610:
-#line 4922 "gram1.y"
+#line 4925 "gram1.y"
     { (yyval.ll_node) = LLNULL; ;}
     break;
 
   case 611:
-#line 4927 "gram1.y"
+#line 4930 "gram1.y"
     { comments = cur_comment = CMNULL; ;}
     break;
 
   case 612:
-#line 4929 "gram1.y"
+#line 4932 "gram1.y"
     { PTR_CMNT p;
 	    p = make_comment(fi,*commentbuf, HALF);
 	    if (cur_comment)
@@ -10298,12 +10301,12 @@ yyreduce:
     break;
 
   case 676:
-#line 5012 "gram1.y"
+#line 5015 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,HPF_TEMPLATE_STAT, SMNULL, (yyvsp[(3) - (3)].ll_node), LLNULL, LLNULL); ;}
     break;
 
   case 677:
-#line 5014 "gram1.y"
+#line 5017 "gram1.y"
     { PTR_SYMB s;
                 if((yyvsp[(1) - (3)].bf_node)->entry.Template.ll_ptr2)
                 {
@@ -10315,7 +10318,7 @@ yyreduce:
     break;
 
   case 678:
-#line 5025 "gram1.y"
+#line 5028 "gram1.y"
     {PTR_SYMB s;
 	      PTR_LLND q;
 	    /* 27.06.18
@@ -10337,22 +10340,22 @@ yyreduce:
     break;
 
   case 679:
-#line 5046 "gram1.y"
+#line 5049 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_DYNAMIC_DIR, SMNULL, (yyvsp[(3) - (3)].ll_node), LLNULL, LLNULL);;}
     break;
 
   case 680:
-#line 5050 "gram1.y"
+#line 5053 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 681:
-#line 5052 "gram1.y"
+#line 5055 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 682:
-#line 5056 "gram1.y"
+#line 5059 "gram1.y"
     {  PTR_SYMB s;
 	      s = make_array((yyvsp[(1) - (1)].hash_entry), TYNULL, LLNULL, 0, LOCAL);
               if(s->attr &  DYNAMIC_BIT)
@@ -10366,22 +10369,22 @@ yyreduce:
     break;
 
   case 683:
-#line 5069 "gram1.y"
+#line 5072 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_INHERIT_DIR, SMNULL, (yyvsp[(3) - (3)].ll_node), LLNULL, LLNULL);;}
     break;
 
   case 684:
-#line 5073 "gram1.y"
+#line 5076 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 685:
-#line 5075 "gram1.y"
+#line 5078 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 686:
-#line 5079 "gram1.y"
+#line 5082 "gram1.y"
     {  PTR_SYMB s;
 	      s = make_array((yyvsp[(1) - (1)].hash_entry), TYNULL, LLNULL, 0, LOCAL);
               if((s->attr & PROCESSORS_BIT) ||(s->attr & TASK_BIT)  || (s->attr & TEMPLATE_BIT) || (s->attr & ALIGN_BIT) || (s->attr & DISTRIBUTE_BIT)) 
@@ -10393,7 +10396,7 @@ yyreduce:
     break;
 
   case 687:
-#line 5090 "gram1.y"
+#line 5093 "gram1.y"
     { PTR_LLND q;
              q = set_ll_list((yyvsp[(3) - (4)].ll_node),LLNULL,EXPR_LIST);
               /* (void)fprintf(stderr,"hpf.gram: shadow\n");*/ 
@@ -10402,32 +10405,32 @@ yyreduce:
     break;
 
   case 688:
-#line 5101 "gram1.y"
+#line 5104 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(2) - (3)].ll_node);;}
     break;
 
   case 689:
-#line 5105 "gram1.y"
+#line 5108 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 690:
-#line 5107 "gram1.y"
+#line 5110 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 691:
-#line 5111 "gram1.y"
+#line 5114 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 692:
-#line 5113 "gram1.y"
+#line 5116 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT, (yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), SMNULL);;}
     break;
 
   case 693:
-#line 5115 "gram1.y"
+#line 5118 "gram1.y"
     {
             if(parstate!=INEXEC) 
                err("Illegal shadow width specification", 56);  
@@ -10436,7 +10439,7 @@ yyreduce:
     break;
 
   case 694:
-#line 5130 "gram1.y"
+#line 5133 "gram1.y"
     {  PTR_SYMB s;
 	      s = make_array((yyvsp[(1) - (1)].hash_entry), TYNULL, LLNULL, 0, LOCAL);
               if(s->attr & SHADOW_BIT)
@@ -10450,7 +10453,7 @@ yyreduce:
     break;
 
   case 695:
-#line 5142 "gram1.y"
+#line 5145 "gram1.y"
     { PTR_SYMB s;
 	      PTR_LLND q, r;
 	      if(! explicit_shape) {
@@ -10473,7 +10476,7 @@ yyreduce:
     break;
 
   case 696:
-#line 5162 "gram1.y"
+#line 5165 "gram1.y"
     { PTR_SYMB s;
 	      PTR_LLND q, r;
 	      if(! explicit_shape) {
@@ -10496,7 +10499,7 @@ yyreduce:
     break;
 
   case 697:
-#line 5182 "gram1.y"
+#line 5185 "gram1.y"
     {  PTR_SYMB s;
 	      PTR_LLND q, r;
 	      if(! explicit_shape) {
@@ -10519,7 +10522,7 @@ yyreduce:
     break;
 
   case 698:
-#line 5204 "gram1.y"
+#line 5207 "gram1.y"
     {  PTR_LLND q,r;
                    q = make_llnd(fi,VAR_REF, LLNULL, LLNULL, (yyvsp[(3) - (3)].symbol));
                    r = make_llnd(fi,EXPR_LIST, q, LLNULL, SMNULL);
@@ -10528,7 +10531,7 @@ yyreduce:
     break;
 
   case 699:
-#line 5210 "gram1.y"
+#line 5213 "gram1.y"
     {  PTR_LLND q,r;
                    q = make_llnd(fi,VAR_REF, LLNULL, LLNULL, (yyvsp[(3) - (3)].symbol));
                    r = make_llnd(fi,EXPR_LIST, q, LLNULL, SMNULL);
@@ -10538,7 +10541,7 @@ yyreduce:
     break;
 
   case 700:
-#line 5219 "gram1.y"
+#line 5222 "gram1.y"
     {(yyval.symbol) = make_local_entity((yyvsp[(1) - (1)].hash_entry), REF_GROUP_NAME,global_default,LOCAL);
           if((yyval.symbol)->attr &  INDIRECT_BIT)
                 errstr( "Multiple declaration of identifier  %s ", (yyval.symbol)->ident, 73);
@@ -10547,7 +10550,7 @@ yyreduce:
     break;
 
   case 701:
-#line 5227 "gram1.y"
+#line 5230 "gram1.y"
     {  PTR_LLND q,r;
                    q = make_llnd(fi,VAR_REF, LLNULL, LLNULL, (yyvsp[(3) - (3)].symbol));
                    r = make_llnd(fi,EXPR_LIST, q, LLNULL, SMNULL);
@@ -10556,7 +10559,7 @@ yyreduce:
     break;
 
   case 702:
-#line 5233 "gram1.y"
+#line 5236 "gram1.y"
     {  PTR_LLND q,r;
                    q = make_llnd(fi,VAR_REF, LLNULL, LLNULL, (yyvsp[(3) - (3)].symbol));
                    r = make_llnd(fi,EXPR_LIST, q, LLNULL, SMNULL);
@@ -10565,7 +10568,7 @@ yyreduce:
     break;
 
   case 703:
-#line 5241 "gram1.y"
+#line 5244 "gram1.y"
     {(yyval.symbol) = make_local_entity((yyvsp[(1) - (1)].hash_entry), REF_GROUP_NAME,global_default,LOCAL);
            if((yyval.symbol)->attr &  INDIRECT_BIT)
                 errstr( "Inconsistent declaration of identifier  %s ", (yyval.symbol)->ident, 16);
@@ -10573,7 +10576,7 @@ yyreduce:
     break;
 
   case 704:
-#line 5248 "gram1.y"
+#line 5251 "gram1.y"
     {  PTR_LLND q,r;
                    q = make_llnd(fi,VAR_REF, LLNULL, LLNULL, (yyvsp[(3) - (3)].symbol));
                    r = make_llnd(fi,EXPR_LIST, q, LLNULL, SMNULL);
@@ -10582,7 +10585,7 @@ yyreduce:
     break;
 
   case 705:
-#line 5254 "gram1.y"
+#line 5257 "gram1.y"
     {  PTR_LLND q,r;
                    q = make_llnd(fi,VAR_REF, LLNULL, LLNULL, (yyvsp[(3) - (3)].symbol));
                    r = make_llnd(fi,EXPR_LIST, q, LLNULL, SMNULL);
@@ -10592,12 +10595,12 @@ yyreduce:
     break;
 
   case 706:
-#line 5263 "gram1.y"
+#line 5266 "gram1.y"
     {(yyval.symbol) = make_local_entity((yyvsp[(1) - (1)].hash_entry), REDUCTION_GROUP_NAME,global_default,LOCAL);;}
     break;
 
   case 707:
-#line 5267 "gram1.y"
+#line 5270 "gram1.y"
     {  PTR_LLND q,r;
                    q = make_llnd(fi,VAR_REF, LLNULL, LLNULL, (yyvsp[(3) - (3)].symbol));
                    r = make_llnd(fi,EXPR_LIST, q, LLNULL, SMNULL);
@@ -10606,7 +10609,7 @@ yyreduce:
     break;
 
   case 708:
-#line 5273 "gram1.y"
+#line 5276 "gram1.y"
     {  PTR_LLND q,r;
                    q = make_llnd(fi,VAR_REF, LLNULL, LLNULL, (yyvsp[(3) - (3)].symbol));
                    r = make_llnd(fi,EXPR_LIST, q, LLNULL, SMNULL);
@@ -10615,12 +10618,12 @@ yyreduce:
     break;
 
   case 709:
-#line 5281 "gram1.y"
+#line 5284 "gram1.y"
     {(yyval.symbol) = make_local_entity((yyvsp[(1) - (1)].hash_entry), CONSISTENT_GROUP_NAME,global_default,LOCAL);;}
     break;
 
   case 710:
-#line 5295 "gram1.y"
+#line 5298 "gram1.y"
     { PTR_SYMB s;
             if(parstate == INEXEC){
               if (!(s = (yyvsp[(2) - (3)].hash_entry)->id_attr))
@@ -10636,12 +10639,12 @@ yyreduce:
     break;
 
   case 711:
-#line 5308 "gram1.y"
+#line 5311 "gram1.y"
     { (yyval.ll_node) = LLNULL; opt_kwd_ = NO;;}
     break;
 
   case 712:
-#line 5314 "gram1.y"
+#line 5317 "gram1.y"
     { PTR_LLND q;
              if(!(yyvsp[(4) - (5)].ll_node))
                err("Distribution format list is omitted", 51);
@@ -10653,7 +10656,7 @@ yyreduce:
     break;
 
   case 713:
-#line 5330 "gram1.y"
+#line 5333 "gram1.y"
     { PTR_LLND q;
                 /*  if(!$4)
                   {err("Distribution format is omitted", 51); errcnt--;}
@@ -10670,7 +10673,7 @@ yyreduce:
     break;
 
   case 714:
-#line 5345 "gram1.y"
+#line 5348 "gram1.y"
     {
                  /* r = LLNULL;
                     if($5){
@@ -10684,27 +10687,27 @@ yyreduce:
     break;
 
   case 715:
-#line 5373 "gram1.y"
+#line 5376 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 716:
-#line 5375 "gram1.y"
+#line 5378 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 717:
-#line 5379 "gram1.y"
+#line 5382 "gram1.y"
     {(yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 718:
-#line 5381 "gram1.y"
+#line 5384 "gram1.y"
     {(yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 719:
-#line 5385 "gram1.y"
+#line 5388 "gram1.y"
     {  PTR_SYMB s;
  
           if(parstate == INEXEC){
@@ -10734,7 +10737,7 @@ yyreduce:
     break;
 
   case 720:
-#line 5414 "gram1.y"
+#line 5417 "gram1.y"
     {  PTR_SYMB s;
           s = make_array((yyvsp[(1) - (4)].hash_entry), TYNULL, LLNULL, 0, LOCAL);
         
@@ -10757,7 +10760,7 @@ yyreduce:
     break;
 
   case 721:
-#line 5437 "gram1.y"
+#line 5440 "gram1.y"
     {  PTR_SYMB s;
           if((s=(yyvsp[(1) - (1)].hash_entry)->id_attr) == SMNULL)
             s = make_array((yyvsp[(1) - (1)].hash_entry), TYNULL, LLNULL, 0, LOCAL);
@@ -10768,44 +10771,44 @@ yyreduce:
     break;
 
   case 722:
-#line 5457 "gram1.y"
+#line 5460 "gram1.y"
     { (yyval.ll_node) = LLNULL;  ;}
     break;
 
   case 723:
-#line 5459 "gram1.y"
+#line 5462 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (2)].ll_node);;}
     break;
 
   case 724:
-#line 5463 "gram1.y"
+#line 5466 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(2) - (3)].ll_node);;}
     break;
 
   case 725:
-#line 5484 "gram1.y"
+#line 5487 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(2) - (2)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 726:
-#line 5486 "gram1.y"
+#line 5489 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (4)].ll_node),(yyvsp[(4) - (4)].ll_node),EXPR_LIST); ;}
     break;
 
   case 727:
-#line 5489 "gram1.y"
+#line 5492 "gram1.y"
     { opt_kwd_ = YES; ;}
     break;
 
   case 728:
-#line 5498 "gram1.y"
+#line 5501 "gram1.y"
     {  
                (yyval.ll_node) = make_llnd(fi,BLOCK_OP, LLNULL, LLNULL, SMNULL);
         ;}
     break;
 
   case 729:
-#line 5502 "gram1.y"
+#line 5505 "gram1.y"
     {  err("Distribution format BLOCK(n) is not permitted in FDVM", 55);
           (yyval.ll_node) = make_llnd(fi,BLOCK_OP, (yyvsp[(4) - (5)].ll_node), LLNULL, SMNULL);
           endioctl();
@@ -10813,22 +10816,22 @@ yyreduce:
     break;
 
   case 730:
-#line 5507 "gram1.y"
+#line 5510 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,BLOCK_OP, LLNULL, LLNULL, (yyvsp[(3) - (4)].symbol)); ;}
     break;
 
   case 731:
-#line 5509 "gram1.y"
+#line 5512 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,BLOCK_OP,  (yyvsp[(5) - (6)].ll_node),  LLNULL,  (yyvsp[(3) - (6)].symbol)); ;}
     break;
 
   case 732:
-#line 5511 "gram1.y"
+#line 5514 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,BLOCK_OP,  LLNULL, (yyvsp[(3) - (4)].ll_node),  SMNULL); ;}
     break;
 
   case 733:
-#line 5513 "gram1.y"
+#line 5516 "gram1.y"
     { 
           (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL, LLNULL, LLNULL, SMNULL);
           (yyval.ll_node)->entry.string_val = (char *) "*";
@@ -10837,17 +10840,17 @@ yyreduce:
     break;
 
   case 734:
-#line 5519 "gram1.y"
+#line 5522 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,INDIRECT_OP, LLNULL, LLNULL, (yyvsp[(3) - (4)].symbol)); ;}
     break;
 
   case 735:
-#line 5521 "gram1.y"
+#line 5524 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,INDIRECT_OP, (yyvsp[(3) - (4)].ll_node), LLNULL, SMNULL); ;}
     break;
 
   case 736:
-#line 5525 "gram1.y"
+#line 5528 "gram1.y"
     {  PTR_SYMB s;
 	      s = make_array((yyvsp[(1) - (1)].hash_entry), TYNULL, LLNULL, 0, LOCAL);
               if((s->attr & PROCESSORS_BIT) ||(s->attr & TASK_BIT)  || (s->attr & TEMPLATE_BIT)) 
@@ -10858,46 +10861,46 @@ yyreduce:
     break;
 
   case 737:
-#line 5535 "gram1.y"
+#line 5538 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DERIVED_OP, (yyvsp[(2) - (6)].ll_node), (yyvsp[(6) - (6)].ll_node), SMNULL); ;}
     break;
 
   case 738:
-#line 5539 "gram1.y"
+#line 5542 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 739:
-#line 5541 "gram1.y"
+#line 5544 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 740:
-#line 5546 "gram1.y"
+#line 5549 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 741:
-#line 5548 "gram1.y"
+#line 5551 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT, (yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), SMNULL);;}
     break;
 
   case 742:
-#line 5552 "gram1.y"
+#line 5555 "gram1.y"
     { 
               (yyval.ll_node) = make_llnd(fi,ARRAY_REF, LLNULL, LLNULL, (yyvsp[(1) - (1)].symbol));
 	    ;}
     break;
 
   case 743:
-#line 5556 "gram1.y"
+#line 5559 "gram1.y"
     { 
               (yyval.ll_node) = make_llnd(fi,ARRAY_REF, (yyvsp[(3) - (4)].ll_node), LLNULL, (yyvsp[(1) - (4)].symbol));
 	    ;}
     break;
 
   case 744:
-#line 5562 "gram1.y"
+#line 5565 "gram1.y"
     { 
               if (!((yyval.symbol) = (yyvsp[(1) - (1)].hash_entry)->id_attr))
               {
@@ -10908,27 +10911,27 @@ yyreduce:
     break;
 
   case 745:
-#line 5572 "gram1.y"
+#line 5575 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 746:
-#line 5574 "gram1.y"
+#line 5577 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 747:
-#line 5578 "gram1.y"
+#line 5581 "gram1.y"
     {  (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 748:
-#line 5580 "gram1.y"
+#line 5583 "gram1.y"
     {  (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 749:
-#line 5582 "gram1.y"
+#line 5585 "gram1.y"
     {
                       (yyvsp[(2) - (3)].ll_node)->entry.Template.ll_ptr1 = (yyvsp[(3) - (3)].ll_node); 
                       (yyval.ll_node) = (yyvsp[(2) - (3)].ll_node);   
@@ -10936,7 +10939,7 @@ yyreduce:
     break;
 
   case 750:
-#line 5589 "gram1.y"
+#line 5592 "gram1.y"
     { PTR_SYMB s;
             s = make_scalar((yyvsp[(1) - (1)].hash_entry),TYNULL,LOCAL);
 	    (yyval.ll_node) = make_llnd(fi,DUMMY_REF, LLNULL, LLNULL, s);
@@ -10945,27 +10948,27 @@ yyreduce:
     break;
 
   case 751:
-#line 5606 "gram1.y"
+#line 5609 "gram1.y"
     {  (yyval.ll_node) = LLNULL; ;}
     break;
 
   case 752:
-#line 5608 "gram1.y"
+#line 5611 "gram1.y"
     {  (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 753:
-#line 5612 "gram1.y"
+#line 5615 "gram1.y"
     {  (yyval.ll_node) = set_ll_list((yyvsp[(2) - (2)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 754:
-#line 5614 "gram1.y"
+#line 5617 "gram1.y"
     {  (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 755:
-#line 5618 "gram1.y"
+#line 5621 "gram1.y"
     {  if((yyvsp[(1) - (1)].ll_node)->type->variant != T_STRING)
                  errstr( "Illegal type of shadow_name", 627);
                (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); 
@@ -10973,7 +10976,7 @@ yyreduce:
     break;
 
   case 756:
-#line 5625 "gram1.y"
+#line 5628 "gram1.y"
     { char *q;
           nioctl = 1;
           q = (yyvsp[(1) - (2)].ll_node)->entry.string_val;
@@ -10986,7 +10989,7 @@ yyreduce:
     break;
 
   case 757:
-#line 5635 "gram1.y"
+#line 5638 "gram1.y"
     { char *ql, *qh;
           PTR_LLND p1, p2;
           nioctl = 2;
@@ -11006,7 +11009,7 @@ yyreduce:
     break;
 
   case 758:
-#line 5664 "gram1.y"
+#line 5667 "gram1.y"
     { PTR_LLND q;
               q = set_ll_list((yyvsp[(3) - (4)].ll_node),LLNULL,EXPR_LIST);
               (yyval.bf_node) = (yyvsp[(4) - (4)].bf_node);
@@ -11015,7 +11018,7 @@ yyreduce:
     break;
 
   case 759:
-#line 5679 "gram1.y"
+#line 5682 "gram1.y"
     { PTR_LLND q;
               q = set_ll_list((yyvsp[(3) - (4)].ll_node),LLNULL,EXPR_LIST);
               (yyval.bf_node) = (yyvsp[(4) - (4)].bf_node);
@@ -11025,7 +11028,7 @@ yyreduce:
     break;
 
   case 760:
-#line 5686 "gram1.y"
+#line 5689 "gram1.y"
     {
               (yyval.bf_node) = (yyvsp[(3) - (6)].bf_node);
               (yyval.bf_node)->variant = DVM_REALIGN_DIR; 
@@ -11034,17 +11037,17 @@ yyreduce:
     break;
 
   case 761:
-#line 5704 "gram1.y"
+#line 5707 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 762:
-#line 5706 "gram1.y"
+#line 5709 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 763:
-#line 5710 "gram1.y"
+#line 5713 "gram1.y"
     {  PTR_SYMB s;
           s = make_array((yyvsp[(1) - (1)].hash_entry), TYNULL, LLNULL, 0, LOCAL);
           if((s->attr & ALIGN_BIT)) 
@@ -11059,7 +11062,7 @@ yyreduce:
     break;
 
   case 764:
-#line 5724 "gram1.y"
+#line 5727 "gram1.y"
     {PTR_SYMB s;
         s = (yyvsp[(1) - (1)].ll_node)->entry.Template.symbol;
         if(s->attr & PROCESSORS_BIT)
@@ -11086,7 +11089,7 @@ yyreduce:
     break;
 
   case 765:
-#line 5750 "gram1.y"
+#line 5753 "gram1.y"
     { /* PTR_LLND r;
               if($7) {
                 r = set_ll_list($6,LLNULL,EXPR_LIST);
@@ -11100,29 +11103,29 @@ yyreduce:
     break;
 
   case 766:
-#line 5763 "gram1.y"
+#line 5766 "gram1.y"
     {
            (yyval.ll_node) = make_llnd(fi,ARRAY_REF, (yyvsp[(3) - (4)].ll_node), LLNULL, (yyvsp[(1) - (4)].symbol));        
           ;}
     break;
 
   case 767:
-#line 5779 "gram1.y"
+#line 5782 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 768:
-#line 5781 "gram1.y"
+#line 5784 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 769:
-#line 5784 "gram1.y"
+#line 5787 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 770:
-#line 5786 "gram1.y"
+#line 5789 "gram1.y"
     {
                   (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL, LLNULL, LLNULL, SMNULL);
                   (yyval.ll_node)->entry.string_val = (char *) "*";
@@ -11131,12 +11134,12 @@ yyreduce:
     break;
 
   case 771:
-#line 5792 "gram1.y"
+#line 5795 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 772:
-#line 5796 "gram1.y"
+#line 5799 "gram1.y"
     { 
          /* if(parstate == INEXEC){ *for REALIGN directive*
               if (!($$ = $1->id_attr))
@@ -11165,17 +11168,17 @@ yyreduce:
     break;
 
   case 773:
-#line 5824 "gram1.y"
+#line 5827 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 774:
-#line 5826 "gram1.y"
+#line 5829 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 775:
-#line 5830 "gram1.y"
+#line 5833 "gram1.y"
     { PTR_SYMB s;
             s = make_scalar((yyvsp[(1) - (1)].hash_entry),TYNULL,LOCAL);
             if(s->type->variant != T_INT || s->attr & PARAMETER_BIT)             
@@ -11186,7 +11189,7 @@ yyreduce:
     break;
 
   case 776:
-#line 5838 "gram1.y"
+#line 5841 "gram1.y"
     {  
           (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL, LLNULL, LLNULL, SMNULL);
           (yyval.ll_node)->entry.string_val = (char *) "*";
@@ -11195,12 +11198,12 @@ yyreduce:
     break;
 
   case 777:
-#line 5844 "gram1.y"
+#line 5847 "gram1.y"
     {   (yyval.ll_node) = make_llnd(fi,DDOT, LLNULL, LLNULL, SMNULL); ;}
     break;
 
   case 778:
-#line 5847 "gram1.y"
+#line 5850 "gram1.y"
     { PTR_SYMB s;
 	             PTR_LLND q, r, p;
                      int numdim;
@@ -11261,7 +11264,7 @@ yyreduce:
     break;
 
   case 779:
-#line 5905 "gram1.y"
+#line 5908 "gram1.y"
     { PTR_SYMB s;
 	             PTR_LLND q, r, p;
                      int numdim;
@@ -11320,45 +11323,45 @@ yyreduce:
     break;
 
   case 780:
-#line 5969 "gram1.y"
+#line 5972 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); type_options = type_opt; ;}
     break;
 
   case 781:
-#line 5971 "gram1.y"
+#line 5974 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (4)].ll_node),(yyvsp[(4) - (4)].ll_node),EXPR_LIST); type_options = type_options | type_opt;;}
     break;
 
   case 782:
-#line 5974 "gram1.y"
+#line 5977 "gram1.y"
     { type_opt = TEMPLATE_BIT;
                (yyval.ll_node) = make_llnd(fi,TEMPLATE_OP,LLNULL,LLNULL,SMNULL);
                ;}
     break;
 
   case 783:
-#line 5978 "gram1.y"
+#line 5981 "gram1.y"
     { type_opt = PROCESSORS_BIT;
                 (yyval.ll_node) = make_llnd(fi,PROCESSORS_OP,LLNULL,LLNULL,SMNULL);
                ;}
     break;
 
   case 784:
-#line 5982 "gram1.y"
+#line 5985 "gram1.y"
     { type_opt = PROCESSORS_BIT;
                 (yyval.ll_node) = make_llnd(fi,PROCESSORS_OP,LLNULL,LLNULL,SMNULL);
                ;}
     break;
 
   case 785:
-#line 5986 "gram1.y"
+#line 5989 "gram1.y"
     { type_opt = DYNAMIC_BIT;
                 (yyval.ll_node) = make_llnd(fi,DYNAMIC_OP,LLNULL,LLNULL,SMNULL);
                ;}
     break;
 
   case 786:
-#line 6003 "gram1.y"
+#line 6006 "gram1.y"
     {
                 if(! explicit_shape) {
                   err("Explicit shape specification is required", 50);
@@ -11373,28 +11376,28 @@ yyreduce:
     break;
 
   case 787:
-#line 6015 "gram1.y"
+#line 6018 "gram1.y"
     { type_opt = SHADOW_BIT;
                   (yyval.ll_node) = make_llnd(fi,SHADOW_OP,(yyvsp[(2) - (2)].ll_node),LLNULL,SMNULL);
                  ;}
     break;
 
   case 788:
-#line 6019 "gram1.y"
+#line 6022 "gram1.y"
     { type_opt = ALIGN_BIT;
                   (yyval.ll_node) = make_llnd(fi,ALIGN_OP,(yyvsp[(3) - (7)].ll_node),(yyvsp[(7) - (7)].ll_node),SMNULL);
                  ;}
     break;
 
   case 789:
-#line 6023 "gram1.y"
+#line 6026 "gram1.y"
     { type_opt = ALIGN_BIT;
                   (yyval.ll_node) = make_llnd(fi,ALIGN_OP,LLNULL,SMNULL,SMNULL);
                 ;}
     break;
 
   case 790:
-#line 6033 "gram1.y"
+#line 6036 "gram1.y"
     { 
                  type_opt = DISTRIBUTE_BIT;
                  (yyval.ll_node) = make_llnd(fi,DISTRIBUTE_OP,(yyvsp[(2) - (4)].ll_node),(yyvsp[(4) - (4)].ll_node),SMNULL);
@@ -11402,7 +11405,7 @@ yyreduce:
     break;
 
   case 791:
-#line 6038 "gram1.y"
+#line 6041 "gram1.y"
     { 
                  type_opt = DISTRIBUTE_BIT;
                  (yyval.ll_node) = make_llnd(fi,DISTRIBUTE_OP,LLNULL,LLNULL,SMNULL);
@@ -11410,7 +11413,7 @@ yyreduce:
     break;
 
   case 792:
-#line 6043 "gram1.y"
+#line 6046 "gram1.y"
     {
                  type_opt = COMMON_BIT;
                  (yyval.ll_node) = make_llnd(fi,COMMON_OP, LLNULL, LLNULL, SMNULL);
@@ -11418,7 +11421,7 @@ yyreduce:
     break;
 
   case 793:
-#line 6050 "gram1.y"
+#line 6053 "gram1.y"
     { 
 	      PTR_LLND  l;
 	      l = make_llnd(fi, TYPE_OP, LLNULL, LLNULL, SMNULL);
@@ -11428,12 +11431,12 @@ yyreduce:
     break;
 
   case 794:
-#line 6058 "gram1.y"
+#line 6061 "gram1.y"
     {ndim = 0;;}
     break;
 
   case 795:
-#line 6059 "gram1.y"
+#line 6062 "gram1.y"
     { PTR_LLND  q;
              if(ndim == maxdim)
 		err("Too many dimensions", 43);
@@ -11447,7 +11450,7 @@ yyreduce:
     break;
 
   case 796:
-#line 6070 "gram1.y"
+#line 6073 "gram1.y"
     { PTR_LLND  q;
              if(ndim == maxdim)
 		err("Too many dimensions", 43);
@@ -11459,17 +11462,17 @@ yyreduce:
     break;
 
   case 797:
-#line 6081 "gram1.y"
+#line 6084 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 798:
-#line 6083 "gram1.y"
+#line 6086 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 799:
-#line 6087 "gram1.y"
+#line 6090 "gram1.y"
     {PTR_SYMB s;
            /* s = make_scalar($1,TYNULL,LOCAL);*/
             s = make_array((yyvsp[(1) - (1)].hash_entry),TYNULL,LLNULL,0,LOCAL);
@@ -11481,22 +11484,22 @@ yyreduce:
     break;
 
   case 800:
-#line 6098 "gram1.y"
+#line 6101 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_HEAP_DIR, SMNULL, (yyvsp[(3) - (3)].ll_node), LLNULL, LLNULL);;}
     break;
 
   case 801:
-#line 6102 "gram1.y"
+#line 6105 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 802:
-#line 6104 "gram1.y"
+#line 6107 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 803:
-#line 6108 "gram1.y"
+#line 6111 "gram1.y"
     {  PTR_SYMB s;
 	      s = make_array((yyvsp[(1) - (1)].hash_entry), TYNULL, LLNULL, 0, LOCAL);
               s->attr = s->attr | HEAP_BIT;
@@ -11508,22 +11511,22 @@ yyreduce:
     break;
 
   case 804:
-#line 6119 "gram1.y"
+#line 6122 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_CONSISTENT_DIR, SMNULL, (yyvsp[(3) - (3)].ll_node), LLNULL, LLNULL);;}
     break;
 
   case 805:
-#line 6123 "gram1.y"
+#line 6126 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 806:
-#line 6125 "gram1.y"
+#line 6128 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 807:
-#line 6129 "gram1.y"
+#line 6132 "gram1.y"
     {  PTR_SYMB s;
 	      s = make_array((yyvsp[(1) - (1)].hash_entry), TYNULL, LLNULL, 0, LOCAL);
               s->attr = s->attr | CONSISTENT_BIT;
@@ -11535,12 +11538,12 @@ yyreduce:
     break;
 
   case 808:
-#line 6141 "gram1.y"
+#line 6144 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_ASYNCID_DIR, SMNULL, (yyvsp[(3) - (3)].ll_node), LLNULL, LLNULL);;}
     break;
 
   case 809:
-#line 6143 "gram1.y"
+#line 6146 "gram1.y"
     { PTR_LLND p;
               p = make_llnd(fi,COMM_LIST, LLNULL, LLNULL, SMNULL);              
               (yyval.bf_node) = get_bfnd(fi,DVM_ASYNCID_DIR, SMNULL, (yyvsp[(8) - (8)].ll_node), p, LLNULL);
@@ -11548,17 +11551,17 @@ yyreduce:
     break;
 
   case 810:
-#line 6150 "gram1.y"
+#line 6153 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 811:
-#line 6152 "gram1.y"
+#line 6155 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 812:
-#line 6156 "gram1.y"
+#line 6159 "gram1.y"
     {  PTR_SYMB s;
               if((yyvsp[(2) - (2)].ll_node)){
                   s = make_array((yyvsp[(1) - (2)].hash_entry), global_default, (yyvsp[(2) - (2)].ll_node), ndim, LOCAL);
@@ -11574,12 +11577,12 @@ yyreduce:
     break;
 
   case 813:
-#line 6172 "gram1.y"
+#line 6175 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_NEW_VALUE_DIR,SMNULL, LLNULL, LLNULL,LLNULL);;}
     break;
 
   case 814:
-#line 6182 "gram1.y"
+#line 6185 "gram1.y"
     {  if((yyvsp[(6) - (7)].ll_node) &&  (yyvsp[(6) - (7)].ll_node)->entry.Template.symbol->attr & TASK_BIT)
                         (yyval.bf_node) = get_bfnd(fi,DVM_PARALLEL_TASK_DIR,SMNULL,(yyvsp[(6) - (7)].ll_node),(yyvsp[(7) - (7)].ll_node),(yyvsp[(4) - (7)].ll_node));
                     else
@@ -11588,27 +11591,27 @@ yyreduce:
     break;
 
   case 815:
-#line 6191 "gram1.y"
+#line 6194 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 816:
-#line 6193 "gram1.y"
+#line 6196 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 817:
-#line 6197 "gram1.y"
+#line 6200 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(3) - (3)].ll_node);;}
     break;
 
   case 818:
-#line 6200 "gram1.y"
+#line 6203 "gram1.y"
     { (yyval.ll_node) = LLNULL; opt_kwd_ = NO;;}
     break;
 
   case 819:
-#line 6205 "gram1.y"
+#line 6208 "gram1.y"
     {
           if((yyvsp[(1) - (4)].ll_node)->type->variant != T_ARRAY) 
              errstr("'%s' isn't array", (yyvsp[(1) - (4)].ll_node)->entry.Template.symbol->ident, 66);
@@ -11619,22 +11622,22 @@ yyreduce:
     break;
 
   case 820:
-#line 6215 "gram1.y"
+#line 6218 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 821:
-#line 6217 "gram1.y"
+#line 6220 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 822:
-#line 6221 "gram1.y"
+#line 6224 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 823:
-#line 6223 "gram1.y"
+#line 6226 "gram1.y"
     {
              (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL, LLNULL, LLNULL, SMNULL);
              (yyval.ll_node)->entry.string_val = (char *) "*";
@@ -11643,27 +11646,27 @@ yyreduce:
     break;
 
   case 824:
-#line 6231 "gram1.y"
+#line 6234 "gram1.y"
     {  (yyval.ll_node) = LLNULL;;}
     break;
 
   case 825:
-#line 6233 "gram1.y"
+#line 6236 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 826:
-#line 6237 "gram1.y"
+#line 6240 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 827:
-#line 6239 "gram1.y"
+#line 6242 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (2)].ll_node),(yyvsp[(2) - (2)].ll_node),EXPR_LIST); ;}
     break;
 
   case 839:
-#line 6257 "gram1.y"
+#line 6260 "gram1.y"
     { if((yyvsp[(5) - (8)].symbol)->attr & INDIRECT_BIT)
                             errstr("'%s' is not remote group name", (yyvsp[(5) - (8)].symbol)->ident, 68);
                           (yyval.ll_node) = make_llnd(fi,REMOTE_ACCESS_OP,(yyvsp[(7) - (8)].ll_node),LLNULL,(yyvsp[(5) - (8)].symbol));
@@ -11671,24 +11674,24 @@ yyreduce:
     break;
 
   case 840:
-#line 6262 "gram1.y"
+#line 6265 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,REMOTE_ACCESS_OP,(yyvsp[(5) - (6)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 841:
-#line 6266 "gram1.y"
+#line 6269 "gram1.y"
     {
                           (yyval.ll_node) = make_llnd(fi,CONSISTENT_OP,(yyvsp[(7) - (8)].ll_node),LLNULL,(yyvsp[(5) - (8)].symbol));
                         ;}
     break;
 
   case 842:
-#line 6270 "gram1.y"
+#line 6273 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,CONSISTENT_OP,(yyvsp[(5) - (6)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 843:
-#line 6274 "gram1.y"
+#line 6277 "gram1.y"
     {  
             if(((yyval.symbol)=(yyvsp[(1) - (1)].hash_entry)->id_attr) == SMNULL){
                 errstr("'%s' is not declared as group", (yyvsp[(1) - (1)].hash_entry)->ident, 74);
@@ -11701,67 +11704,67 @@ yyreduce:
     break;
 
   case 844:
-#line 6287 "gram1.y"
+#line 6290 "gram1.y"
     {(yyval.ll_node) = make_llnd(fi,NEW_SPEC_OP,(yyvsp[(5) - (6)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 845:
-#line 6291 "gram1.y"
+#line 6294 "gram1.y"
     {(yyval.ll_node) = make_llnd(fi,NEW_SPEC_OP,(yyvsp[(5) - (6)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 846:
-#line 6295 "gram1.y"
+#line 6298 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_PRIVATE_OP,(yyvsp[(5) - (6)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 847:
-#line 6299 "gram1.y"
+#line 6302 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_CUDA_BLOCK_OP,(yyvsp[(5) - (6)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 848:
-#line 6302 "gram1.y"
+#line 6305 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST);;}
     break;
 
   case 849:
-#line 6304 "gram1.y"
+#line 6307 "gram1.y"
     {(yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST);;}
     break;
 
   case 850:
-#line 6306 "gram1.y"
+#line 6309 "gram1.y"
     {(yyval.ll_node) = set_ll_list((yyvsp[(1) - (5)].ll_node),(yyvsp[(3) - (5)].ll_node),EXPR_LIST); (yyval.ll_node) = set_ll_list((yyval.ll_node),(yyvsp[(5) - (5)].ll_node),EXPR_LIST);;}
     break;
 
   case 851:
-#line 6310 "gram1.y"
+#line 6313 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST);;}
     break;
 
   case 852:
-#line 6312 "gram1.y"
+#line 6315 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST);;}
     break;
 
   case 853:
-#line 6316 "gram1.y"
+#line 6319 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_TIE_OP,(yyvsp[(5) - (6)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 854:
-#line 6320 "gram1.y"
+#line 6323 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST);;}
     break;
 
   case 855:
-#line 6322 "gram1.y"
+#line 6325 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST);;}
     break;
 
   case 856:
-#line 6326 "gram1.y"
+#line 6329 "gram1.y"
     { if(!((yyvsp[(5) - (8)].symbol)->attr & INDIRECT_BIT))
                          errstr("'%s' is not indirect group name", (yyvsp[(5) - (8)].symbol)->ident, 313);
                       (yyval.ll_node) = make_llnd(fi,INDIRECT_ACCESS_OP,(yyvsp[(7) - (8)].ll_node),LLNULL,(yyvsp[(5) - (8)].symbol));
@@ -11769,27 +11772,27 @@ yyreduce:
     break;
 
   case 857:
-#line 6331 "gram1.y"
+#line 6334 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,INDIRECT_ACCESS_OP,(yyvsp[(5) - (6)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 858:
-#line 6335 "gram1.y"
+#line 6338 "gram1.y"
     {(yyval.ll_node) = make_llnd(fi,STAGE_OP,(yyvsp[(5) - (6)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 859:
-#line 6339 "gram1.y"
+#line 6342 "gram1.y"
     {(yyval.ll_node) = make_llnd(fi,ACROSS_OP,(yyvsp[(4) - (4)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 860:
-#line 6341 "gram1.y"
+#line 6344 "gram1.y"
     {(yyval.ll_node) = make_llnd(fi,ACROSS_OP,(yyvsp[(4) - (5)].ll_node),(yyvsp[(5) - (5)].ll_node),SMNULL);;}
     break;
 
   case 861:
-#line 6345 "gram1.y"
+#line 6348 "gram1.y"
     {  if((yyvsp[(3) - (5)].ll_node))
                      (yyval.ll_node) = make_llnd(fi,DDOT,(yyvsp[(3) - (5)].ll_node),(yyvsp[(4) - (5)].ll_node),SMNULL);
                    else
@@ -11798,12 +11801,12 @@ yyreduce:
     break;
 
   case 862:
-#line 6353 "gram1.y"
+#line 6356 "gram1.y"
     { opt_in_out = YES; ;}
     break;
 
   case 863:
-#line 6357 "gram1.y"
+#line 6360 "gram1.y"
     {
 	      (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "in";
@@ -11812,7 +11815,7 @@ yyreduce:
     break;
 
   case 864:
-#line 6363 "gram1.y"
+#line 6366 "gram1.y"
     {
 	      (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "out";
@@ -11821,34 +11824,34 @@ yyreduce:
     break;
 
   case 865:
-#line 6369 "gram1.y"
+#line 6372 "gram1.y"
     {  (yyval.ll_node) = LLNULL; opt_kwd_ = NO;;}
     break;
 
   case 866:
-#line 6373 "gram1.y"
+#line 6376 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST);;}
     break;
 
   case 867:
-#line 6375 "gram1.y"
+#line 6378 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST);;}
     break;
 
   case 868:
-#line 6379 "gram1.y"
+#line 6382 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 869:
-#line 6381 "gram1.y"
+#line 6384 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (4)].ll_node);
                     (yyval.ll_node)-> entry.Template.ll_ptr1 = (yyvsp[(3) - (4)].ll_node);  
                   ;}
     break;
 
   case 870:
-#line 6385 "gram1.y"
+#line 6388 "gram1.y"
     { /*  PTR_LLND p;
                        p = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
                        p->entry.string_val = (char *) "corner";
@@ -11860,87 +11863,87 @@ yyreduce:
     break;
 
   case 871:
-#line 6397 "gram1.y"
+#line 6400 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST);;}
     break;
 
   case 872:
-#line 6399 "gram1.y"
+#line 6402 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST);;}
     break;
 
   case 873:
-#line 6403 "gram1.y"
+#line 6406 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT, (yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), SMNULL);;}
     break;
 
   case 874:
-#line 6407 "gram1.y"
+#line 6410 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST);;}
     break;
 
   case 875:
-#line 6409 "gram1.y"
+#line 6412 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST);;}
     break;
 
   case 876:
-#line 6413 "gram1.y"
+#line 6416 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,(yyvsp[(1) - (5)].ll_node),make_llnd(fi,DDOT,(yyvsp[(3) - (5)].ll_node),(yyvsp[(5) - (5)].ll_node),SMNULL),SMNULL); ;}
     break;
 
   case 877:
-#line 6415 "gram1.y"
+#line 6418 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,(yyvsp[(1) - (3)].ll_node),make_llnd(fi,DDOT,(yyvsp[(3) - (3)].ll_node),LLNULL,SMNULL),SMNULL); ;}
     break;
 
   case 878:
-#line 6417 "gram1.y"
+#line 6420 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,(yyvsp[(1) - (3)].ll_node),make_llnd(fi,DDOT,LLNULL,(yyvsp[(3) - (3)].ll_node),SMNULL),SMNULL); ;}
     break;
 
   case 879:
-#line 6419 "gram1.y"
+#line 6422 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,(yyvsp[(1) - (1)].ll_node),LLNULL,SMNULL); ;}
     break;
 
   case 880:
-#line 6421 "gram1.y"
+#line 6424 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,LLNULL,make_llnd(fi,DDOT,(yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),SMNULL),SMNULL); ;}
     break;
 
   case 881:
-#line 6423 "gram1.y"
+#line 6426 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,LLNULL,make_llnd(fi,DDOT,(yyvsp[(1) - (1)].ll_node),LLNULL,SMNULL),SMNULL); ;}
     break;
 
   case 882:
-#line 6425 "gram1.y"
+#line 6428 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT,LLNULL,make_llnd(fi,DDOT,LLNULL,(yyvsp[(1) - (1)].ll_node),SMNULL),SMNULL); ;}
     break;
 
   case 883:
-#line 6429 "gram1.y"
+#line 6432 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(3) - (3)].ll_node);;}
     break;
 
   case 884:
-#line 6433 "gram1.y"
+#line 6436 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(3) - (3)].ll_node);;}
     break;
 
   case 885:
-#line 6437 "gram1.y"
+#line 6440 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(3) - (3)].ll_node);;}
     break;
 
   case 886:
-#line 6441 "gram1.y"
+#line 6444 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(2) - (3)].ll_node);;}
     break;
 
   case 887:
-#line 6445 "gram1.y"
+#line 6448 "gram1.y"
     {PTR_LLND q;
                 /* q = set_ll_list($9,$6,EXPR_LIST); */
                  q = set_ll_list((yyvsp[(6) - (10)].ll_node),LLNULL,EXPR_LIST); /*podd 11.10.01*/
@@ -11950,7 +11953,7 @@ yyreduce:
     break;
 
   case 888:
-#line 6452 "gram1.y"
+#line 6455 "gram1.y"
     {PTR_LLND q;
                  q = set_ll_list((yyvsp[(6) - (8)].ll_node),LLNULL,EXPR_LIST);
                  (yyval.ll_node) = make_llnd(fi,REDUCTION_OP,q,LLNULL,SMNULL);
@@ -11958,22 +11961,22 @@ yyreduce:
     break;
 
   case 889:
-#line 6458 "gram1.y"
+#line 6461 "gram1.y"
     {  (yyval.ll_node) = make_llnd(fi,REDUCTION_OP,(yyvsp[(9) - (10)].ll_node),LLNULL,(yyvsp[(6) - (10)].symbol)); ;}
     break;
 
   case 890:
-#line 6462 "gram1.y"
+#line 6465 "gram1.y"
     { opt_kwd_r = YES; ;}
     break;
 
   case 891:
-#line 6465 "gram1.y"
+#line 6468 "gram1.y"
     { opt_kwd_r = NO; ;}
     break;
 
   case 892:
-#line 6469 "gram1.y"
+#line 6472 "gram1.y"
     { 
                   if(((yyval.symbol)=(yyvsp[(1) - (1)].hash_entry)->id_attr) == SMNULL) {
                       errstr("'%s' is not declared as reduction group", (yyvsp[(1) - (1)].hash_entry)->ident, 69);
@@ -11986,28 +11989,28 @@ yyreduce:
     break;
 
   case 893:
-#line 6482 "gram1.y"
+#line 6485 "gram1.y"
     {(yyval.ll_node) = set_ll_list((yyvsp[(2) - (2)].ll_node),LLNULL,EXPR_LIST);;}
     break;
 
   case 894:
-#line 6484 "gram1.y"
+#line 6487 "gram1.y"
     {(yyval.ll_node) = set_ll_list((yyvsp[(1) - (4)].ll_node),(yyvsp[(4) - (4)].ll_node),EXPR_LIST);;}
     break;
 
   case 895:
-#line 6488 "gram1.y"
+#line 6491 "gram1.y"
     {(yyval.ll_node) = make_llnd(fi,ARRAY_OP,(yyvsp[(1) - (4)].ll_node),(yyvsp[(3) - (4)].ll_node),SMNULL);;}
     break;
 
   case 896:
-#line 6490 "gram1.y"
+#line 6493 "gram1.y"
     {(yyvsp[(3) - (6)].ll_node) = set_ll_list((yyvsp[(3) - (6)].ll_node),(yyvsp[(5) - (6)].ll_node),EXPR_LIST);
             (yyval.ll_node) = make_llnd(fi,ARRAY_OP,(yyvsp[(1) - (6)].ll_node),(yyvsp[(3) - (6)].ll_node),SMNULL);;}
     break;
 
   case 897:
-#line 6495 "gram1.y"
+#line 6498 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "sum";
@@ -12016,7 +12019,7 @@ yyreduce:
     break;
 
   case 898:
-#line 6501 "gram1.y"
+#line 6504 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "product";
@@ -12025,7 +12028,7 @@ yyreduce:
     break;
 
   case 899:
-#line 6507 "gram1.y"
+#line 6510 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "min";
@@ -12034,7 +12037,7 @@ yyreduce:
     break;
 
   case 900:
-#line 6513 "gram1.y"
+#line 6516 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "max";
@@ -12043,7 +12046,7 @@ yyreduce:
     break;
 
   case 901:
-#line 6519 "gram1.y"
+#line 6522 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "or";
@@ -12052,7 +12055,7 @@ yyreduce:
     break;
 
   case 902:
-#line 6525 "gram1.y"
+#line 6528 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "and";
@@ -12061,7 +12064,7 @@ yyreduce:
     break;
 
   case 903:
-#line 6531 "gram1.y"
+#line 6534 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "eqv";
@@ -12070,7 +12073,7 @@ yyreduce:
     break;
 
   case 904:
-#line 6537 "gram1.y"
+#line 6540 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "neqv";
@@ -12079,7 +12082,7 @@ yyreduce:
     break;
 
   case 905:
-#line 6543 "gram1.y"
+#line 6546 "gram1.y"
     { err("Illegal reduction operation name", 70);
                errcnt--;
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
@@ -12089,7 +12092,7 @@ yyreduce:
     break;
 
   case 906:
-#line 6552 "gram1.y"
+#line 6555 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "maxloc";
@@ -12098,7 +12101,7 @@ yyreduce:
     break;
 
   case 907:
-#line 6558 "gram1.y"
+#line 6561 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "minloc";
@@ -12107,52 +12110,52 @@ yyreduce:
     break;
 
   case 908:
-#line 6575 "gram1.y"
+#line 6578 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SHADOW_RENEW_OP,(yyvsp[(5) - (6)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 909:
-#line 6583 "gram1.y"
+#line 6586 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SHADOW_START_OP,LLNULL,LLNULL,(yyvsp[(4) - (4)].symbol));;}
     break;
 
   case 910:
-#line 6591 "gram1.y"
+#line 6594 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SHADOW_WAIT_OP,LLNULL,LLNULL,(yyvsp[(4) - (4)].symbol));;}
     break;
 
   case 911:
-#line 6593 "gram1.y"
+#line 6596 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SHADOW_COMP_OP,LLNULL,LLNULL,SMNULL);;}
     break;
 
   case 912:
-#line 6595 "gram1.y"
+#line 6598 "gram1.y"
     {  (yyvsp[(5) - (9)].ll_node)-> entry.Template.ll_ptr1 = (yyvsp[(7) - (9)].ll_node); (yyval.ll_node) = make_llnd(fi,SHADOW_COMP_OP,(yyvsp[(5) - (9)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 913:
-#line 6599 "gram1.y"
+#line 6602 "gram1.y"
     {(yyval.symbol) = make_local_entity((yyvsp[(1) - (1)].hash_entry), SHADOW_GROUP_NAME,global_default,LOCAL);;}
     break;
 
   case 914:
-#line 6603 "gram1.y"
+#line 6606 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST);;}
     break;
 
   case 915:
-#line 6605 "gram1.y"
+#line 6608 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST);;}
     break;
 
   case 916:
-#line 6609 "gram1.y"
+#line 6612 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 917:
-#line 6611 "gram1.y"
+#line 6614 "gram1.y"
     { PTR_LLND p;
           p = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
           p->entry.string_val = (char *) "corner";
@@ -12162,14 +12165,14 @@ yyreduce:
     break;
 
   case 918:
-#line 6619 "gram1.y"
+#line 6622 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (5)].ll_node);
           (yyval.ll_node)-> entry.Template.ll_ptr1 = (yyvsp[(4) - (5)].ll_node);  
         ;}
     break;
 
   case 919:
-#line 6623 "gram1.y"
+#line 6626 "gram1.y"
     { PTR_LLND p;
           p = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
           p->entry.string_val = (char *) "corner";
@@ -12180,12 +12183,12 @@ yyreduce:
     break;
 
   case 920:
-#line 6634 "gram1.y"
+#line 6637 "gram1.y"
     { optcorner = YES; ;}
     break;
 
   case 921:
-#line 6638 "gram1.y"
+#line 6641 "gram1.y"
     { PTR_SYMB s;
          s = (yyvsp[(1) - (1)].ll_node)->entry.Template.symbol;
          if(s->attr & PROCESSORS_BIT)
@@ -12204,62 +12207,62 @@ yyreduce:
     break;
 
   case 922:
-#line 6656 "gram1.y"
+#line 6659 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 923:
-#line 6658 "gram1.y"
+#line 6661 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 924:
-#line 6662 "gram1.y"
+#line 6665 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_SHADOW_START_DIR,(yyvsp[(3) - (3)].symbol),LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 925:
-#line 6664 "gram1.y"
+#line 6667 "gram1.y"
     {errstr("Missing DVM directive prefix", 49);;}
     break;
 
   case 926:
-#line 6668 "gram1.y"
+#line 6671 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_SHADOW_WAIT_DIR,(yyvsp[(3) - (3)].symbol),LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 927:
-#line 6670 "gram1.y"
+#line 6673 "gram1.y"
     {errstr("Missing DVM directive prefix", 49);;}
     break;
 
   case 928:
-#line 6674 "gram1.y"
+#line 6677 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_SHADOW_GROUP_DIR,(yyvsp[(3) - (6)].symbol),(yyvsp[(5) - (6)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 929:
-#line 6678 "gram1.y"
+#line 6681 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_REDUCTION_START_DIR,(yyvsp[(3) - (3)].symbol),LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 930:
-#line 6682 "gram1.y"
+#line 6685 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_REDUCTION_WAIT_DIR,(yyvsp[(3) - (3)].symbol),LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 931:
-#line 6691 "gram1.y"
+#line 6694 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_CONSISTENT_START_DIR,(yyvsp[(3) - (3)].symbol),LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 932:
-#line 6695 "gram1.y"
+#line 6698 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_CONSISTENT_WAIT_DIR,(yyvsp[(3) - (3)].symbol),LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 933:
-#line 6699 "gram1.y"
+#line 6702 "gram1.y"
     { if(((yyvsp[(4) - (7)].symbol)->attr & INDIRECT_BIT))
                 errstr("'%s' is not remote group name", (yyvsp[(4) - (7)].symbol)->ident, 68);
            (yyval.bf_node) = get_bfnd(fi,DVM_REMOTE_ACCESS_DIR,(yyvsp[(4) - (7)].symbol),(yyvsp[(6) - (7)].ll_node),LLNULL,LLNULL);
@@ -12267,12 +12270,12 @@ yyreduce:
     break;
 
   case 934:
-#line 6704 "gram1.y"
+#line 6707 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_REMOTE_ACCESS_DIR,SMNULL,(yyvsp[(4) - (5)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 935:
-#line 6708 "gram1.y"
+#line 6711 "gram1.y"
     {  
             if(((yyval.symbol)=(yyvsp[(1) - (1)].hash_entry)->id_attr) == SMNULL){
                 errstr("'%s' is not declared as group", (yyvsp[(1) - (1)].hash_entry)->ident, 74);
@@ -12285,17 +12288,17 @@ yyreduce:
     break;
 
   case 936:
-#line 6720 "gram1.y"
+#line 6723 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 937:
-#line 6722 "gram1.y"
+#line 6725 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 938:
-#line 6726 "gram1.y"
+#line 6729 "gram1.y"
     {
               (yyval.ll_node) = (yyvsp[(1) - (4)].ll_node);
               (yyval.ll_node)->entry.Template.ll_ptr1 = (yyvsp[(3) - (4)].ll_node);
@@ -12303,32 +12306,32 @@ yyreduce:
     break;
 
   case 939:
-#line 6731 "gram1.y"
+#line 6734 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 940:
-#line 6735 "gram1.y"
+#line 6738 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 941:
-#line 6737 "gram1.y"
+#line 6740 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 942:
-#line 6741 "gram1.y"
+#line 6744 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 943:
-#line 6743 "gram1.y"
+#line 6746 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT, LLNULL, LLNULL, SMNULL);;}
     break;
 
   case 944:
-#line 6747 "gram1.y"
+#line 6750 "gram1.y"
     {  PTR_LLND q;
              q = make_llnd(fi,EXPR_LIST, (yyvsp[(3) - (3)].ll_node), LLNULL, SMNULL);
              (yyval.bf_node) = get_bfnd(fi,DVM_TASK_DIR,SMNULL,q,LLNULL,LLNULL);
@@ -12336,7 +12339,7 @@ yyreduce:
     break;
 
   case 945:
-#line 6752 "gram1.y"
+#line 6755 "gram1.y"
     {   PTR_LLND q;
               q = make_llnd(fi,EXPR_LIST, (yyvsp[(3) - (3)].ll_node), LLNULL, SMNULL);
 	      add_to_lowLevelList(q, (yyvsp[(1) - (3)].bf_node)->entry.Template.ll_ptr1);
@@ -12344,7 +12347,7 @@ yyreduce:
     break;
 
   case 946:
-#line 6759 "gram1.y"
+#line 6762 "gram1.y"
     { 
              PTR_SYMB s;
 	      s = make_array((yyvsp[(1) - (2)].hash_entry), global_int, (yyvsp[(2) - (2)].ll_node), ndim, LOCAL);
@@ -12368,32 +12371,32 @@ yyreduce:
     break;
 
   case 947:
-#line 6782 "gram1.y"
+#line 6785 "gram1.y"
     {(yyval.bf_node) = get_bfnd(fi,DVM_TASK_REGION_DIR,(yyvsp[(3) - (3)].symbol),LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 948:
-#line 6784 "gram1.y"
+#line 6787 "gram1.y"
     {(yyval.bf_node) = get_bfnd(fi,DVM_TASK_REGION_DIR,(yyvsp[(3) - (4)].symbol),(yyvsp[(4) - (4)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 949:
-#line 6786 "gram1.y"
+#line 6789 "gram1.y"
     {(yyval.bf_node) = get_bfnd(fi,DVM_TASK_REGION_DIR,(yyvsp[(3) - (4)].symbol),LLNULL,(yyvsp[(4) - (4)].ll_node),LLNULL);;}
     break;
 
   case 950:
-#line 6788 "gram1.y"
+#line 6791 "gram1.y"
     {(yyval.bf_node) = get_bfnd(fi,DVM_TASK_REGION_DIR,(yyvsp[(3) - (5)].symbol),(yyvsp[(4) - (5)].ll_node),(yyvsp[(5) - (5)].ll_node),LLNULL);;}
     break;
 
   case 951:
-#line 6790 "gram1.y"
+#line 6793 "gram1.y"
     {(yyval.bf_node) = get_bfnd(fi,DVM_TASK_REGION_DIR,(yyvsp[(3) - (5)].symbol),(yyvsp[(5) - (5)].ll_node),(yyvsp[(4) - (5)].ll_node),LLNULL);;}
     break;
 
   case 952:
-#line 6794 "gram1.y"
+#line 6797 "gram1.y"
     { PTR_SYMB s;
               if((s=(yyvsp[(1) - (1)].hash_entry)->id_attr) == SMNULL)
                 s = make_array((yyvsp[(1) - (1)].hash_entry), TYNULL, LLNULL, 0, LOCAL);
@@ -12405,12 +12408,12 @@ yyreduce:
     break;
 
   case 953:
-#line 6805 "gram1.y"
+#line 6808 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_END_TASK_REGION_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 954:
-#line 6809 "gram1.y"
+#line 6812 "gram1.y"
     {  PTR_SYMB s;
               PTR_LLND q;
              /*
@@ -12428,7 +12431,7 @@ yyreduce:
     break;
 
   case 955:
-#line 6824 "gram1.y"
+#line 6827 "gram1.y"
     {  PTR_LLND q; 
               q =  set_ll_list((yyvsp[(3) - (4)].ll_node),LLNULL,EXPR_LIST);
 	      (yyval.ll_node) = make_llnd(fi,ARRAY_REF, q, LLNULL, (yyvsp[(1) - (4)].symbol));
@@ -12436,29 +12439,29 @@ yyreduce:
     break;
 
   case 956:
-#line 6831 "gram1.y"
+#line 6834 "gram1.y"
     {              
          (yyval.bf_node) = get_bfnd(fi,DVM_ON_DIR,SMNULL,(yyvsp[(3) - (4)].ll_node),(yyvsp[(4) - (4)].ll_node),LLNULL);
     ;}
     break;
 
   case 957:
-#line 6837 "gram1.y"
+#line 6840 "gram1.y"
     {(yyval.ll_node) = LLNULL;;}
     break;
 
   case 958:
-#line 6839 "gram1.y"
+#line 6842 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 959:
-#line 6843 "gram1.y"
+#line 6846 "gram1.y"
     {(yyval.bf_node) = get_bfnd(fi,DVM_END_ON_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 960:
-#line 6847 "gram1.y"
+#line 6850 "gram1.y"
     { PTR_LLND q;
         /* if(!($6->attr & PROCESSORS_BIT))
            errstr("'%s' is not processor array", $6->ident, 67);
@@ -12469,22 +12472,22 @@ yyreduce:
     break;
 
   case 961:
-#line 6855 "gram1.y"
+#line 6858 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_MAP_DIR,SMNULL,(yyvsp[(3) - (6)].ll_node),LLNULL,(yyvsp[(6) - (6)].ll_node)); ;}
     break;
 
   case 962:
-#line 6859 "gram1.y"
+#line 6862 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_PREFETCH_DIR,(yyvsp[(3) - (3)].symbol),LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 963:
-#line 6863 "gram1.y"
+#line 6866 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_RESET_DIR,(yyvsp[(3) - (3)].symbol),LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 964:
-#line 6871 "gram1.y"
+#line 6874 "gram1.y"
     { if(!((yyvsp[(4) - (7)].symbol)->attr & INDIRECT_BIT))
                          errstr("'%s' is not indirect group name", (yyvsp[(4) - (7)].symbol)->ident, 313);
                       (yyval.bf_node) = get_bfnd(fi,DVM_INDIRECT_ACCESS_DIR,(yyvsp[(4) - (7)].symbol),(yyvsp[(6) - (7)].ll_node),LLNULL,LLNULL);
@@ -12492,72 +12495,72 @@ yyreduce:
     break;
 
   case 965:
-#line 6876 "gram1.y"
+#line 6879 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_INDIRECT_ACCESS_DIR,SMNULL,(yyvsp[(4) - (5)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 966:
-#line 6890 "gram1.y"
+#line 6893 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 967:
-#line 6892 "gram1.y"
+#line 6895 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 968:
-#line 6896 "gram1.y"
+#line 6899 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 969:
-#line 6898 "gram1.y"
+#line 6901 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (4)].ll_node); (yyval.ll_node)->entry.Template.ll_ptr1 = (yyvsp[(3) - (4)].ll_node);;}
     break;
 
   case 970:
-#line 6907 "gram1.y"
+#line 6910 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,HPF_INDEPENDENT_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 971:
-#line 6909 "gram1.y"
+#line 6912 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,HPF_INDEPENDENT_DIR,SMNULL, (yyvsp[(3) - (3)].ll_node), LLNULL, LLNULL);;}
     break;
 
   case 972:
-#line 6911 "gram1.y"
+#line 6914 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,HPF_INDEPENDENT_DIR,SMNULL, LLNULL, (yyvsp[(3) - (3)].ll_node), LLNULL);;}
     break;
 
   case 973:
-#line 6913 "gram1.y"
+#line 6916 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,HPF_INDEPENDENT_DIR,SMNULL, (yyvsp[(3) - (4)].ll_node), (yyvsp[(4) - (4)].ll_node),LLNULL);;}
     break;
 
   case 974:
-#line 6949 "gram1.y"
+#line 6952 "gram1.y"
     {(yyval.ll_node) = make_llnd(fi,REDUCTION_OP,(yyvsp[(5) - (6)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 975:
-#line 6953 "gram1.y"
+#line 6956 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_ASYNCHRONOUS_DIR,SMNULL,(yyvsp[(3) - (3)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 976:
-#line 6957 "gram1.y"
+#line 6960 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_ENDASYNCHRONOUS_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 977:
-#line 6961 "gram1.y"
+#line 6964 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_ASYNCWAIT_DIR,SMNULL,(yyvsp[(3) - (3)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 978:
-#line 6965 "gram1.y"
+#line 6968 "gram1.y"
     {  
             if(((yyval.symbol)=(yyvsp[(1) - (1)].hash_entry)->id_attr) == SMNULL) {
                 errstr("'%s' is not declared as ASYNCID", (yyvsp[(1) - (1)].hash_entry)->ident, 115);
@@ -12570,32 +12573,32 @@ yyreduce:
     break;
 
   case 979:
-#line 6977 "gram1.y"
+#line 6980 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,VAR_REF, LLNULL, LLNULL, (yyvsp[(1) - (1)].symbol));;}
     break;
 
   case 980:
-#line 6979 "gram1.y"
+#line 6982 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ARRAY_REF, (yyvsp[(3) - (4)].ll_node), LLNULL, (yyvsp[(1) - (4)].symbol));;}
     break;
 
   case 981:
-#line 6983 "gram1.y"
+#line 6986 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_F90_DIR,SMNULL,(yyvsp[(3) - (5)].ll_node),(yyvsp[(5) - (5)].ll_node),LLNULL);;}
     break;
 
   case 982:
-#line 6986 "gram1.y"
+#line 6989 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_DEBUG_DIR,SMNULL,(yyvsp[(3) - (3)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 983:
-#line 6988 "gram1.y"
+#line 6991 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_DEBUG_DIR,SMNULL,(yyvsp[(3) - (6)].ll_node),(yyvsp[(5) - (6)].ll_node),LLNULL);;}
     break;
 
   case 984:
-#line 6992 "gram1.y"
+#line 6995 "gram1.y"
     { 
               (yyval.ll_node) = set_ll_list((yyvsp[(2) - (2)].ll_node), LLNULL, EXPR_LIST);
               endioctl();
@@ -12603,7 +12606,7 @@ yyreduce:
     break;
 
   case 985:
-#line 6997 "gram1.y"
+#line 7000 "gram1.y"
     { 
               (yyval.ll_node) = set_ll_list((yyvsp[(1) - (4)].ll_node), (yyvsp[(4) - (4)].ll_node), EXPR_LIST);
               endioctl();
@@ -12611,12 +12614,12 @@ yyreduce:
     break;
 
   case 986:
-#line 7004 "gram1.y"
+#line 7007 "gram1.y"
     { (yyval.ll_node)  = make_llnd(fi, KEYWORD_ARG, (yyvsp[(1) - (2)].ll_node), (yyvsp[(2) - (2)].ll_node), SMNULL); ;}
     break;
 
   case 987:
-#line 7007 "gram1.y"
+#line 7010 "gram1.y"
     {
 	         (yyval.ll_node) = make_llnd(fi,INT_VAL, LLNULL, LLNULL, SMNULL);
 	         (yyval.ll_node)->entry.ival = atoi(yytext);
@@ -12625,22 +12628,22 @@ yyreduce:
     break;
 
   case 988:
-#line 7015 "gram1.y"
+#line 7018 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_ENDDEBUG_DIR,SMNULL,(yyvsp[(3) - (3)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 989:
-#line 7019 "gram1.y"
+#line 7022 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_INTERVAL_DIR,SMNULL,(yyvsp[(3) - (3)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 990:
-#line 7023 "gram1.y"
+#line 7026 "gram1.y"
     { (yyval.ll_node) = LLNULL;;}
     break;
 
   case 991:
-#line 7026 "gram1.y"
+#line 7029 "gram1.y"
     { if((yyvsp[(1) - (1)].ll_node)->type->variant != T_INT)             
                     err("Illegal interval number", 78);
                   (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);
@@ -12648,72 +12651,72 @@ yyreduce:
     break;
 
   case 992:
-#line 7034 "gram1.y"
+#line 7037 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_EXIT_INTERVAL_DIR,SMNULL,(yyvsp[(3) - (3)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 993:
-#line 7038 "gram1.y"
+#line 7041 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_ENDINTERVAL_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 994:
-#line 7042 "gram1.y"
+#line 7045 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_TRACEON_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 995:
-#line 7046 "gram1.y"
+#line 7049 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_TRACEOFF_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 996:
-#line 7050 "gram1.y"
+#line 7053 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_BARRIER_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 997:
-#line 7054 "gram1.y"
+#line 7057 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_CHECK_DIR,SMNULL,(yyvsp[(9) - (9)].ll_node),(yyvsp[(5) - (9)].ll_node),LLNULL); ;}
     break;
 
   case 998:
-#line 7058 "gram1.y"
+#line 7061 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_IO_MODE_DIR,SMNULL,(yyvsp[(4) - (5)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 999:
-#line 7061 "gram1.y"
+#line 7064 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 1000:
-#line 7063 "gram1.y"
+#line 7066 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 1001:
-#line 7067 "gram1.y"
+#line 7070 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_ASYNC_OP,LLNULL,LLNULL,SMNULL);;}
     break;
 
   case 1002:
-#line 7069 "gram1.y"
+#line 7072 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_LOCAL_OP, LLNULL,LLNULL,SMNULL);;}
     break;
 
   case 1003:
-#line 7071 "gram1.y"
+#line 7074 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,PARALLEL_OP, LLNULL,LLNULL,SMNULL);;}
     break;
 
   case 1004:
-#line 7075 "gram1.y"
+#line 7078 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_SHADOW_ADD_DIR,SMNULL,(yyvsp[(4) - (9)].ll_node),(yyvsp[(6) - (9)].ll_node),(yyvsp[(9) - (9)].ll_node)); ;}
     break;
 
   case 1005:
-#line 7079 "gram1.y"
+#line 7082 "gram1.y"
     {
                  if((yyvsp[(1) - (4)].ll_node)->type->variant != T_ARRAY) 
                     errstr("'%s' isn't array", (yyvsp[(1) - (4)].ll_node)->entry.Template.symbol->ident, 66);
@@ -12726,42 +12729,42 @@ yyreduce:
     break;
 
   case 1006:
-#line 7091 "gram1.y"
+#line 7094 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 1007:
-#line 7093 "gram1.y"
+#line 7096 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 1008:
-#line 7097 "gram1.y"
+#line 7100 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 1009:
-#line 7099 "gram1.y"
+#line 7102 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 1010:
-#line 7103 "gram1.y"
+#line 7106 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(2) - (2)].ll_node);;}
     break;
 
   case 1011:
-#line 7105 "gram1.y"
+#line 7108 "gram1.y"
     { (yyval.ll_node) = LLNULL; opt_kwd_ = NO;;}
     break;
 
   case 1012:
-#line 7109 "gram1.y"
+#line 7112 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_LOCALIZE_DIR,SMNULL,(yyvsp[(4) - (7)].ll_node),(yyvsp[(6) - (7)].ll_node),LLNULL); ;}
     break;
 
   case 1013:
-#line 7113 "gram1.y"
+#line 7116 "gram1.y"
     {
                  if((yyvsp[(1) - (1)].ll_node)->type->variant != T_ARRAY) 
                     errstr("'%s' isn't array", (yyvsp[(1) - (1)].ll_node)->entry.Template.symbol->ident, 66); 
@@ -12770,7 +12773,7 @@ yyreduce:
     break;
 
   case 1014:
-#line 7119 "gram1.y"
+#line 7122 "gram1.y"
     {
                  if((yyvsp[(1) - (4)].ll_node)->type->variant != T_ARRAY) 
                     errstr("'%s' isn't array", (yyvsp[(1) - (4)].ll_node)->entry.Template.symbol->ident, 66); 
@@ -12782,27 +12785,27 @@ yyreduce:
     break;
 
   case 1015:
-#line 7131 "gram1.y"
+#line 7134 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 1016:
-#line 7133 "gram1.y"
+#line 7136 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 1017:
-#line 7137 "gram1.y"
+#line 7140 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 1018:
-#line 7139 "gram1.y"
+#line 7142 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,DDOT, LLNULL, LLNULL, SMNULL);;}
     break;
 
   case 1019:
-#line 7143 "gram1.y"
+#line 7146 "gram1.y"
     { 
             (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL, LLNULL, LLNULL, SMNULL);
             (yyval.ll_node)->entry.string_val = (char *) "*";
@@ -12811,7 +12814,7 @@ yyreduce:
     break;
 
   case 1020:
-#line 7151 "gram1.y"
+#line 7154 "gram1.y"
     { 
                 PTR_LLND q;
                 if((yyvsp[(16) - (16)].ll_node))
@@ -12823,32 +12826,32 @@ yyreduce:
     break;
 
   case 1021:
-#line 7162 "gram1.y"
+#line 7165 "gram1.y"
     { (yyval.ll_node) = LLNULL; ;}
     break;
 
   case 1022:
-#line 7164 "gram1.y"
+#line 7167 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi, PARALLEL_OP, LLNULL, LLNULL, SMNULL); ;}
     break;
 
   case 1023:
-#line 7166 "gram1.y"
+#line 7169 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_LOCAL_OP, LLNULL, LLNULL, SMNULL); ;}
     break;
 
   case 1024:
-#line 7170 "gram1.y"
+#line 7173 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_CP_LOAD_DIR,SMNULL,(yyvsp[(3) - (3)].ll_node),LLNULL,LLNULL); ;}
     break;
 
   case 1025:
-#line 7174 "gram1.y"
+#line 7177 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_CP_SAVE_DIR,SMNULL,(yyvsp[(3) - (3)].ll_node),LLNULL,LLNULL); ;}
     break;
 
   case 1026:
-#line 7176 "gram1.y"
+#line 7179 "gram1.y"
     {
                 PTR_LLND q;
                 q = make_llnd(fi,ACC_ASYNC_OP,LLNULL,LLNULL,SMNULL);
@@ -12857,46 +12860,46 @@ yyreduce:
     break;
 
   case 1027:
-#line 7184 "gram1.y"
+#line 7187 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_CP_WAIT_DIR,SMNULL,(yyvsp[(3) - (9)].ll_node),(yyvsp[(8) - (9)].ll_node),LLNULL); ;}
     break;
 
   case 1028:
-#line 7188 "gram1.y"
+#line 7191 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_TEMPLATE_CREATE_DIR,SMNULL,(yyvsp[(4) - (5)].ll_node),LLNULL,LLNULL); ;}
     break;
 
   case 1029:
-#line 7191 "gram1.y"
+#line 7194 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node), LLNULL, EXPR_LIST); ;}
     break;
 
   case 1030:
-#line 7193 "gram1.y"
+#line 7196 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), EXPR_LIST); ;}
     break;
 
   case 1031:
-#line 7197 "gram1.y"
+#line 7200 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,DVM_TEMPLATE_DELETE_DIR,SMNULL,(yyvsp[(4) - (5)].ll_node),LLNULL,LLNULL); ;}
     break;
 
   case 1059:
-#line 7231 "gram1.y"
+#line 7234 "gram1.y"
     {
           (yyval.bf_node) = get_bfnd(fi,OMP_ONETHREAD_DIR,SMNULL,LLNULL,LLNULL,LLNULL);
 	;}
     break;
 
   case 1060:
-#line 7237 "gram1.y"
+#line 7240 "gram1.y"
     {
   	   (yyval.bf_node) = make_endparallel();
 	;}
     break;
 
   case 1061:
-#line 7243 "gram1.y"
+#line 7246 "gram1.y"
     {
   	   (yyval.bf_node) = make_parallel();
            (yyval.bf_node)->entry.Template.ll_ptr1 = (yyvsp[(4) - (4)].ll_node);
@@ -12905,7 +12908,7 @@ yyreduce:
     break;
 
   case 1062:
-#line 7249 "gram1.y"
+#line 7252 "gram1.y"
     {
   	   (yyval.bf_node) = make_parallel();
 	   opt_kwd_ = NO;
@@ -12913,70 +12916,70 @@ yyreduce:
     break;
 
   case 1063:
-#line 7255 "gram1.y"
+#line 7258 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(3) - (4)].ll_node),LLNULL,EXPR_LIST);
 	;}
     break;
 
   case 1064:
-#line 7259 "gram1.y"
+#line 7262 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(1) - (5)].ll_node),(yyvsp[(4) - (5)].ll_node),EXPR_LIST);	
 	;}
     break;
 
   case 1074:
-#line 7276 "gram1.y"
+#line 7279 "gram1.y"
     {
 		(yyval.ll_node) = (yyvsp[(4) - (5)].ll_node);
         ;}
     break;
 
   case 1075:
-#line 7281 "gram1.y"
+#line 7284 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,OMP_PRIVATE,(yyvsp[(2) - (2)].ll_node),LLNULL,SMNULL);
 	;}
     break;
 
   case 1076:
-#line 7286 "gram1.y"
+#line 7289 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,OMP_FIRSTPRIVATE,(yyvsp[(2) - (2)].ll_node),LLNULL,SMNULL);
 	;}
     break;
 
   case 1077:
-#line 7292 "gram1.y"
+#line 7295 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,OMP_LASTPRIVATE,(yyvsp[(2) - (2)].ll_node),LLNULL,SMNULL);
 	;}
     break;
 
   case 1078:
-#line 7298 "gram1.y"
+#line 7301 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,OMP_COPYIN,(yyvsp[(2) - (2)].ll_node),LLNULL,SMNULL);
 	;}
     break;
 
   case 1079:
-#line 7304 "gram1.y"
+#line 7307 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,OMP_SHARED,(yyvsp[(2) - (2)].ll_node),LLNULL,SMNULL);
 	;}
     break;
 
   case 1080:
-#line 7309 "gram1.y"
+#line 7312 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,OMP_DEFAULT,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);
 	;}
     break;
 
   case 1081:
-#line 7315 "gram1.y"
+#line 7318 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
 		(yyval.ll_node)->entry.string_val = (char *) "private";
@@ -12985,7 +12988,7 @@ yyreduce:
     break;
 
   case 1082:
-#line 7321 "gram1.y"
+#line 7324 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
 		(yyval.ll_node)->entry.string_val = (char *) "shared";
@@ -12994,7 +12997,7 @@ yyreduce:
     break;
 
   case 1083:
-#line 7327 "gram1.y"
+#line 7330 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
 		(yyval.ll_node)->entry.string_val = (char *) "none";
@@ -13003,21 +13006,21 @@ yyreduce:
     break;
 
   case 1084:
-#line 7334 "gram1.y"
+#line 7337 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,OMP_IF,(yyvsp[(3) - (4)].ll_node),LLNULL,SMNULL);
 	;}
     break;
 
   case 1085:
-#line 7340 "gram1.y"
+#line 7343 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,OMP_NUM_THREADS,(yyvsp[(3) - (4)].ll_node),LLNULL,SMNULL);
 	;}
     break;
 
   case 1086:
-#line 7346 "gram1.y"
+#line 7349 "gram1.y"
     {
 		PTR_LLND q;
 		q = set_ll_list((yyvsp[(3) - (4)].ll_node),LLNULL,EXPR_LIST);
@@ -13026,12 +13029,12 @@ yyreduce:
     break;
 
   case 1087:
-#line 7353 "gram1.y"
+#line 7356 "gram1.y"
     {(yyval.ll_node) = make_llnd(fi,DDOT,(yyvsp[(2) - (4)].ll_node),(yyvsp[(4) - (4)].ll_node),SMNULL);;}
     break;
 
   case 1089:
-#line 7359 "gram1.y"
+#line 7362 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "+";
@@ -13040,7 +13043,7 @@ yyreduce:
     break;
 
   case 1090:
-#line 7365 "gram1.y"
+#line 7368 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "-";
@@ -13049,7 +13052,7 @@ yyreduce:
     break;
 
   case 1091:
-#line 7372 "gram1.y"
+#line 7375 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "*";
@@ -13058,7 +13061,7 @@ yyreduce:
     break;
 
   case 1092:
-#line 7378 "gram1.y"
+#line 7381 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "/";
@@ -13067,7 +13070,7 @@ yyreduce:
     break;
 
   case 1093:
-#line 7384 "gram1.y"
+#line 7387 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "min";
@@ -13076,7 +13079,7 @@ yyreduce:
     break;
 
   case 1094:
-#line 7390 "gram1.y"
+#line 7393 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "max";
@@ -13085,7 +13088,7 @@ yyreduce:
     break;
 
   case 1095:
-#line 7396 "gram1.y"
+#line 7399 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) ".or.";
@@ -13094,7 +13097,7 @@ yyreduce:
     break;
 
   case 1096:
-#line 7402 "gram1.y"
+#line 7405 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) ".and.";
@@ -13103,7 +13106,7 @@ yyreduce:
     break;
 
   case 1097:
-#line 7408 "gram1.y"
+#line 7411 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) ".eqv.";
@@ -13112,7 +13115,7 @@ yyreduce:
     break;
 
   case 1098:
-#line 7414 "gram1.y"
+#line 7417 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) ".neqv.";
@@ -13121,7 +13124,7 @@ yyreduce:
     break;
 
   case 1099:
-#line 7420 "gram1.y"
+#line 7423 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "iand";
@@ -13130,7 +13133,7 @@ yyreduce:
     break;
 
   case 1100:
-#line 7426 "gram1.y"
+#line 7429 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "ieor";
@@ -13139,7 +13142,7 @@ yyreduce:
     break;
 
   case 1101:
-#line 7432 "gram1.y"
+#line 7435 "gram1.y"
     {
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
               (yyval.ll_node)->entry.string_val = (char *) "ior";
@@ -13148,7 +13151,7 @@ yyreduce:
     break;
 
   case 1102:
-#line 7438 "gram1.y"
+#line 7441 "gram1.y"
     { err("Illegal reduction operation name", 70);
                errcnt--;
               (yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
@@ -13158,7 +13161,7 @@ yyreduce:
     break;
 
   case 1103:
-#line 7448 "gram1.y"
+#line 7451 "gram1.y"
     {
   	   (yyval.bf_node) = make_sections((yyvsp[(4) - (4)].ll_node));
 	   opt_kwd_ = NO;
@@ -13166,7 +13169,7 @@ yyreduce:
     break;
 
   case 1104:
-#line 7453 "gram1.y"
+#line 7456 "gram1.y"
     {
   	   (yyval.bf_node) = make_sections(LLNULL);
 	   opt_kwd_ = NO;
@@ -13174,21 +13177,21 @@ yyreduce:
     break;
 
   case 1105:
-#line 7459 "gram1.y"
+#line 7462 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(3) - (4)].ll_node),LLNULL,EXPR_LIST);
 	;}
     break;
 
   case 1106:
-#line 7463 "gram1.y"
+#line 7466 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(1) - (5)].ll_node),(yyvsp[(4) - (5)].ll_node),EXPR_LIST);
 	;}
     break;
 
   case 1111:
-#line 7475 "gram1.y"
+#line 7478 "gram1.y"
     {
 		PTR_LLND q;
    	        (yyval.bf_node) = make_endsections();
@@ -13199,7 +13202,7 @@ yyreduce:
     break;
 
   case 1112:
-#line 7483 "gram1.y"
+#line 7486 "gram1.y"
     {
    	        (yyval.bf_node) = make_endsections();
 	        opt_kwd_ = NO; 
@@ -13207,14 +13210,14 @@ yyreduce:
     break;
 
   case 1113:
-#line 7489 "gram1.y"
+#line 7492 "gram1.y"
     {
            (yyval.bf_node) = make_ompsection();
 	;}
     break;
 
   case 1114:
-#line 7495 "gram1.y"
+#line 7498 "gram1.y"
     {
            (yyval.bf_node) = get_bfnd(fi,OMP_DO_DIR,SMNULL,(yyvsp[(4) - (4)].ll_node),LLNULL,LLNULL);
 	   opt_kwd_ = NO;
@@ -13222,7 +13225,7 @@ yyreduce:
     break;
 
   case 1115:
-#line 7500 "gram1.y"
+#line 7503 "gram1.y"
     {
            (yyval.bf_node) = get_bfnd(fi,OMP_DO_DIR,SMNULL,LLNULL,LLNULL,LLNULL);
 	   opt_kwd_ = NO;
@@ -13230,7 +13233,7 @@ yyreduce:
     break;
 
   case 1116:
-#line 7506 "gram1.y"
+#line 7509 "gram1.y"
     {
 		PTR_LLND q;
 		q = set_ll_list((yyvsp[(4) - (4)].ll_node),LLNULL,EXPR_LIST);
@@ -13240,7 +13243,7 @@ yyreduce:
     break;
 
   case 1117:
-#line 7513 "gram1.y"
+#line 7516 "gram1.y"
     {
            (yyval.bf_node) = get_bfnd(fi,OMP_END_DO_DIR,SMNULL,LLNULL,LLNULL,LLNULL);
 	   opt_kwd_ = NO;
@@ -13248,21 +13251,21 @@ yyreduce:
     break;
 
   case 1118:
-#line 7519 "gram1.y"
+#line 7522 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(3) - (4)].ll_node),LLNULL,EXPR_LIST);
 	;}
     break;
 
   case 1119:
-#line 7523 "gram1.y"
+#line 7526 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(1) - (5)].ll_node),(yyvsp[(4) - (5)].ll_node),EXPR_LIST);
 	;}
     break;
 
   case 1126:
-#line 7537 "gram1.y"
+#line 7540 "gram1.y"
     {
 		/*$$ = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
 		$$->entry.string_val = (char *) "ORDERED";
@@ -13272,21 +13275,21 @@ yyreduce:
     break;
 
   case 1127:
-#line 7546 "gram1.y"
+#line 7549 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,OMP_SCHEDULE,(yyvsp[(4) - (7)].ll_node),(yyvsp[(6) - (7)].ll_node),SMNULL);
 	;}
     break;
 
   case 1128:
-#line 7550 "gram1.y"
+#line 7553 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,OMP_SCHEDULE,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);
 	;}
     break;
 
   case 1129:
-#line 7556 "gram1.y"
+#line 7559 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
 		(yyval.ll_node)->entry.string_val = (char *) "STATIC";
@@ -13296,7 +13299,7 @@ yyreduce:
     break;
 
   case 1130:
-#line 7563 "gram1.y"
+#line 7566 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
 		(yyval.ll_node)->entry.string_val = (char *) "DYNAMIC";
@@ -13306,7 +13309,7 @@ yyreduce:
     break;
 
   case 1131:
-#line 7570 "gram1.y"
+#line 7573 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
 		(yyval.ll_node)->entry.string_val = (char *) "GUIDED";
@@ -13316,7 +13319,7 @@ yyreduce:
     break;
 
   case 1132:
-#line 7577 "gram1.y"
+#line 7580 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,KEYWORD_VAL,LLNULL,LLNULL,SMNULL);
 		(yyval.ll_node)->entry.string_val = (char *) "RUNTIME";
@@ -13326,7 +13329,7 @@ yyreduce:
     break;
 
   case 1133:
-#line 7586 "gram1.y"
+#line 7589 "gram1.y"
     {
   	   (yyval.bf_node) = make_single();
            (yyval.bf_node)->entry.Template.ll_ptr1 = (yyvsp[(4) - (4)].ll_node);
@@ -13335,7 +13338,7 @@ yyreduce:
     break;
 
   case 1134:
-#line 7592 "gram1.y"
+#line 7595 "gram1.y"
     {
   	   (yyval.bf_node) = make_single();
 	   opt_kwd_ = NO;
@@ -13343,21 +13346,21 @@ yyreduce:
     break;
 
   case 1135:
-#line 7598 "gram1.y"
+#line 7601 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(3) - (4)].ll_node),LLNULL,EXPR_LIST);
 	;}
     break;
 
   case 1136:
-#line 7602 "gram1.y"
+#line 7605 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(1) - (5)].ll_node),(yyvsp[(4) - (5)].ll_node),EXPR_LIST);
 	;}
     break;
 
   case 1139:
-#line 7612 "gram1.y"
+#line 7615 "gram1.y"
     {
   	   (yyval.bf_node) = make_endsingle();
            (yyval.bf_node)->entry.Template.ll_ptr1 = (yyvsp[(4) - (4)].ll_node);
@@ -13366,7 +13369,7 @@ yyreduce:
     break;
 
   case 1140:
-#line 7618 "gram1.y"
+#line 7621 "gram1.y"
     {
   	   (yyval.bf_node) = make_endsingle();
 	   opt_kwd_ = NO;
@@ -13374,42 +13377,42 @@ yyreduce:
     break;
 
   case 1141:
-#line 7624 "gram1.y"
+#line 7627 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(3) - (4)].ll_node),LLNULL,EXPR_LIST);
 	;}
     break;
 
   case 1142:
-#line 7628 "gram1.y"
+#line 7631 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(1) - (5)].ll_node),(yyvsp[(4) - (5)].ll_node),EXPR_LIST);
 	;}
     break;
 
   case 1145:
-#line 7639 "gram1.y"
+#line 7642 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,OMP_COPYPRIVATE,(yyvsp[(2) - (2)].ll_node),LLNULL,SMNULL);
 	;}
     break;
 
   case 1146:
-#line 7645 "gram1.y"
+#line 7648 "gram1.y"
     {
 		(yyval.ll_node) = make_llnd(fi,OMP_NOWAIT,LLNULL,LLNULL,SMNULL);
 	;}
     break;
 
   case 1147:
-#line 7651 "gram1.y"
+#line 7654 "gram1.y"
     {
            (yyval.bf_node) = make_workshare();
 	;}
     break;
 
   case 1148:
-#line 7656 "gram1.y"
+#line 7659 "gram1.y"
     {
 		PTR_LLND q;
    	        (yyval.bf_node) = make_endworkshare();
@@ -13420,7 +13423,7 @@ yyreduce:
     break;
 
   case 1149:
-#line 7664 "gram1.y"
+#line 7667 "gram1.y"
     {
    	        (yyval.bf_node) = make_endworkshare();
                 opt_kwd_ = NO;
@@ -13428,7 +13431,7 @@ yyreduce:
     break;
 
   case 1150:
-#line 7670 "gram1.y"
+#line 7673 "gram1.y"
     {
            (yyval.bf_node) = get_bfnd(fi,OMP_PARALLEL_DO_DIR,SMNULL,(yyvsp[(4) - (4)].ll_node),LLNULL,LLNULL);
 	   opt_kwd_ = NO;
@@ -13436,7 +13439,7 @@ yyreduce:
     break;
 
   case 1151:
-#line 7675 "gram1.y"
+#line 7678 "gram1.y"
     {
            (yyval.bf_node) = get_bfnd(fi,OMP_PARALLEL_DO_DIR,SMNULL,LLNULL,LLNULL,LLNULL);
 	   opt_kwd_ = NO;
@@ -13444,28 +13447,28 @@ yyreduce:
     break;
 
   case 1152:
-#line 7682 "gram1.y"
+#line 7685 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(3) - (4)].ll_node),LLNULL,EXPR_LIST);
 	;}
     break;
 
   case 1153:
-#line 7686 "gram1.y"
+#line 7689 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(1) - (5)].ll_node),(yyvsp[(4) - (5)].ll_node),EXPR_LIST);
 	;}
     break;
 
   case 1165:
-#line 7706 "gram1.y"
+#line 7709 "gram1.y"
     {
            (yyval.bf_node) = get_bfnd(fi,OMP_END_PARALLEL_DO_DIR,SMNULL,LLNULL,LLNULL,LLNULL);
 	;}
     break;
 
   case 1166:
-#line 7711 "gram1.y"
+#line 7714 "gram1.y"
     {
            (yyval.bf_node) = make_parallelsections((yyvsp[(4) - (4)].ll_node));
 	   opt_kwd_ = NO;
@@ -13473,7 +13476,7 @@ yyreduce:
     break;
 
   case 1167:
-#line 7716 "gram1.y"
+#line 7719 "gram1.y"
     {
            (yyval.bf_node) = make_parallelsections(LLNULL);
 	   opt_kwd_ = NO;
@@ -13481,14 +13484,14 @@ yyreduce:
     break;
 
   case 1168:
-#line 7723 "gram1.y"
+#line 7726 "gram1.y"
     {
            (yyval.bf_node) = make_endparallelsections();
 	;}
     break;
 
   case 1169:
-#line 7728 "gram1.y"
+#line 7731 "gram1.y"
     {
            (yyval.bf_node) = make_parallelworkshare();
            (yyval.bf_node)->entry.Template.ll_ptr1 = (yyvsp[(4) - (4)].ll_node);
@@ -13497,7 +13500,7 @@ yyreduce:
     break;
 
   case 1170:
-#line 7734 "gram1.y"
+#line 7737 "gram1.y"
     {
            (yyval.bf_node) = make_parallelworkshare();
 	   opt_kwd_ = NO;
@@ -13505,77 +13508,77 @@ yyreduce:
     break;
 
   case 1171:
-#line 7740 "gram1.y"
+#line 7743 "gram1.y"
     {
            (yyval.bf_node) = make_endparallelworkshare();
 	;}
     break;
 
   case 1172:
-#line 7745 "gram1.y"
+#line 7748 "gram1.y"
     { 
 	   (yyval.bf_node) = get_bfnd(fi,OMP_THREADPRIVATE_DIR, SMNULL, (yyvsp[(3) - (3)].ll_node), LLNULL, LLNULL);
 	;}
     break;
 
   case 1173:
-#line 7750 "gram1.y"
+#line 7753 "gram1.y"
     {
   	   (yyval.bf_node) = make_master();
 	;}
     break;
 
   case 1174:
-#line 7755 "gram1.y"
+#line 7758 "gram1.y"
     {
   	   (yyval.bf_node) = make_endmaster();
 	;}
     break;
 
   case 1175:
-#line 7759 "gram1.y"
+#line 7762 "gram1.y"
     {
   	   (yyval.bf_node) = make_ordered();
 	;}
     break;
 
   case 1176:
-#line 7764 "gram1.y"
+#line 7767 "gram1.y"
     {
   	   (yyval.bf_node) = make_endordered();
 	;}
     break;
 
   case 1177:
-#line 7769 "gram1.y"
+#line 7772 "gram1.y"
     {
            (yyval.bf_node) = get_bfnd(fi,OMP_BARRIER_DIR,SMNULL,LLNULL,LLNULL,LLNULL);
 	;}
     break;
 
   case 1178:
-#line 7773 "gram1.y"
+#line 7776 "gram1.y"
     {
            (yyval.bf_node) = get_bfnd(fi,OMP_ATOMIC_DIR,SMNULL,LLNULL,LLNULL,LLNULL);
 	;}
     break;
 
   case 1179:
-#line 7778 "gram1.y"
+#line 7781 "gram1.y"
     {
            (yyval.bf_node) = get_bfnd(fi,OMP_FLUSH_DIR,SMNULL,(yyvsp[(3) - (3)].ll_node),LLNULL,LLNULL);
 	;}
     break;
 
   case 1180:
-#line 7782 "gram1.y"
+#line 7785 "gram1.y"
     {
            (yyval.bf_node) = get_bfnd(fi,OMP_FLUSH_DIR,SMNULL,LLNULL,LLNULL,LLNULL);
 	;}
     break;
 
   case 1181:
-#line 7788 "gram1.y"
+#line 7791 "gram1.y"
     {
   	   (yyval.bf_node) = make_critical();
            (yyval.bf_node)->entry.Template.ll_ptr1 = (yyvsp[(4) - (5)].ll_node);
@@ -13583,14 +13586,14 @@ yyreduce:
     break;
 
   case 1182:
-#line 7793 "gram1.y"
+#line 7796 "gram1.y"
     {
   	   (yyval.bf_node) = make_critical();
 	;}
     break;
 
   case 1183:
-#line 7799 "gram1.y"
+#line 7802 "gram1.y"
     {
   	   (yyval.bf_node) = make_endcritical();
            (yyval.bf_node)->entry.Template.ll_ptr1 = (yyvsp[(4) - (5)].ll_node);
@@ -13598,14 +13601,14 @@ yyreduce:
     break;
 
   case 1184:
-#line 7804 "gram1.y"
+#line 7807 "gram1.y"
     {
   	   (yyval.bf_node) = make_endcritical();
 	;}
     break;
 
   case 1185:
-#line 7810 "gram1.y"
+#line 7813 "gram1.y"
     { 
 		PTR_SYMB s;
 		PTR_LLND l;
@@ -13616,465 +13619,465 @@ yyreduce:
     break;
 
   case 1186:
-#line 7820 "gram1.y"
+#line 7823 "gram1.y"
     {
 		(yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST);
 	;}
     break;
 
   case 1187:
-#line 7824 "gram1.y"
+#line 7827 "gram1.y"
     {	
 		(yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST);
 	;}
     break;
 
   case 1188:
-#line 7828 "gram1.y"
+#line 7831 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST);
 	;}
     break;
 
   case 1189:
-#line 7832 "gram1.y"
+#line 7835 "gram1.y"
     { 
 		(yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST);
 	;}
     break;
 
   case 1190:
-#line 7837 "gram1.y"
+#line 7840 "gram1.y"
     {
 		operator_slash = 1;
 	;}
     break;
 
   case 1191:
-#line 7840 "gram1.y"
+#line 7843 "gram1.y"
     {
 		operator_slash = 0;
 	;}
     break;
 
   case 1199:
-#line 7854 "gram1.y"
+#line 7857 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,ACC_REGION_DIR,SMNULL,(yyvsp[(3) - (3)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 1200:
-#line 7858 "gram1.y"
+#line 7861 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,ACC_CHECKSECTION_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 1201:
-#line 7862 "gram1.y"
+#line 7865 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,ACC_GET_ACTUAL_DIR,SMNULL,(yyvsp[(4) - (5)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 1202:
-#line 7864 "gram1.y"
+#line 7867 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,ACC_GET_ACTUAL_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 1203:
-#line 7866 "gram1.y"
+#line 7869 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,ACC_GET_ACTUAL_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 1204:
-#line 7870 "gram1.y"
+#line 7873 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,ACC_ACTUAL_DIR,SMNULL,(yyvsp[(4) - (5)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 1205:
-#line 7872 "gram1.y"
+#line 7875 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,ACC_ACTUAL_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 1206:
-#line 7874 "gram1.y"
+#line 7877 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,ACC_ACTUAL_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 1207:
-#line 7878 "gram1.y"
+#line 7881 "gram1.y"
     { (yyval.ll_node) = LLNULL;;}
     break;
 
   case 1208:
-#line 7880 "gram1.y"
+#line 7883 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node); ;}
     break;
 
   case 1209:
-#line 7884 "gram1.y"
+#line 7887 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 1210:
-#line 7886 "gram1.y"
+#line 7889 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 1211:
-#line 7890 "gram1.y"
-    { (yyval.ll_node) = (yyvsp[(2) - (2)].ll_node);;}
-    break;
-
-  case 1212:
 #line 7893 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(2) - (2)].ll_node);;}
     break;
 
-  case 1213:
+  case 1212:
 #line 7896 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(2) - (2)].ll_node);;}
     break;
 
+  case 1213:
+#line 7899 "gram1.y"
+    { (yyval.ll_node) = (yyvsp[(2) - (2)].ll_node);;}
+    break;
+
   case 1214:
-#line 7901 "gram1.y"
+#line 7904 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_INOUT_OP,(yyvsp[(3) - (4)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1215:
-#line 7903 "gram1.y"
+#line 7906 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_IN_OP,(yyvsp[(3) - (4)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1216:
-#line 7905 "gram1.y"
+#line 7908 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_OUT_OP,(yyvsp[(3) - (4)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1217:
-#line 7907 "gram1.y"
+#line 7910 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_LOCAL_OP,(yyvsp[(3) - (4)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1218:
-#line 7909 "gram1.y"
+#line 7912 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_INLOCAL_OP,(yyvsp[(3) - (4)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1219:
-#line 7913 "gram1.y"
+#line 7916 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_TARGETS_OP,(yyvsp[(3) - (4)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1220:
-#line 7917 "gram1.y"
+#line 7920 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_ASYNC_OP,LLNULL,LLNULL,SMNULL);;}
     break;
 
   case 1221:
-#line 7922 "gram1.y"
+#line 7925 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(1) - (1)].ll_node);;}
     break;
 
   case 1222:
-#line 7926 "gram1.y"
+#line 7929 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 1223:
-#line 7928 "gram1.y"
+#line 7931 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 1224:
-#line 7932 "gram1.y"
+#line 7935 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_HOST_OP, LLNULL,LLNULL,SMNULL);;}
     break;
 
   case 1225:
-#line 7934 "gram1.y"
+#line 7937 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_CUDA_OP, LLNULL,LLNULL,SMNULL);;}
     break;
 
   case 1226:
-#line 7938 "gram1.y"
+#line 7941 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,ACC_END_REGION_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 1227:
-#line 7942 "gram1.y"
+#line 7945 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,ACC_END_CHECKSECTION_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 1228:
-#line 7946 "gram1.y"
+#line 7949 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,ACC_ROUTINE_DIR,SMNULL,(yyvsp[(3) - (3)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 1229:
-#line 7950 "gram1.y"
+#line 7953 "gram1.y"
     { (yyval.ll_node) = LLNULL; ;}
     break;
 
   case 1230:
-#line 7952 "gram1.y"
+#line 7955 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(2) - (2)].ll_node);;}
     break;
 
   case 1237:
-#line 7964 "gram1.y"
+#line 7967 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,SPF_ANALYSIS_DIR,SMNULL,(yyvsp[(3) - (4)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 1238:
-#line 7968 "gram1.y"
+#line 7971 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,SPF_PARALLEL_DIR,SMNULL,(yyvsp[(3) - (4)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 1239:
-#line 7972 "gram1.y"
+#line 7975 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,SPF_TRANSFORM_DIR,SMNULL,(yyvsp[(3) - (4)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 1240:
-#line 7976 "gram1.y"
+#line 7979 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,SPF_PARALLEL_REG_DIR,(yyvsp[(2) - (2)].symbol),LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 1241:
-#line 7978 "gram1.y"
+#line 7981 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,SPF_PARALLEL_REG_DIR,(yyvsp[(2) - (9)].symbol),(yyvsp[(7) - (9)].ll_node),(yyvsp[(9) - (9)].ll_node),LLNULL);;}
     break;
 
   case 1242:
-#line 7980 "gram1.y"
+#line 7983 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,SPF_PARALLEL_REG_DIR,(yyvsp[(2) - (9)].symbol),(yyvsp[(9) - (9)].ll_node),(yyvsp[(7) - (9)].ll_node),LLNULL);;}
     break;
 
   case 1243:
-#line 7984 "gram1.y"
+#line 7987 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 1244:
-#line 7986 "gram1.y"
+#line 7989 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 1245:
-#line 7990 "gram1.y"
+#line 7993 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_CODE_COVERAGE_OP,LLNULL,LLNULL,SMNULL);;}
     break;
 
   case 1246:
-#line 7994 "gram1.y"
+#line 7997 "gram1.y"
     { (yyval.ll_node) = LLNULL;;}
     break;
 
   case 1247:
-#line 7996 "gram1.y"
+#line 7999 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(5) - (6)].ll_node);;}
     break;
 
   case 1248:
-#line 8000 "gram1.y"
+#line 8003 "gram1.y"
     { (yyval.ll_node) = LLNULL;;}
     break;
 
   case 1249:
-#line 8002 "gram1.y"
+#line 8005 "gram1.y"
     { (yyval.ll_node) = (yyvsp[(5) - (6)].ll_node);;}
     break;
 
   case 1250:
-#line 8006 "gram1.y"
+#line 8009 "gram1.y"
     { (yyval.bf_node) = get_bfnd(fi,SPF_END_PARALLEL_REG_DIR,SMNULL,LLNULL,LLNULL,LLNULL);;}
     break;
 
   case 1251:
-#line 8010 "gram1.y"
+#line 8013 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 1252:
-#line 8012 "gram1.y"
+#line 8015 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 1256:
-#line 8021 "gram1.y"
+#line 8024 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,REDUCTION_OP,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL); ;}
     break;
 
   case 1257:
-#line 8025 "gram1.y"
+#line 8028 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_PRIVATE_OP,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1258:
-#line 8029 "gram1.y"
+#line 8032 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_PARAMETER_OP,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1259:
-#line 8032 "gram1.y"
+#line 8035 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node), LLNULL, EXPR_LIST); ;}
     break;
 
   case 1260:
-#line 8034 "gram1.y"
+#line 8037 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), EXPR_LIST); ;}
     break;
 
   case 1261:
-#line 8038 "gram1.y"
+#line 8041 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi, ASSGN_OP, (yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), SMNULL); ;}
     break;
 
   case 1262:
-#line 8042 "gram1.y"
+#line 8045 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 1263:
-#line 8044 "gram1.y"
+#line 8047 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 1267:
-#line 8053 "gram1.y"
+#line 8056 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SHADOW_OP,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1268:
-#line 8057 "gram1.y"
+#line 8060 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACROSS_OP,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1269:
-#line 8061 "gram1.y"
+#line 8064 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,REMOTE_ACCESS_OP,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1270:
-#line 8065 "gram1.y"
+#line 8068 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 1271:
-#line 8067 "gram1.y"
+#line 8070 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 1272:
-#line 8071 "gram1.y"
+#line 8074 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_NOINLINE_OP,LLNULL,LLNULL,SMNULL);;}
     break;
 
   case 1273:
-#line 8073 "gram1.y"
+#line 8076 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_FISSION_OP,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1274:
-#line 8075 "gram1.y"
+#line 8078 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_PRIVATES_EXPANSION_OP,LLNULL,LLNULL,SMNULL);;}
     break;
 
   case 1275:
-#line 8077 "gram1.y"
+#line 8080 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_PRIVATES_EXPANSION_OP,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1276:
-#line 8080 "gram1.y"
+#line 8083 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_SHRINK_OP,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1277:
-#line 8084 "gram1.y"
+#line 8087 "gram1.y"
     { (yyval.symbol) = make_parallel_region((yyvsp[(1) - (1)].hash_entry));;}
     break;
 
   case 1278:
-#line 8088 "gram1.y"
+#line 8091 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node), LLNULL, EXPR_LIST); ;}
     break;
 
   case 1279:
-#line 8090 "gram1.y"
+#line 8093 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node), (yyvsp[(3) - (3)].ll_node), EXPR_LIST); ;}
     break;
 
   case 1280:
-#line 8094 "gram1.y"
+#line 8097 "gram1.y"
     {  (yyval.bf_node) = get_bfnd(fi,SPF_CHECKPOINT_DIR,SMNULL,(yyvsp[(3) - (4)].ll_node),LLNULL,LLNULL);;}
     break;
 
   case 1281:
-#line 8098 "gram1.y"
+#line 8101 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 1282:
-#line 8100 "gram1.y"
+#line 8103 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 1283:
-#line 8104 "gram1.y"
+#line 8107 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_TYPE_OP,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1284:
-#line 8106 "gram1.y"
+#line 8109 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_VARLIST_OP,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1285:
-#line 8108 "gram1.y"
+#line 8111 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_EXCEPT_OP,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1286:
-#line 8110 "gram1.y"
+#line 8113 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_FILES_COUNT_OP,(yyvsp[(4) - (5)].ll_node),LLNULL,SMNULL);;}
     break;
 
   case 1287:
-#line 8112 "gram1.y"
+#line 8115 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_INTERVAL_OP,(yyvsp[(4) - (7)].ll_node),(yyvsp[(6) - (7)].ll_node),SMNULL);;}
     break;
 
   case 1288:
-#line 8116 "gram1.y"
+#line 8119 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (1)].ll_node),LLNULL,EXPR_LIST); ;}
     break;
 
   case 1289:
-#line 8118 "gram1.y"
+#line 8121 "gram1.y"
     { (yyval.ll_node) = set_ll_list((yyvsp[(1) - (3)].ll_node),(yyvsp[(3) - (3)].ll_node),EXPR_LIST); ;}
     break;
 
   case 1290:
-#line 8122 "gram1.y"
+#line 8125 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,ACC_ASYNC_OP, LLNULL,LLNULL,SMNULL);;}
     break;
 
   case 1291:
-#line 8124 "gram1.y"
+#line 8127 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_FLEXIBLE_OP, LLNULL,LLNULL,SMNULL);;}
     break;
 
   case 1292:
-#line 8128 "gram1.y"
+#line 8131 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_TIME_OP, LLNULL,LLNULL,SMNULL);;}
     break;
 
   case 1293:
-#line 8130 "gram1.y"
+#line 8133 "gram1.y"
     { (yyval.ll_node) = make_llnd(fi,SPF_ITER_OP, LLNULL,LLNULL,SMNULL);;}
     break;
 
 
 /* Line 1267 of yacc.c.  */
-#line 14078 "gram1.tab.c"
+#line 14081 "gram1.tab.c"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);

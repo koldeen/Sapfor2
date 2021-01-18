@@ -8,7 +8,14 @@ bool RegionsMerger::compareByStart(const DvmhRegion *a, const DvmhRegion *b)
     if (a->getLoops().size() < 1 || b->getLoops().size() < 1)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-    return a->getLoops()[0]->loop->lineNumber() < b->getLoops()[0]->loop->lineNumber();
+    int lineLeft = a->getLoops()[0]->lineNum;
+    if (lineLeft < 0)
+        lineLeft = a->getLoops()[0]->altLineNum;
+
+    int lineRight = b->getLoops()[0]->lineNum;
+    if (lineRight < 0)
+        lineRight = b->getLoops()[0]->altLineNum;
+    return lineLeft < lineRight;
 }
 
 bool RegionsMerger::canBeMoved(SgStatement* st, const DvmhRegion *region) const
@@ -45,7 +52,9 @@ vector<SgStatement*> RegionsMerger::getStatementsToMove(const DvmhRegion *first,
 
     vector<SgStatement*> toMove;
     SgStatement* mediumSt = first->getLastSt()->lexNext();
-    if (mediumSt->variant() == DVM_PARALLEL_ON_DIR) // skip only DVM PARALLEL
+
+    // skip DVM PARALLEL and hidden stats
+    while (mediumSt->variant() == DVM_PARALLEL_ON_DIR || mediumSt->variant() < 0)
         mediumSt = mediumSt->lexNext();
 
     //no statements between regions, so can
@@ -105,52 +114,69 @@ vector<DvmhRegion*> RegionsMerger::mergeRegions()
     if (regions.size() < 2)
         return regions;
 
-    sort(regions.begin(), regions.end(), compareByStart);
+    map<string, map<int, DvmhRegion*>> byFunc;
+    for (auto& elem : regions)
+    {
+        auto& itF = byFunc[elem->getFunName()];
+        if (itF.find(elem->getLineForSort()) != itF.end())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        itF[elem->getLineForSort()] = elem;
+    }
 
     vector<DvmhRegion*> newRegions;
-    DvmhRegion *newRegion = new DvmhRegion();
-    DvmhRegion *regionPrev = regions[0];
 
-    bool isFirst = true;
-    for (auto& loop : regions[0]->getLoops())
-        newRegion->addLoop(loop);
-
-    for (auto& region : regions)
+    for (auto& regsForFunc : byFunc)
     {
-        if (newRegion->getFunName() == "" && region->getLoops().size() > 0)
-        {
-            SgStatement* func_st = getFuncStat(region->getLoops()[0]->loop);
-            string fun_name = func_st->symbol()->identifier();
-            newRegion->setFunName(fun_name);
-        }
+        map<int, DvmhRegion*>& regionsByFunc = regsForFunc.second;
 
-        if (isFirst) // skip first region
-        {
-            isFirst = false;
+        if (regionsByFunc.size() == 0)
             continue;
-        }
 
-        bool can = true;
-        auto toMove = getStatementsToMove(regionPrev, region, can);
-        if (can)
-        {
-            //TODO
-            if (toMove.size())
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-             // moveStatements(toMove, regionPrev);
-        }
-        else
-        {
-            //TODO: extend message
-            __spf_print(1, "cannot be merged\n");
-            newRegions.push_back(newRegion);
-            newRegion = new DvmhRegion();
-        }
+        DvmhRegion* newRegion = new DvmhRegion();
+        DvmhRegion* regionPrev = regionsByFunc.begin()->second;
 
-        newRegion->append(*region);
-        regionPrev = region;
+        bool isFirst = true;
+        for (auto& loop : regionPrev->getLoops())
+            newRegion->addLoop(loop);
+
+        for (auto& region : regionsByFunc)
+        {
+            if (newRegion->getFunName() == "" && region.second->getLoops().size() > 0)
+            {
+                SgStatement* func_st = getFuncStat(region.second->getLoops()[0]->loop);
+                string fun_name = func_st->symbol()->identifier();
+                newRegion->setFunName(fun_name);
+            }
+
+            if (isFirst) // skip first region
+            {
+                isFirst = false;
+                continue;
+            }
+
+            bool can = true;
+            auto toMove = getStatementsToMove(regionPrev, region.second, can);
+            if (can)
+            {
+                //TODO
+                if (toMove.size())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                // moveStatements(toMove, regionPrev);
+            }
+            else
+            {
+                __spf_print(1, "   region before loop on line %d (alt %d) cannot be merged\n", 
+                            region.second->getLoops()[0]->lineNum, region.second->getLoops()[0]->altLineNum);
+                toMove = getStatementsToMove(regionPrev, region.second, can);
+                newRegions.push_back(newRegion);
+                newRegion = new DvmhRegion();
+            }
+
+            newRegion->append(*region.second);
+            regionPrev = region.second;
+        }
+        newRegions.push_back(newRegion);
     }
-    newRegions.push_back(newRegion);
 
     for (auto& old : regions)
         delete old;

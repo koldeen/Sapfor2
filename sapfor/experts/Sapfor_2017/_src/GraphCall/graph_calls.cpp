@@ -2187,4 +2187,29 @@ void removeDistrStateFromDeadFunctions(const map<string, vector<FuncInfo*>>& all
     }
 }
 
+int getLvlCall(FuncInfo* currF, int lvl, const string& func, const string& file, int line)
+{
+    if (currF->funcName == func)
+        return 0;
+
+    for (auto& callsFrom : currF->detailCallsFrom)
+    {
+        if (callsFrom.first == func && callsFrom.second == line && currF->fileName == file)
+            return lvl;
+    }
+    
+    int whatLvl = -1;
+    for (auto& callsFrom : currF->callsFromV)
+    {
+        int outLvl = getLvlCall(callsFrom, lvl + 1, func, file, line);
+        if (outLvl != -1)
+        {
+            whatLvl = outLvl;
+            break;
+        }
+    }
+
+    return whatLvl;
+}
+
 #undef DEBUG

@@ -622,7 +622,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 vector<int> tmpLines;
 
                 newLoop->fileName = st->fileName();
-                newLoop->perfectLoop = isSgForStmt(st) ? ((SgForStmt*)st)->isPerfectLoopNest() : 1;
+                newLoop->perfectLoop = countPerfectLoopNest(st);
                 newLoop->hasGoto = hasGoto(st, st->lastNodeOfStmt(), newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);
                 newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } ); // FORMAT_STAT
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
@@ -758,7 +758,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
 void LoopGraph::recalculatePerfect()
 {
     auto loopRef = loop->GetOriginal();
-    perfectLoop = isSgForStmt(loopRef) ? ((SgForStmt*)(loop->GetOriginal()))->isPerfectLoopNest() : perfectLoop;
+    perfectLoop = isSgForStmt(loopRef) ? countPerfectLoopNest(loop->GetOriginal()) : perfectLoop;
     for (auto &loop : children)
         loop->recalculatePerfect();
 }
@@ -1115,4 +1115,57 @@ void swapLoopsForParallel(map<string, vector<LoopGraph*>>& loopGraph, map<string
             ((SgForStmt*)loopPair.second.first->loop)->interchangeNestedLoops((SgForStmt*)loopPair.second.second->loop);
     }
 }
+
+static bool isVectorAssign(SgStatement *st)
+{
+    bool ifVector = false;
+    if (!st)
+        return ifVector;
+
+    auto prev = st->lexPrev();
+    if (prev && prev->variant() == CONTROL_END)
+    {
+        auto cp = prev->controlParent();
+        if (cp->variant() == FOR_NODE)
+            ifVector = cp->lineNumber() < 0 && cp->localLineNumber() > 0;
+    }
+    return ifVector;
+}
+
+int countPerfectLoopNest(SgStatement* st)
+{
+    int perfect = 1;
+    if (st->variant() != FOR_NODE)
+        return perfect;
+
+    perfect = 0;
+    SgStatement* next = st;
+    SgStatement* last = st->lastNodeOfStmt();
+    do {
+        vector<SgStatement*> attrSpfPar;
+        bool ifVector;
+        do {
+            next = next->lexNext();
+            attrSpfPar.clear();
+            if (next)
+                attrSpfPar = getAttributes<SgStatement*, SgStatement*>(next, set<int>{ SPF_PARAMETER_OP });
+            ifVector = isVectorAssign(next);
+        } while (next && (ifVector && notDeletedVectorAssign(next) || attrSpfPar.size() != 0));
+
+        do {
+            last = last->lexPrev();
+            attrSpfPar.clear();
+            if (last)
+                attrSpfPar = getAttributes<SgStatement*, SgStatement*>(last, set<int>{ SPF_PARAMETER_OP });
+            ifVector = isVectorAssign(last);
+        } while (last && (ifVector && notDeletedVectorAssign(last) || attrSpfPar.size() != 0));
+
+        ++perfect;
+        if (next == NULL || last == NULL)
+            break;
+    } while (next->variant() == FOR_NODE && last->variant() == CONTROL_END && next->lastNodeOfStmt() == last);
+
+    return perfect;
+}
+
 #undef DEBUG

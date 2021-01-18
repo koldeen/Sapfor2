@@ -5,11 +5,13 @@
 #include "definitionSet.h"
 #include "inducVar.h"
 #include "depGraph.h"
+
 #ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
 #endif
 
+extern int countPerfectLoopNest(SgStatement*);
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // some global declarations
@@ -49,7 +51,7 @@ int loopInterchange(SgStatement *b, int *permut, int n)
     if (!(loop = isSgForStmt(b)))
         return 0;
 
-    if (n > loop->isPerfectLoopNest())
+    if (n > countPerfectLoopNest(loop))
     {
         Message("Interchange loop error, loops are not perfectly nested", loop->lineNumber());
         return 0;
@@ -103,7 +105,7 @@ int tileLoops(SgStatement *func, SgStatement *b, int *size, int nb)
 
     if (!(loop = isSgForStmt(b)) || !func)
         return 0;
-    if (nb > loop->isPerfectLoopNest())
+    if (nb > countPerfectLoopNest(loop))
     {
         Message("loop Tilling error, loops are not perfectly nested", loop->lineNumber());
         return 0;

@@ -339,6 +339,9 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
     if (st == NULL)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
+    if (st->variant() < 0)
+        return st->lastNodeOfStmt()->lexNext();
+
     // Skip regions
     if (st->variant() == ACC_REGION_DIR)
         return skipDvmhRegionInterval(st);
@@ -712,7 +715,7 @@ static string getInterfaceBlock(SgStatement* func, const FuncParam& pars)
     if (!func->switchToFile())
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-    auto copy = duplicateProcedure(func, "", false, false, false, true);
+    auto copy = duplicateProcedure(func, NULL, false, false, false, true);
 
     const set<string> ident(pars.identificators.begin(), pars.identificators.end());
 

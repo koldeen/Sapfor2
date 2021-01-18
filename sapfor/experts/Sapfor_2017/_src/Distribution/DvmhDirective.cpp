@@ -368,28 +368,24 @@ static vector<SgExpression*>
 }
 
 //TODO: need to improve
-static bool isPrivateOnlyFromSpfParameter(SgStatement* loop, SgSymbol* priv, const int altLine)
+static set<SgSymbol*> fillPrivateOnlyFromSpfParameter(SgStatement* loop, const int altLine)
 {
     set<SgSymbol*> used;
     set<SgSymbol*> usedInSpfPar;
-    
+
     SgStatement* last = loop->lastNodeOfStmt();
     for (SgStatement* st = loop->lexNext(); st != last; st = st->lexNext())
     {
         bool isSpf = false;
-        if (st->lineNumber() <= 0 && st->localLineNumber() != altLine) // SPF PARAMETER
+        auto attrSpfPar = getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_PARAMETER_OP });
+        if (attrSpfPar.size()) // SPF PARAMETER
             isSpf = true;
 
         for (int z = 0; z < 3; ++z)
             if (st->expr(z))
                 fillUsedSymbols(st->expr(z), isSpf ? usedInSpfPar : used);
     }
-
-    for (auto& elem : usedInSpfPar)
-        if (OriginalSymbol(elem)->identifier() == string(OriginalSymbol(priv)->identifier()))
-            return true;
-
-    return false;
+    return usedInSpfPar;
 }
 
 static void changeLoopOrder(const vector<string>& parallel, const vector<string>& newParallel, vector<LoopGraph*>& loops)
@@ -454,7 +450,7 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
     SgStatement* realStat = getRealStat(loop, file->filename(), currLoop->lineNum, currLoop->altLineNum);
     SgStatement* parentFunc = getFuncStat(realStat);
     const map<string, set<SgSymbol*>> byUseInFunc = moduleRefsByUseInFunction(realStat);
-    const int nested = loopG->isPerfectLoopNest();
+    const int nested = countPerfectLoopNest(loopG);
     
     vector<SgSymbol*> loopSymbs;
     vector<LoopGraph*> loops;
@@ -463,6 +459,13 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
     {
         loopSymbs.push_back(loopG->symbol());
         auto next = loopG->lexNext();
+        auto attrSpfPar = getAttributes<SgStatement*, SgStatement*>(next, set<int>{ SPF_PARAMETER_OP });
+        while (attrSpfPar.size() != 0 && next)
+        {
+            next = next->lexNext();
+            attrSpfPar = getAttributes<SgStatement*, SgStatement*>(next, set<int>{ SPF_PARAMETER_OP });
+        }
+                
         if (next->variant() != FOR_NODE && z + 1 < nested)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         loopG = (SgForStmt*)next;
@@ -567,9 +570,15 @@ ParallelDirective::genDirective(File* file, const vector<pair<DIST::Array*, cons
         directive += ", PRIVATE(";
         int k = 0;
         vector<SgExpression*> list;
+        auto spfParVars = fillPrivateOnlyFromSpfParameter(loop, currLoop->lineNum < 0 ? currLoop->altLineNum : 0);
         for (auto& privVar : setToMapWithSortByStr(privates))
         {
-            if (isPrivateOnlyFromSpfParameter(loop, privVar.second, currLoop->lineNum < 0 ? currLoop->altLineNum : 0))
+            bool isSfpPriv = false;
+            for (auto& elem : spfParVars)
+                if (OriginalSymbol(elem)->identifier() == string(OriginalSymbol(privVar.second)->identifier()))
+                    isSfpPriv = true;
+
+            if (isSfpPriv)
                 continue;
 
             directive += (k != 0) ? "," + privVar.first : privVar.first;

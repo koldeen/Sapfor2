@@ -23,5 +23,6 @@ public:
     const std::vector<LoopGraph*>& getLoops() const { return loops; }
     std::string getFileName() const { return getFirstSt()->fileName(); }
     void append(DvmhRegion& region);
+    int getLineForSort() const;
 };
 

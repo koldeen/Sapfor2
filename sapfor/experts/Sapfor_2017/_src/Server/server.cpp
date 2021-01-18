@@ -411,29 +411,25 @@ static bool isVizDebug(int argc, char** argv)
 
 static int doRecv(SOCKET& soc, string& command)
 {
-    int count = 0;
-    int err = 0;
-    const int maxSize = 4096;
-    char* buf = new char[maxSize + 1];
-
-    do 
+    int count = 0; //общее количество прочитаного
+    int err = 0; //количество прочитанного на данной итерации.
+    const int maxSize = 4096; //максимальный размер прочитываемой за раз порции.
+    char* buf = NULL; //буфер
+    do
     {
+        buf = new char[maxSize + 1];
         err = recv(soc, buf, maxSize, 0);
-        if (err > 0)
-            count += err;
-        if (count >= maxSize)
+        if (err > 0) 
         {
+            count += err;
             buf[err] = '\0';
             command += buf;
         }
-    } while (err > 0 && err == maxSize);
+        delete[] buf;
+        buf = NULL;
 
-    if (err > 0)
-    {
-        buf[err] = '\0';
-        command += buf;
-    }
-    delete []buf;
+    } while (err > 0 && command.back() != '\n');
+    __print(SERV, "'%s' length='%d'\n", command.c_str(), command.length());
     return err < 0 ? err : count;
 }
 

@@ -70,15 +70,33 @@ static void removeDoubleRealign(vector<vector<Expression*>>& realigns)
 
     bool changed = false;
     for (int z = 1; z < realigns.size(); ++z)
-    {
-        if (string(realigns[z][0]->unparse()) == realigns[z - 1][0]->unparse())
+    {        
+        auto prev = string(realigns[z - 1][0]->unparse());
+        auto curr = string(realigns[z][0]->unparse());
+        if (prev == curr)
         {
             save[z - 1] = false;
             changed = true;
         }
         else
         {
-            //TODO: check list and remove
+            set<string> listNext;
+            SgExpression* ex = realigns[z][0];
+            while (ex)
+            {
+                listNext.insert(ex->lhs()->symbol()->identifier());
+                ex = ex->rhs();
+            }
+
+            ex = realigns[z - 1][0];
+            vector<SgExpression*> newExp;
+            while (ex)
+            {
+                if (listNext.find(ex->lhs()->symbol()->identifier()) == listNext.end())
+                    newExp.push_back(ex->lhs());
+                ex = ex->rhs();
+            }
+            realigns[z - 1][0] = new Expression(makeExprList(newExp));
         }
     }
 

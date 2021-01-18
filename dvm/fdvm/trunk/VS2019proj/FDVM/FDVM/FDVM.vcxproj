@@ -14,13 +14,13 @@
     <ProjectGuid>{FF6D569D-DBD5-47C7-8149-71E401B0D2E4}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>FDVM</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.14393.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <UseIntelIPP>false</UseIntelIPP>
     <UseIntelTBB>false</UseIntelTBB>
@@ -108,6 +108,7 @@
     <ClCompile Include="..\..\..\fdvm\aks_analyzeLoops.cpp" />
     <ClCompile Include="..\..\..\fdvm\aks_structs.cpp" />
     <ClCompile Include="..\..\..\fdvm\calls.cpp" />
+    <ClCompile Include="..\..\..\fdvm\checkpoint.cpp" />
     <ClCompile Include="..\..\..\fdvm\debug.cpp" />
     <ClCompile Include="..\..\..\fdvm\dvm.cpp" />
     <ClCompile Include="..\..\..\fdvm\funcall.cpp" />

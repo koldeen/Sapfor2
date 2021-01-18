@@ -1959,24 +1959,97 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         map<SgStatement*, set<SgSymbol*>> newSymbsToDeclare;
         map<string, FuncInfo*> tmpM;
         createMapOfFunc(allFuncInfo, tmpM);
+        FuncInfo* mainF = NULL;
         for (auto& elem : tmpM)
-        {
             if (elem.second->isMain)
+                mainF = elem.second;
+        checkNull(mainF, convertFileName(__FILE__).c_str(), __LINE__);
+        
+        //inliner(mainF->funcName, allFuncInfo, SPF_messages, newSymbsToDeclare);
+        //inDataProc.push_back(make_tuple("zran3", "mg.f", 197));
+        //inDataProc.push_back(make_tuple("randlc", "ep_ddp.for", 121));
+        
+#if 1
+        if (inDataProc.size())
+        {
+            map<int, vector<int>> sortByLvl;
+
+            int maxLvlCall = 0;
+            for (int z = 0; z < inDataProc.size(); ++z)
             {
-                inliner(elem.second->funcName, allFuncInfo, SPF_messages, newSymbsToDeclare); // DEBUG
-                break;
+                if (std::get<2>(inDataProc[z]) != -1)
+                {
+                    int lvl = getLvlCall(mainF, 0, std::get<0>(inDataProc[z]), std::get<1>(inDataProc[z]), std::get<2>(inDataProc[z]));
+                    if (lvl == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    maxLvlCall = std::max(maxLvlCall, lvl);
+                    sortByLvl[lvl].push_back(z);
+                }
+            }
+
+            for (int z = 0; z < inDataProc.size(); ++z)
+                if (std::get<2>(inDataProc[z]) == -1)
+                    sortByLvl[maxLvlCall + 1].push_back(z);
+
+            for (auto& byLvl : sortByLvl)
+            {
+                for (auto& idx : byLvl.second)
+                {
+                    auto& tup = inDataProc[idx];
+
+                    if (std::get<2>(tup) != -1)
+                    {
+                        __spf_print(1, "call inliner with [%s %s %d]\n", std::get<1>(tup).c_str(), std::get<0>(tup).c_str(), std::get<2>(tup));
+                        inliner(std::get<1>(tup), std::get<0>(tup), std::get<2>(tup), allFuncInfo, SPF_messages, newSymbsToDeclare);
+                    }
+                }
             }
         }
-        //inliner("lhsinit", 1574, allFuncInfo, SPF_messages); // DEBUG
-        //inliner("pro_hz", 1326, allFuncInfo, SPF_messages); // DEBUG
-        
-        /*for (auto &tup : inDataProc)
+        else if (inDataChains.size())
         {
-            bool error = inliner(std::get<0>(tup), std::get<1>(tup), std::get<2>(tup), allFuncInfo, SPF_messages);
-            if (error)
-                internalExit = 1;
-        }*/
+            //TODO: need to add attribute to all shadow copies
+            for (auto& elem : tmpM)
+            {
+                auto itNeed = inDataChains.find(elem.first);
+                if (itNeed != inDataChains.end() && itNeed->second.size())
+                {
+                    const FuncInfo* curr = elem.second;
+                    const set<pair<string, int>>& needToInline = itNeed->second;
 
+                    for (int k = 0; k < curr->detailCallsFrom.size(); ++k)
+                    {
+                        if (needToInline.find(curr->detailCallsFrom[k]) == needToInline.end() && 
+                            !isIntrinsicFunctionName(curr->detailCallsFrom[k].first.c_str()))
+                        {
+                            pair<void*, int> detail = curr->pointerDetailCallsFrom[k];
+                            
+                            if (SgFile::switchToFile(curr->fileName) == -1)
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                            if (detail.second == PROC_STAT)
+                                ((SgStatement*)detail.first)->addAttribute(BOOL_VAL);
+                            else if (detail.second == FUNC_CALL)
+                            {
+                                //TODO: many functions in same statement
+                                SgStatement* callSt = SgStatement::getStatementByFileAndLine(curr->fileName, curr->detailCallsFrom[k].second);
+                                if (!callSt)
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                //((SgExpression*)detail.first)->addAttribute(BOOL_VAL);
+                                callSt->addAttribute(BOOL_VAL);
+                            }
+                            else
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                            __spf_print(1, " added attribute to %s %d\n", curr->detailCallsFrom[k].first.c_str(), curr->detailCallsFrom[k].second);
+                        }
+                    }
+                }
+            }
+
+            __spf_print(1, "call inliner from main\n");
+            inliner(mainF->funcName, allFuncInfo, SPF_messages, newSymbsToDeclare);
+        }
+#endif
         createDeclarations(newSymbsToDeclare);
     }
 

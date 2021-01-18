@@ -412,9 +412,9 @@ static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<Func
                 origName = getOrigName(pointToF->fileName(), origName);
                 const string newName = checkSymbNameAndCorrect(origName + string("_spf_") + to_string(numCopy));
 
-                SgStatement* toMove = duplicateProcedure(pointToF, newName, false, false, false);
+                SgStatement* toMove = duplicateProcedure(pointToF, &newName, false, false, false);
 
-                varCall.copiedName = newName;                
+                varCall.copiedName = newName;
 
                 map<SgStatement*, SgStatement*> origCopySt;
                 map<SgExpression*, SgExpression*> origCopyEx;
@@ -795,9 +795,10 @@ static void createCopies(const string &file, const string &baseName, const  map<
         const string newName = newNum > 0 ? baseName + "_spfr_" + to_string(newNum) : baseName;
         ++newNum;
 
-        SgStatement* duplicated = duplicateProcedure(toCopy.first->funcPointer->GetOriginal(), clearName(newName), true, true);
+        const string clearNameS = clearName(newName);
+        SgStatement* duplicated = duplicateProcedure(toCopy.first->funcPointer->GetOriginal(), &clearNameS, true, true);
         if (duplicated->variant() == FUNC_HEDR)
-            changeFuncNameInDvmDirs(clearName(newName), toCopy.first->funcPointer->GetOriginal()->symbol()->identifier(), duplicated);
+            changeFuncNameInDvmDirs(clearNameS, toCopy.first->funcPointer->GetOriginal()->symbol()->identifier(), duplicated);
 
         copied[toCopy.first->funcPointer->GetOriginal()->fileName()].insert(duplicated);
         newNamesOfUniqCopies[toCopy.first->funcName] = newName;

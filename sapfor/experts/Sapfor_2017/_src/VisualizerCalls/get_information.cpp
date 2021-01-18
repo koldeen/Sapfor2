@@ -161,7 +161,7 @@ static void setOptions(const short* options, bool isBuildParallel = false)
     ignoreIO =           (mpiProgram == 1) ? 1 : intOptions[IGNORE_IO_SAPFOR];
     keepDvmDirectives =  (mpiProgram == 1) ? 0 : intOptions[KEEP_DVM_DIRECTIVES];
 
-    parseForInlining = 0;// intOptions[PARSE_FOR_INLINE];
+    parseForInlining = intOptions[PARSE_FOR_INLINE];
 
     string optAnalisys = splited.size() > ANALYSIS_OPTIONS ? splited[ANALYSIS_OPTIONS] : "";
 }
@@ -1724,8 +1724,11 @@ int SPF_LoopUnionCurrent(void*& context, int winHandler, short* options, short* 
     return retCode;
 }
 
+
+extern map<std::string, set<pair<string, int>>> inDataChains;
 int SPF_InlineProcedures(void*& context, int winHandler, short* options, short* projName, short* folderName,
-                         short* names, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize)
+                         short* names, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize,
+                         int type)
 {
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);
@@ -1743,16 +1746,75 @@ int SPF_InlineProcedures(void*& context, int winHandler, short* options, short* 
             vector<string> result;
             splitString(allNames, '|', result);
 
-            if (result.size())
+            if (type == 0) // dot substitution
             {
-                for (auto& elem : result)
-                    inDataProc.push_back(make_tuple(elem, elem, -1));
+                if (result.size() < 2)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                for (int z = 0; z < result.size();)
+                {
+                    string procName = result[z++];
+                    int count = -1;
+                    if (sscanf(result[z++].c_str(), "%d", &count) == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    if (result.size() < z + 2 * count)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    for (int k = z; k < z + 2 * count; k += 2)
+                    {
+                        int line = -1;
+                        if (sscanf(result[k + 1].c_str(), "%d", &line) == -1)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        inDataProc.push_back(make_tuple(procName, result[k], line));
+                    }
+                    z += 2 * count;
+
+                    if (count == 0)
+                        inDataProc.push_back(make_tuple(procName, procName, -1));
+                }
 
                 PASSES_DONE[INLINE_PROCEDURES] = 0;
                 runPassesForVisualizer(projName, { INLINE_PROCEDURES }, folderName);
 
                 inDataProc.clear();
             }
+            else if (type == 1) // hierarchical substitution
+            {
+                int numOfChain = -1;
+                int z = 0;
+
+                if (sscanf(result[z++].c_str(), "%d", &numOfChain) == -1)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                for (int k = 0; k < numOfChain; ++k)
+                {
+                    int numOfCalls = -1;
+                    if (sscanf(result[z++].c_str(), "%d", &numOfCalls) == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    string last = "";
+                    for (int p = 0; p < numOfCalls; ++p)
+                    {
+                        string funcName = result[z++];
+                        string fileName = result[z++];
+                        int line = -1;
+                        if (sscanf(result[z++].c_str(), "%d", &line) == -1)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                        if (last != "")
+                            inDataChains[last].insert(make_pair(funcName, line));
+                        last = funcName;
+                    }
+                }
+                
+                PASSES_DONE[INLINE_PROCEDURES] = 0;
+                runPassesForVisualizer(projName, { INLINE_PROCEDURES }, folderName);
+
+                inDataChains.clear();
+            }
+            else
+                retCode = -1;
         }
     }
     catch (int ex)
@@ -2149,7 +2211,9 @@ const wstring Sapfor_RunTransformation(const char* transformName_c, const char* 
     else if (whichRun == "SPF_DuplicateFunctionChains")
         retCode = SPF_DuplicateFunctionChains(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
     else if (whichRun == "SPF_InlineProcedures")
-        retCode = SPF_InlineProcedures(context, winHandler, optSh, projSh, fold, addOpt, output, outputSize, outputMessage, outputMessageSize);
+        retCode = SPF_InlineProcedures(context, winHandler, optSh, projSh, fold, addOpt, output, outputSize, outputMessage, outputMessageSize, 0);
+    else if (whichRun == "SPF_InlineProceduresH")
+        retCode = SPF_InlineProcedures(context, winHandler, optSh, projSh, fold, addOpt, output, outputSize, outputMessage, outputMessageSize, 1);
     else if (whichRun == "SPF_CreateCheckpoints")
         retCode = SPF_CreateCheckpoints(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
     else if (whichRun == "SPF_ConvertStructures")

@@ -1214,6 +1214,7 @@ template const vector<SgSymbol*> getAttributes(SgSymbol *st, const set<int> data
 template const vector<SgSymbol*> getAttributes(SgStatement* st, const set<int> dataType);
 template const vector<SgSymbol*> getAttributes(SgExpression* st, const set<int> dataType);
 template const vector<char*> getAttributes(SgSymbol *st, const set<int> dataType);
+template const vector<int*> getAttributes(SgSymbol* st, const set<int> dataType);
 template const vector<SgStatement*> getAttributes(SgStatement *st, const set<int> dataType);
 template const vector<SgExpression*> getAttributes(SgExpression *st, const set<int> dataType);
 template const vector<SgStatement*> getAttributes(SgExpression *st, const set<int> dataType);
@@ -2157,7 +2158,7 @@ SgStatement* getFuncStat(SgStatement *st, const set<int> additional)
     return iterator;
 }
 
-SgStatement* duplicateProcedure(SgStatement *toDup, const string &newName, bool withAttributes, bool withComment, bool withSameLines, bool dontInsert)
+SgStatement* duplicateProcedure(SgStatement *toDup, const string *newName, bool withAttributes, bool withComment, bool withSameLines, bool dontInsert)
 {
     if (toDup == NULL)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -2166,24 +2167,7 @@ SgStatement* duplicateProcedure(SgStatement *toDup, const string &newName, bool 
 
     SgStatement* global = toDup;
     while (global->variant() != GLOBAL)
-    {        
         global = global->controlParent();
-        /*if (isSgProgHedrStmt(global))
-        {
-            auto last = global->lastNodeOfStmt();
-            // check for contains
-            for (auto st = global; st != last; st = st->lexNext())
-            {
-                if (st->variant() == CONTAINS_STMT)
-                {
-                    global = st;
-                    break;
-                }
-            }
-            if (global->variant() == CONTAINS_STMT)
-                break;
-        }*/
-    }
 
     SgSymbol* orig = toDup->symbol();    
     SgSymbol* copied = &orig->copySubprogram(*global);
@@ -2222,8 +2206,8 @@ SgStatement* duplicateProcedure(SgStatement *toDup, const string &newName, bool 
     if (dontInsert == false)
         toDup->insertStmtBefore(*toMove, *toDup->controlParent());
     //change name
-    if (newName != "")
-        copied->changeName(newName.c_str());
+    if (newName)
+        copied->changeName(newName->c_str());
 
     if (!withAttributes && !withComment && !withSameLines)
         return toMove;
@@ -2850,21 +2834,38 @@ static set<FileInfo*> applyModuleDeclsForFile(FileInfo *forFile, const map<strin
     }
 
     vector<string> toInclEnds;
-    for (auto& file : mapFiles)
-        if (file.second != forFile)
-            toInclEnds.push_back(file.second->fileName);
-
     string includeLast = "";
-    if (toInclEnds.size())
-        includeLast += "!SPF SHADOW FILES\n";
 
-    for (auto& incl : toInclEnds)
-        includeLast += "      include '" + incl + "'\n";
+    if (includeForInline)
+    {
+        //find needed modules first
+        vector<string> filesWithModules;
+        for (auto& elem : moduleDelc)
+            filesWithModules.push_back(elem.second);
+        for (auto& file : filesWithModules)
+        {
+            if (file != forFile->fileName && included.find(file) == included.end())
+            {
+                toInclEnds.push_back(file);
+                included.insert(file);
+            }
+        }
+
+        for (auto& file : mapFiles)
+            if (file.second != forFile && included.find(file.second->fileName) == included.end())
+                toInclEnds.push_back(file.second->fileName);
+
+        if (toInclEnds.size())
+            includeLast += "!SPF SHADOW FILES\n";
+
+        for (auto& incl : toInclEnds)
+            includeLast += "      include '" + incl + "'\n";
+    }
 
     string data = include + mainText + includeLast;
     writeFileFromStr(forFile->fileName, data);
 
-    forFile->intcludesAdded = toIncl.size() + toInclEnds.size();
+    forFile->intcludesAdded = toIncl.size();
 
     retFilesMod.insert(forFile);
     return retFilesMod;
@@ -3033,13 +3034,14 @@ static string shiftLines(const string &in, const map<string, const FileInfo*> &m
     byNum = itF->second->intcludesAdded;
     if (byNum == 0)
         return in;
-
-    d -= byNum;
-    if (d <= 0)
+        
+    if (d - byNum <= 0)
     {
         //return in;
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
+    else
+        d -= byNum;
 
     string newStr = in.substr(0, it) + std::to_string(d) + in.substr(in.find(' ', it + 1));
     return newStr;
@@ -3538,4 +3540,81 @@ string nameWithContains(SgStatement* where, SgSymbol* s)
         containsName = st_cp->symbol()->identifier() + std::string(".");
 
     return containsName + s->identifier();
+}
+
+string preprocDataString(string data, bool full)
+{
+    string ret = "";
+
+
+    for (int z = 0; z < data.size(); ++z)
+    {
+        if (data[z] == '\t')
+            data[z] = ' ';
+        else if (data[z] == '\r')
+            data[z] = ' ';
+    }
+
+    auto it = data.find("DATA");
+    if (it == string::npos)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    else
+        it += 4;
+    if (data[it] != ' ')
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    else
+        it++;
+
+    if (full)
+        ret = "DATA ";
+
+    int i = it;
+    while (i != data.size())
+    {
+        if (data[i] != ' ')
+            ret += data[i++];
+        else
+            i++;
+    }
+    return ret;
+}
+
+map<string, string> splitData(const set<SgValueExp*>& dataStats)
+{
+    map<string, string> result;
+    for (auto& dataV : dataStats)
+    {
+        char* value = dataV->thellnd->entry.string_val;
+        string dataS(value);
+        convertToUpper(dataS);
+        dataS = preprocDataString(dataS, false);
+
+        convertToLower(dataS);
+        string currS = "";
+        string currV = "";
+        int startV = -1;
+        for (int z = 0; z < dataS.size(); ++z)
+        {
+            if (startV == -1)
+            {
+                if (dataS[z] == '/')
+                    startV = 0;
+                else if (dataS[z] != ' ' && dataS[z] != ',')
+                    currS += dataS[z];
+            }
+            else if (startV == 0)
+            {
+                if (dataS[z] == '/')
+                {
+                    startV = -1;
+                    result[currS] = currV;
+                    currS = currV = "";
+                }
+                else if (dataS[z] != ' ')
+                    currV += dataS[z];
+            }            
+        }
+    }
+
+    return result;
 }
