@@ -653,7 +653,7 @@ int SPF_GetPassesStateStr(void*& context, short *&passInfo)
 }
 
 
-extern std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaredArrays;
+extern map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaredArrays;
 static void printDeclArraysState()
 {
     if (showDebug)
@@ -1725,7 +1725,8 @@ int SPF_LoopUnionCurrent(void*& context, int winHandler, short* options, short* 
 }
 
 
-extern map<std::string, set<pair<string, int>>> inDataChains;
+extern map<string, set<pair<string, int>>> inDataChains;
+extern set<string> inDataChainsStart;
 int SPF_InlineProcedures(void*& context, int winHandler, short* options, short* projName, short* folderName,
                          short* names, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize,
                          int type)
@@ -1804,6 +1805,9 @@ int SPF_InlineProcedures(void*& context, int winHandler, short* options, short* 
 
                         if (last != "")
                             inDataChains[last].insert(make_pair(funcName, line));
+
+                        if (last == "")
+                            inDataChainsStart.insert(funcName);
                         last = funcName;
                     }
                 }

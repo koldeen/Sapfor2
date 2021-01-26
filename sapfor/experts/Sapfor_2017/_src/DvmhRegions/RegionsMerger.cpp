@@ -117,10 +117,12 @@ vector<DvmhRegion*> RegionsMerger::mergeRegions()
     map<string, map<int, DvmhRegion*>> byFunc;
     for (auto& elem : regions)
     {
-        auto& itF = byFunc[elem->getFunName()];
-        if (itF.find(elem->getLineForSort()) != itF.end())
+        const int line = elem->getLineForSort();
+        const string fName = elem->getFunName();
+        auto& itF = byFunc[fName];
+        if (itF.find(line) != itF.end())
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        itF[elem->getLineForSort()] = elem;
+        itF[line] = elem;
     }
 
     vector<DvmhRegion*> newRegions;

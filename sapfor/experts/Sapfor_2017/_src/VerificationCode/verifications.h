@@ -17,6 +17,8 @@ bool IncludeChecker(SgFile *file, const std::string &fileName, std::vector<Messa
 void VarDeclCorrecter(SgFile *file);
 bool DvmDirectiveChecker(SgFile *file, std::map<std::string, std::vector<int>> &errors, const int, const int);
 bool FunctionsChecker(SgFile *file, std::map<std::string, std::pair<std::string, int>> &funcNames, std::map<std::string, std::vector<Messages>> &currMessages);
+bool OperatorChecker(SgFile* file, std::map<std::string, std::vector<Messages>>& currMessages);
+
 int VerifyFile(SgFile *file);
 void fixUseOnlyStmt(SgFile *file, const std::vector<ParallelRegion*> &regs);
 void correctModuleProcNames(SgFile *file, const std::set<std::string>& globalF);

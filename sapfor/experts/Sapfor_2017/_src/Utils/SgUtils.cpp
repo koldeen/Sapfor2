@@ -2165,9 +2165,9 @@ SgStatement* duplicateProcedure(SgStatement *toDup, const string *newName, bool 
     if (isSgProgHedrStmt(toDup) == NULL)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-    SgStatement* global = toDup;
-    while (global->variant() != GLOBAL)
-        global = global->controlParent();
+    SgStatement* global = current_file->firstStatement();
+    if (global->variant() != GLOBAL)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
     SgSymbol* orig = toDup->symbol();    
     SgSymbol* copied = &orig->copySubprogram(*global);
@@ -2202,9 +2202,20 @@ SgStatement* duplicateProcedure(SgStatement *toDup, const string *newName, bool 
     }
 
     //move 
-    SgStatement* toMove = global->lexNext()->extractStmt();
-    if (dontInsert == false)
-        toDup->insertStmtBefore(*toMove, *toDup->controlParent());
+    SgStatement* toMove = NULL;
+    if (dontInsert)
+        toMove = global->lexNext()->extractStmt();
+    else
+    {
+        if (toDup->controlParent())
+        {
+            toMove = global->lexNext()->extractStmt();
+            toDup->insertStmtBefore(*toMove, *toDup->controlParent());
+        }
+        else
+            toMove = global->lexNext();
+    }
+
     //change name
     if (newName)
         copied->changeName(newName->c_str());
@@ -3617,4 +3628,15 @@ map<string, string> splitData(const set<SgValueExp*>& dataStats)
     }
 
     return result;
+}
+
+void extractComments(SgStatement* where, const string& what)
+{
+    if (BIF_CMNT(where->thebif) && CMNT_STRING(BIF_CMNT(where->thebif)))
+    {
+        char* str = CMNT_STRING(BIF_CMNT(where->thebif));
+        string source(str);
+        removeSubstrFromStr(source, what.c_str());
+        sprintf(str, "%s", source.c_str());
+    }
 }

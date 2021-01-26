@@ -551,6 +551,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             bool res = EquivalenceChecker(file, file_name, parallelRegions, SPF_messages);
             verifyOK &= res;
         }
+        else if (curr_regime == VERIFY_OPERATORS)
+        {
+            bool res = OperatorChecker(file, SPF_messages);
+            verifyOK &= res;
+        }
         else if (curr_regime == CREATE_PARALLEL_DIRS)
         {
             auto &loopsInFile = getObjectForFileFromMap(file_name, loopGraph);
@@ -1409,7 +1414,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
              curr_regime == VERIFY_DVM_DIRS ||
              curr_regime == VERIFY_EQUIVALENCE ||
              curr_regime == VERIFY_COMMON ||
-             curr_regime == VERIFY_FUNC_DECL)
+             curr_regime == VERIFY_FUNC_DECL || 
+             curr_regime == VERIFY_OPERATORS)
     {
         if (verifyOK == false)
             throw(-1);
@@ -1967,7 +1973,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         
         //inliner(mainF->funcName, allFuncInfo, SPF_messages, newSymbsToDeclare);
         //inDataProc.push_back(make_tuple("zran3", "mg.f", 197));
-        //inDataProc.push_back(make_tuple("randlc", "ep_ddp.for", 121));
+        //inDataProc.push_back(make_tuple("ini", "ssubr117.f", 23));
         
 #if 1
         if (inDataProc.size())
@@ -2007,47 +2013,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (inDataChains.size())
         {
-            //TODO: need to add attribute to all shadow copies
-            for (auto& elem : tmpM)
+            setInlineAttributeToCalls(tmpM, inDataChains, hiddenData);
+            
+            for (auto& startPoint : inDataChainsStart)
             {
-                auto itNeed = inDataChains.find(elem.first);
-                if (itNeed != inDataChains.end() && itNeed->second.size())
-                {
-                    const FuncInfo* curr = elem.second;
-                    const set<pair<string, int>>& needToInline = itNeed->second;
-
-                    for (int k = 0; k < curr->detailCallsFrom.size(); ++k)
-                    {
-                        if (needToInline.find(curr->detailCallsFrom[k]) == needToInline.end() && 
-                            !isIntrinsicFunctionName(curr->detailCallsFrom[k].first.c_str()))
-                        {
-                            pair<void*, int> detail = curr->pointerDetailCallsFrom[k];
-                            
-                            if (SgFile::switchToFile(curr->fileName) == -1)
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                            if (detail.second == PROC_STAT)
-                                ((SgStatement*)detail.first)->addAttribute(BOOL_VAL);
-                            else if (detail.second == FUNC_CALL)
-                            {
-                                //TODO: many functions in same statement
-                                SgStatement* callSt = SgStatement::getStatementByFileAndLine(curr->fileName, curr->detailCallsFrom[k].second);
-                                if (!callSt)
-                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                                //((SgExpression*)detail.first)->addAttribute(BOOL_VAL);
-                                callSt->addAttribute(BOOL_VAL);
-                            }
-                            else
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                            __spf_print(1, " added attribute to %s %d\n", curr->detailCallsFrom[k].first.c_str(), curr->detailCallsFrom[k].second);
-                        }
-                    }
-                }
+                __spf_print(1, "call inliner from '%s'\n", startPoint.c_str());
+                inliner(startPoint, allFuncInfo, SPF_messages, newSymbsToDeclare);
             }
-
-            __spf_print(1, "call inliner from main\n");
-            inliner(mainF->funcName, allFuncInfo, SPF_messages, newSymbsToDeclare);
         }
 #endif
         createDeclarations(newSymbsToDeclare);
@@ -2195,6 +2167,8 @@ static SgProject* createProject(const char *proj_name)
         const string fileN = file->filename();
         auto first = file->firstStatement();
         SgStatement* lastValid = NULL;
+
+        const string toFind = "!SPF SHADOW FILES";
         for (SgStatement* st = first->lexNext(), *stPrev = first; 
              st; 
              st = st->lexNext(), stPrev = stPrev->lexNext())
@@ -2202,10 +2176,13 @@ static SgProject* createProject(const char *proj_name)
             if (st->comments())
             {
                 string comm(st->comments());
-                if (comm.find("!SPF SHADOW FILES") != string::npos)
+                if (comm.find(toFind) != string::npos)
                 {
                     if (st->variant() == CONTROL_END)
+                    {
+                        extractComments(st, toFind);
                         lastValid = st;
+                    }
                     else
                         lastValid = stPrev;
                     break;
@@ -2224,15 +2201,15 @@ static SgProject* createProject(const char *proj_name)
                 st = st->lexNext();
             }
 
-            /*for (auto st = lastValid->lexNext(); st; st = st->lexNext())
-                ;*/
-
+            __spf_print(1, "hidden data for file '%s'\n", file->filename());
             set<int> validVars = { PROG_HEDR, FUNC_HEDR, PROC_HEDR, BLOCK_DATA, MODULE_STMT };
             for (auto& elem : toExtract)
             {
                 int var = elem->variant();
                 if (validVars.find(var) == validVars.end())
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                __spf_print(1, "  [%s, %d]\n", elem->fileName(), elem->lineNumber());
                 hiddenData[fileN].push_back(elem->extractStmt());
             }
             lastValid->setLexNext((SgStatement*)NULL);

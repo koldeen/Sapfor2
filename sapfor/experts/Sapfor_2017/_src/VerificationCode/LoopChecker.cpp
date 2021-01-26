@@ -285,7 +285,6 @@ bool FunctionsChecker(SgFile *file, map<string, pair<string, int>> &funcNames, m
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
-        int lastLine = 1;
         
         if (st->controlParent()->variant() == GLOBAL)
         {
@@ -314,6 +313,37 @@ bool FunctionsChecker(SgFile *file, map<string, pair<string, int>> &funcNames, m
             }
         }
     }
+    return checkOK;
+}
 
+bool OperatorChecker(SgFile* file, map<string, vector<Messages>>& currMessages)
+{
+    bool checkOK = true;
+    set<int> usedLines;
+
+    SgStatement* st = file->firstStatement();
+    string currF = file->filename();
+    while (st)
+    {
+        int line = st->lineNumber();
+        if (line > 0 && st->fileName() == currF)
+        {
+            int var = st->controlParent()->variant();
+            bool cpWasAdded = (var == ARITHIF_NODE || var == LOGIF_NODE || var == GOTO_NODE) && (usedLines.find(line) != usedLines.end());
+
+            if (usedLines.find(line) != usedLines.end() && !cpWasAdded)
+            {
+
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"More than one operator found on a line, try to run Code correction pass");
+                __spf_printToLongBuf(messageR, R179);
+
+                currMessages[st->fileName()].push_back(Messages(ERROR, line, messageR, messageE, 1027));
+                checkOK = false;
+            }
+            usedLines.insert(line);
+        }
+        st = st->lexNext();
+    }
     return checkOK;
 }

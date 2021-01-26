@@ -85,3 +85,5 @@ std::string nameWithContains(SgStatement* where, SgSymbol* s);
 
 std::string preprocDataString(std::string data, bool full = true);
 std::map<std::string, std::string> splitData(const std::set<SgValueExp*>& dataStats);
+
+void extractComments(SgStatement* where, const std::string& what);

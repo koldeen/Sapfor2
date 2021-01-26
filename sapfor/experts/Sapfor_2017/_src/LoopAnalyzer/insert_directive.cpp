@@ -952,17 +952,6 @@ static void createShadowSpec(const vector<LoopGraph*> &loopGraph,
     }
 }
 
-static inline void extractComments(SgStatement *where, const string &what)
-{    
-    if (BIF_CMNT(where->thebif) && CMNT_STRING(BIF_CMNT(where->thebif)))
-    {
-        char *str = CMNT_STRING(BIF_CMNT(where->thebif));
-        string source(str);
-        removeSubstrFromStr(source, what.c_str());
-        sprintf(str, "%s", source.c_str());
-    }
-}
-
 static SgStatement* firstExec(SgStatement *in, const string &currF)
 {
     while (in)

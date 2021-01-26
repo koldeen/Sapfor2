@@ -2212,4 +2212,68 @@ int getLvlCall(FuncInfo* currF, int lvl, const string& func, const string& file,
     return whatLvl;
 }
 
+
+void setInlineAttributeToCalls(const map<string, FuncInfo*>& allFunctions, 
+                               const map<string, set<pair<string, int>>>& inDataChains,
+                               const map<string, vector<SgStatement*>>& hiddenData)
+{
+    set<pair<string, int>> pointsForShadowCopies;
+
+    for (auto& elem : allFunctions)
+    {
+        auto itNeed = inDataChains.find(elem.first);
+
+        const FuncInfo* curr = elem.second;
+        set<pair<string, int>> needToInline;
+        if (itNeed != inDataChains.end()) 
+            needToInline = itNeed->second;
+
+        for (int k = 0; k < curr->detailCallsFrom.size(); ++k)
+        {
+            if (needToInline.find(curr->detailCallsFrom[k]) == needToInline.end() &&
+                !isIntrinsicFunctionName(curr->detailCallsFrom[k].first.c_str()))
+            {
+                pair<void*, int> detail = curr->pointerDetailCallsFrom[k];
+
+                if (SgFile::switchToFile(curr->fileName) == -1)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                if (detail.second == PROC_STAT)
+                    ((SgStatement*)detail.first)->addAttribute(BOOL_VAL);
+                else if (detail.second == FUNC_CALL)
+                {
+                    //TODO: many functions in same statement
+                    SgStatement* callSt = SgStatement::getStatementByFileAndLine(curr->fileName, curr->detailCallsFrom[k].second);
+                    if (!callSt)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    //((SgExpression*)detail.first)->addAttribute(BOOL_VAL);
+                    callSt->addAttribute(BOOL_VAL);
+                }
+                else
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                pointsForShadowCopies.insert(make_pair(curr->fileName, curr->detailCallsFrom[k].second));
+                __spf_print(1, " added attribute to '%s' <%s, %d>\n", curr->detailCallsFrom[k].first.c_str(), curr->fileName.c_str(), curr->detailCallsFrom[k].second);
+            }
+        }
+    }
+
+    if (pointsForShadowCopies.size())
+    {
+        for (auto& byFile : hiddenData)
+        {
+            if (SgFile::switchToFile(byFile.first) == -1)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            for (auto& stF : byFile.second)
+                for (auto st = stF; st != stF->lastNodeOfStmt(); st = st->lexNext())
+                    if (pointsForShadowCopies.find(make_pair(st->fileName(), st->lineNumber())) != pointsForShadowCopies.end())
+                    {
+                        st->addAttribute(BOOL_VAL);
+                        //__spf_print(1, " added attribute to shadow copy in file '%s' <%s %d>\n", byFile.first.c_str(), st->fileName(), st->lineNumber());
+                    }
+        }
+    }
+}
+
 #undef DEBUG

@@ -1216,6 +1216,7 @@ static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int
     {
         SgExpression *dimList = type->getDimList();
         int consistInAllocates = 0;
+        set<string> allocValues;
         SgExpression *alloc = NULL;
 
         
@@ -1292,6 +1293,7 @@ static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int
                                                     {
                                                         consistInAllocates++;
                                                         alloc = list->lhs()->lhs();
+                                                        allocValues.insert(alloc->unparse());
                                                         found = true;
                                                         break;
                                                     }
@@ -1307,6 +1309,7 @@ static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int
                                         {
                                             consistInAllocates++;
                                             alloc = list->lhs()->lhs();
+                                            allocValues.insert(alloc->unparse());
                                             break;
                                         }
                                     }
@@ -1318,7 +1321,8 @@ static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int
                     else // set next in list 
                         alloc = alloc->rhs();
 
-                    if (consistInAllocates != 1)
+                    //TODO: dont check string representations of alloc expression!! check integer result, if all strings are equal
+                    if (consistInAllocates != 1 && allocValues.size() != 1)
                     {
                         sizes.push_back(make_pair(-1, -1));
                         retVal.push_back(make_pair((Expression*)NULL, (Expression*)NULL));

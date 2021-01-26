@@ -25,6 +25,24 @@ using std::to_string;
 
 #define DEB 0
 
+extern map<string, vector<SgStatement*>> hiddenData;
+
+static map<SgSymbol*, SgSymbol*> linkToOrig;
+static map<pair<string, int>, map<string, SgSymbol*>> createdByFunc; // key == <funcName, fileID>
+static map<string, int> createdVarCounterByName;
+static map<pair<string, int>, map<string, pair<SgSymbol*, string>>> replacedConstRef; // key == <funcName, fileID>
+static map<pair<string, int>, set<SgValueExp*>> dataDeclsByFunc; // key == <funcName, fileID>
+
+static void checkSymbols(const int currFileId, const set<SgSymbol*>& symbs)
+{    
+    for (auto& symb : symbs)
+        if (symb->getFileId() != currFileId)
+        {
+            __spf_print(1, "check failed - given %d, correct %d\n", symb->getFileId(), currFileId); // DEBUG
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+}
+
 static map<string, SgExpression*> createMapOfArgs(SgStatement* tempHedr, SgExpression* actualArgs)
 {
     __spf_print(DEB, "------create map of vars------\n"); // DEBUG
@@ -48,13 +66,12 @@ static map<string, SgExpression*> createMapOfArgs(SgStatement* tempHedr, SgExpre
     return vars;
 }
 
-static map<string, map<string, SgSymbol*>> createdByFunc;
-static map<string, int> createdVarCounterByName;
-static map<string, map<string, pair<SgSymbol*, string>>> replacedConstRef;
-static map<string, set<SgValueExp*>> dataDeclsByFunc;
-
 static inline SgSymbol* createSymbAndDecl(const string& funcName, const string& varName, SgSymbol* newS, set<SgSymbol*>& newSymbols, SgType* type = NULL)
 {
+    SgSymbol* original = newS;
+    if (newS)
+        newS = &newS->copy();
+
     int* count;
     if (createdVarCounterByName.find(varName) == createdVarCounterByName.end())
     {
@@ -68,36 +85,37 @@ static inline SgSymbol* createSymbAndDecl(const string& funcName, const string& 
     int nextCount = checkSymbNameAndCorrect(base, count[0]);
     const string newName = base + to_string(nextCount);
 
+    const pair<string, int> key = make_pair(funcName, current_file_id);
     if (newS)
     {
         if (isSgConstantSymb(newS))
         {
-            if (funcName != "null" && createdByFunc[funcName].find(varName) == createdByFunc[funcName].end() ||
+            if (funcName != "null" && createdByFunc[key].find(varName) == createdByFunc[key].end() ||
                 funcName == "null")
             {
 
-                auto it = replacedConstRef[funcName].find(newS->identifier());
-                if (it != replacedConstRef[funcName].end() && it->second.first->identifier() != it->second.second)
+                auto it = replacedConstRef[key].find(newS->identifier());
+                if (it != replacedConstRef[key].end() && it->second.first->identifier() != it->second.second)
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                if (it == replacedConstRef[funcName].end())
+                if (it == replacedConstRef[key].end())
                 {
                     //check replaces
                     SgSymbol* wasDone = NULL;
-                    for (auto& elem : replacedConstRef[funcName])
+                    for (auto& elem : replacedConstRef[key])
                         if (elem.second.second == varName)
                             wasDone = elem.second.first;
 
                     if (wasDone == NULL)
                     {
-                        replacedConstRef[funcName][newS->identifier()] = make_pair(newS, newName.c_str());
+                        replacedConstRef[key][newS->identifier()] = make_pair(newS, newName.c_str());
                         newS->changeName(newName.c_str());
                     }
                     else
                         newS = wasDone;
                 }
             }
-            else if (funcName != "null" && createdByFunc[funcName].find(varName) != createdByFunc[funcName].end())
+            else if (funcName != "null" && createdByFunc[key].find(varName) != createdByFunc[key].end())
             {
                 ; //skip
             }
@@ -115,30 +133,82 @@ static inline SgSymbol* createSymbAndDecl(const string& funcName, const string& 
 
     if (funcName != "null")
     {
-        auto itS = createdByFunc[funcName].find(varName);
-        if (itS == createdByFunc[funcName].end())
+        auto itS = createdByFunc[key].find(varName);
+        if (itS == createdByFunc[key].end())
         {
-            createdByFunc[funcName][varName] = newS;
+            createdByFunc[key][varName] = newS;
             count[0] = nextCount;
+            if (original && (original->attributes() & ALLOCATABLE_BIT))
+                linkToOrig[newS] = original;
         }
         else
             newS = itS->second;
     }
     //printf("newS %s = %d\n", newS->identifier(), newS->id());
     newSymbols.insert(newS);
+    checkSymbols(current_file_id, newSymbols);
     return newS;
 }
 
 static SgValueExp* oneExpr = NULL;
 static SgValueExp* zeroExpr = NULL;
-//TODO: for allocatable
+
 static vector<SgExpression*> getLowBounds(SgSymbol* arrayS)
-{   
+{
+
     if (oneExpr == NULL)
         oneExpr = new SgValueExp(1);
 
-    auto type = isSgArrayType(arrayS->type());
-    auto list = type->getDimList();
+    SgExpression* list = NULL;
+    
+
+    if (arrayS->attributes() & ALLOCATABLE_BIT)
+    {   
+        SgSymbol* copyFrom = NULL;
+        if (linkToOrig.find(arrayS) == linkToOrig.end())
+            copyFrom = arrayS;
+        else
+            copyFrom = linkToOrig[arrayS];
+
+        SgStatement* decl = declaratedInStmt(copyFrom);
+        checkNull(decl, convertFileName(__FILE__).c_str(), __LINE__);
+
+        int consistInAllocates = 0;
+        const string origName = OriginalSymbol(copyFrom)->identifier();
+
+        for (auto& data : getAttributes<SgStatement*, SgStatement*>(decl, set<int>{ ALLOCATE_STMT }))
+        {
+            if (data->variant() != ALLOCATE_STMT)
+                continue;
+
+            SgExpression* iter = data->expr(0);
+            
+            while (iter)
+            {
+                SgArrayRefExp* arrayRef = isSgArrayRefExp(iter->lhs());
+                if (arrayRef != NULL)
+                {
+                    SgSymbol* origS = OriginalSymbol(arrayRef->symbol());
+                    if (origS->identifier() == origName)
+                    {
+                        consistInAllocates++;
+                        list = iter->lhs()->lhs();
+                    }
+                }
+                iter = iter->rhs();
+            }
+        }
+
+        if (consistInAllocates != 1)
+            list = NULL;
+
+        checkNull(list, convertFileName(__FILE__).c_str(), __LINE__);
+    }
+    else
+    {
+        auto type = isSgArrayType(arrayS->type());
+        list = type->getDimList();
+    }
 
     vector<SgExpression*> bounds;
     while (list)
@@ -153,10 +223,11 @@ static vector<SgExpression*> getLowBounds(SgSymbol* arrayS)
     return bounds;
 }
 
-
-//TODO: for allocatable
 static vector<SgExpression*> getBoundsExpression(SgSymbol* arrayS)
 {
+    if (arrayS->attributes() & ALLOCATABLE_BIT)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
     auto type = isSgArrayType(arrayS->type());
     auto list = type->getDimList();
 
@@ -271,6 +342,7 @@ static SgExpression* doReplace(SgExpression* oldExp, SgExpression* newExp, map<S
 
             //arrayExpOld->unparsestdout();
             //arrayExpNew->unparsestdout();
+            //printf("\n");
 
             auto boundsOld = getLowBounds(oldExp->symbol());
             auto boundsNew = getLowBounds(newExp->symbol());
@@ -409,6 +481,7 @@ inline static void findAllConstRef(SgExpression* ex, set<SgSymbol*>& result)
 static void detectTypeOfSymbol(const string& funcName, SgSymbol* s, int globalType, set<SgSymbol*>& newSymbols, 
                                const vector<SgSymbol*>& allInCommon, const string& globalName)
 {
+    const pair<string, int> key = make_pair(funcName, current_file_id);
     if (newSymbols.find(s) == newSymbols.end())
     {
         char* newAttr = new char[globalName.size() + 1];
@@ -434,15 +507,17 @@ static void detectTypeOfSymbol(const string& funcName, SgSymbol* s, int globalTy
 
                     for (auto& elem : constInDecl)
                     {
-                        auto itS = replacedConstRef[funcName].find(elem->identifier());
-                        if (itS == replacedConstRef[funcName].end())
+                        auto itS = replacedConstRef[key].find(elem->identifier());
+                        if (itS == replacedConstRef[key].end())
                         {
-                            replacedConstRef[funcName][elem->identifier()] = make_pair(elem, elem->identifier());
+                            replacedConstRef[key][elem->identifier()] = make_pair(elem, elem->identifier());
                             newSymbols.insert(elem);
+                            checkSymbols(current_file_id, newSymbols);
                         }
                     }
                 }
                 newSymbols.insert(commS);
+                checkSymbols(current_file_id, newSymbols);
                 ++pos;
             }
         }
@@ -452,6 +527,7 @@ static void detectTypeOfSymbol(const string& funcName, SgSymbol* s, int globalTy
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         newSymbols.insert(s);
+        checkSymbols(current_file_id, newSymbols);
     }
 }
 
@@ -499,7 +575,7 @@ static void replaceSymbInExp(SgStatement* st, SgExpression* exp, SgExpression* p
                     auto it = locVars.find(varName);
                     if (it == locVars.end())
                     {
-                        auto symb = createSymbAndDecl(funcName, varName, &expS->copy(), newSymbols);
+                        auto symb = createSymbAndDecl(funcName, varName, expS, newSymbols);
                         it = locVars.insert(it, make_pair(varName, symb));
 
                         if (varName == funcName && !newHedrSymb)
@@ -552,7 +628,7 @@ inline static void replaceSymbInStat(SgStatement* st, SgStatement* tempHedr,
                 auto it = locVars.find(varName);
                 if (it == locVars.end())
                 {
-                    auto symb = createSymbAndDecl(funcName, varName, &s->copy(), newSymbols);
+                    auto symb = createSymbAndDecl(funcName, varName, s, newSymbols);
                     it = locVars.insert(it, make_pair(varName, symb));
 
                     if (varName == funcName && !newHedrSymb)
@@ -585,7 +661,7 @@ static inline void remapVars(SgStatement* tempHedr,
             replaceSymbInStat(st, tempHedr, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, argVarsLinearForm);
         else
             if (st->variant() == DATA_DECL)
-                dataDeclsByFunc[funcName].insert((SgValueExp*)st->expr(0));
+                dataDeclsByFunc[make_pair(funcName, current_file_id)].insert((SgValueExp*)st->expr(0));
     }
 
     if (argVarsLinearForm.size())
@@ -612,7 +688,8 @@ static inline void remapVars(SgStatement* tempHedr,
             for (auto& elem : bySymb.second)
             {
                 newSymbols.insert(elem.first);
-               
+                checkSymbols(current_file_id, newSymbols);
+
                 tmp->setLhs(elem.second);
                 
                 replaceSymbInExp(NULL, tmp->lhs(), tmp, -1, true, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, dummy);
@@ -718,15 +795,11 @@ static int clean(const string& funcName, SgStatement* funcSt, const map<string, 
             break;
         }
     }
-
-    // TODO: move all FORMAT statements into the top level routine
-
-    // TODO: remap all local subprogram variables by creating new unconflicting top level variables
     return gotoLabelId;
 }
 
 // true if inserted
-static inline bool insert(SgFile* file, SgStatement* callSt, SgStatement* funcStat,
+static inline bool insert(SgStatement* callSt, SgStatement* funcStat,
                           SgExpression* args, set<SgSymbol*>& newSymbols, 
                           const map<string, FuncInfo*>& funcMap, vector<SgStatement*>& toDelete)
 {
@@ -736,10 +809,6 @@ static inline bool insert(SgFile* file, SgStatement* callSt, SgStatement* funcSt
 
     SgStatement* tempHedr = NULL;
     SgSymbol* tempSymb = NULL;
-
-    // TODO: check arguments
-    //if (!TestConformability())
-    //    return false;
 
     __spf_print(DEB, "------creating template------\n"); // DEBUG
     // 2.a create function template
@@ -784,7 +853,7 @@ static inline bool insert(SgFile* file, SgStatement* callSt, SgStatement* funcSt
     remapVars(tempHedr, argVars, locVars, newSymbols, begin->symbol()->identifier(), newHedrSymb);
 
     if (!newHedrSymb && tempSymb->variant() == FUNCTION_NAME) // if no textual use of return variable, create new anyway
-        newHedrSymb = createSymbAndDecl("null", string(tempSymb->identifier()) + "_spf", &tempSymb->copy(), newSymbols);
+        newHedrSymb = createSymbAndDecl("null", string(tempSymb->identifier()) + "_spf", tempSymb, newSymbols);
 
     // clean function
     int gotoLabId = clean(funcSymb->identifier(), tempHedr, funcMap, toDelete);
@@ -817,7 +886,7 @@ static inline void replaceCall(SgExpression* exp, SgExpression* par, const int i
                                SgStatement* callSt, set<SgSymbol*>& newSymbols, SgStatement* insertPlace)
 {
     // create new call variable for this call and its declaration
-    SgSymbol* v = createSymbAndDecl("null", "arg", &exp->symbol()->copy(), newSymbols);
+    SgSymbol* v = createSymbAndDecl("null", "arg", exp->symbol(), newSymbols);
 
     SgAssignStmt* assign = new SgAssignStmt(*new SgVarRefExp(*v), *exp->copyPtr());
     assign->setlineNumber(getNextNegativeLineNumber());
@@ -933,6 +1002,31 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
         SgStatement* currentFunc = getFuncStat(callSt);
 
         SgStatement* funcStat = func->funcPointer->GetOriginal();
+        if (funcStat->fileName() != fileName)
+        {
+            //get from shadow copies
+            auto itF = hiddenData.find(fileName);
+            if (itF == hiddenData.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            const string fromFile = funcStat->fileName();
+            const int line = funcStat->lineNumber();
+
+            bool done = false;
+            for (auto& shadowFunc : itF->second)
+            {
+                if (shadowFunc->fileName() == fromFile && shadowFunc->lineNumber() == line)
+                {
+                    funcStat = shadowFunc;
+                    done = true;
+                    break;
+                }
+            }
+
+            if (!done)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+
         set<SgSymbol*> newSymbols;
 
         bool foundCall = false;
@@ -1008,7 +1102,7 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
                         auto rPart = st->expr(1);
                         if (rPart->variant() == FUNC_CALL && rPart->symbol() && rPart->symbol()->identifier() == funcName)
                         {
-                            bool doInline = insert(current_file, st, funcStat, rPart->lhs(), newSymbols, funcMap, toDelete);
+                            bool doInline = insert(st, funcStat, rPart->lhs(), newSymbols, funcMap, toDelete);
                             change |= doInline;
                             isInlined |= doInline;
                         }
@@ -1017,7 +1111,7 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
                     case PROC_STAT:
                         if (st->symbol() && st->symbol()->identifier() == funcName)
                         {
-                            bool doInline = insert(current_file, st, funcStat, st->expr(0), newSymbols, funcMap, toDelete);
+                            bool doInline = insert(st, funcStat, st->expr(0), newSymbols, funcMap, toDelete);
                             change |= doInline;
                             isInlined |= doInline;
                         }
@@ -1029,9 +1123,10 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
 
                 for (auto& st : toDelete)
                     st->extractStmt();
-            }            
+            }
         }
-
+        
+        checkSymbols(currentFunc->getFileId(), newSymbols);
         newSymbsToDeclare[currentFunc].insert(newSymbols.begin(), newSymbols.end());
     }
 
@@ -1069,6 +1164,18 @@ static vector<pair<SgStatement*, SgStatement*>> getNextBounds(SgStatement* point
     return parts;
 }
 
+static bool dontInlineByAttribute(SgStatement* st)
+{
+    bool dontInline = false;
+    for (int k = 0; k < st->numberOfAttributes(); ++k)
+        if (st->getAttribute(k)->getAttributeType() == BOOL_VAL)
+            dontInline = true;
+
+    if (dontInline)
+        __spf_print(1, " skip call in statement with line %d by attribute\n", st->lineNumber());
+    return dontInline;
+}
+
 static void fillNewFunctions(SgExpression* ex, SgStatement* main,
                              map<FuncInfo*, set<SgStatement*>>& nextInfo,
                              const map<string, FuncInfo*>& funcMap)
@@ -1077,7 +1184,8 @@ static void fillNewFunctions(SgExpression* ex, SgStatement* main,
     {
         if (ex->variant() == FUNC_CALL)
             if (funcMap.find(ex->symbol()->identifier()) != funcMap.end())
-                nextInfo[funcMap.at(ex->symbol()->identifier())].insert(main);
+                if (!dontInlineByAttribute(main))
+                    nextInfo[funcMap.at(ex->symbol()->identifier())].insert(main);
 
         fillNewFunctions(ex->lhs(), main, nextInfo, funcMap);
         fillNewFunctions(ex->rhs(), main, nextInfo, funcMap);
@@ -1092,7 +1200,8 @@ static void fillNewFunctions(SgStatement* begin, SgStatement* end,
     {
         if (st->variant() == PROC_STAT)
             if (funcMap.find(st->symbol()->identifier()) != funcMap.end())
-                nextInfo[funcMap.at(st->symbol()->identifier())].insert(st);
+                if (!dontInlineByAttribute(st))
+                    nextInfo[funcMap.at(st->symbol()->identifier())].insert(st);
 
         for (int z = 0; z < 3; ++z)
             fillNewFunctions(st->expr(z), st, nextInfo, funcMap);
@@ -1154,16 +1263,10 @@ bool inliner(const string& fileName_in, const string& funcName, const int lineNu
         set<SgStatement*> markers;
         for (auto& elem : toInsert)
         {
-            bool dontInline = false;
-            for (int k = 0; k < elem->numberOfAttributes(); ++k)
-                if (elem->getAttribute(k)->getAttributeType() == BOOL_VAL)
-                    dontInline = true;
-
+            bool dontInline = dontInlineByAttribute(elem);
+            
             if (dontInline)
-            {
-                __spf_print(1, " skip call in statement with line %d by attribute\n", elem->lineNumber());
                 continue;
-            }
 
             insertedIn.insert(getFuncStat(elem));
             //insert bounds
@@ -1236,7 +1339,7 @@ bool inliner(const string& allInFunc, const map<string, vector<FuncInfo*>>& allF
 
         for (auto& callFrom : func->detailCallsFrom)
         {
-            bool res = inliner("", callFrom.first, callFrom.second, allFuncInfo, SPF_messages, newSymbsToDeclare, deepLvl);
+            bool res = inliner(func->fileName, callFrom.first, callFrom.second, allFuncInfo, SPF_messages, newSymbsToDeclare, deepLvl);
             result = result && res;
         }
     }
@@ -1246,7 +1349,7 @@ bool inliner(const string& allInFunc, const map<string, vector<FuncInfo*>>& allF
 static vector<SgSymbol*> sortConstRefs(const map<string, SgSymbol*>& constRefs)
 {
     map<SgSymbol*, set<string>> deps;
-    map<SgSymbol*, string> constRefByFunc;
+    map<SgSymbol*, pair<string, int>> constRefByFunc; // value is <funcName, fileId>
     for (auto& byF : replacedConstRef)
         for (auto& s : byF.second)
             constRefByFunc[s.second.first] = byF.first;
@@ -1255,14 +1358,14 @@ static vector<SgSymbol*> sortConstRefs(const map<string, SgSymbol*>& constRefs)
     for (auto& elem : constRefs)
     {
         SgSymbol* s = elem.second;
-        string inFunc = "";
+
         if (constRefByFunc.find(s) == constRefByFunc.end())
         {
             __spf_print(1, " const not found '%s' with id %d\n", s->identifier(), s->id());
             printInternal = true;
             continue;
         }
-        inFunc = constRefByFunc[s];
+        auto& inFunc = constRefByFunc[s];
         map<string, pair<SgSymbol*, string>>& byFuncRefpl = replacedConstRef[inFunc];
 
         deps[s] = set<string>();
@@ -1310,7 +1413,7 @@ static vector<SgSymbol*> sortConstRefs(const map<string, SgSymbol*>& constRefs)
 
             bool needToAdd = true;
             for (auto& dep : elem.second)
-                if (added.find(dep) == added.end())
+                if (added.find(dep) == added.end() && (dep != elem.first->identifier()))
                     needToAdd = false;
             if (needToAdd)
             {
@@ -1324,11 +1427,11 @@ static vector<SgSymbol*> sortConstRefs(const map<string, SgSymbol*>& constRefs)
 
 void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDeclare)
 {
-    map<string, map<string, string>> preprocDataByFunc;
+    map<pair<string, int>, map<string, string>> preprocDataByFunc; // key is <funcName, int>
     for (auto& dataByF : dataDeclsByFunc)
         preprocDataByFunc[dataByF.first] = splitData(dataByF.second);
 
-    map<SgSymbol*, pair<string, string>> originalInfo;
+    map<SgSymbol*, pair<pair<string, int>, string>> originalInfo; // value is <<funcName, int>, sName>
     for (auto& elem : createdByFunc)
         for (auto& s : elem.second)
             originalInfo[s.second] = make_pair(elem.first, s.first);
@@ -1338,12 +1441,17 @@ void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDecla
         if (!byFunc.first->switchToFile())
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
+        __spf_print(1, "symbols checking for function '%s'\n", byFunc.first->symbol()->identifier());
+        int currFileId = byFunc.first->getFileId();
+        checkSymbols(currFileId, byFunc.second);
+
         map<string, map<string, vector<SgSymbol*>>> groups;
         map<string, map<string, vector<SgSymbol*>>> groupsConstRefs;
         map<string, map<int, SgSymbol*>> commons;
         map<string, SgSymbol*> constRefs;
         map<string, SgSymbol*> saveRefs;
         map<SgSymbol*, string> declRefs;
+        set<SgSymbol*> allocatable;
 
         SgStatement* place = byFunc.first;
         while (isSgProgHedrStmt(place) == NULL && place->variant() != MODULE_STMT)
@@ -1377,8 +1485,11 @@ void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDecla
 
             if (toDec->attributes())
             {
-                if (toDec->attributes() & SAVE_BIT || toDec->attributes() & DATA_BIT)
+                if ((toDec->attributes() & SAVE_BIT) || (toDec->attributes() & DATA_BIT))
                     saveRefs[toDec->identifier()] = toDec;
+
+                if (toDec->attributes() & ALLOCATABLE_BIT)
+                    allocatable.insert(toDec);
 
                 if (toDec->attributes() & DATA_BIT)
                 {
@@ -1484,7 +1595,6 @@ void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDecla
             for (auto& s : saveRefs)
                 refs.push_back(new SgVarRefExp(s.second));
             save->setExpression(0, makeExprList(refs));
-
             place->insertStmtBefore(*save, *scope);
         }
 
@@ -1508,6 +1618,17 @@ void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDecla
 
             decl->setExpression(0, value);
             place->insertStmtBefore(*decl, *scope);
+        }
+
+        //insert ALLOCATABLE
+        if (allocatable.size())
+        {
+            SgStatement* save = new SgStatement(ALLOCATABLE_STMT);
+            vector<SgExpression*> refs;
+            for (auto& s : allocatable)
+                refs.push_back(new SgVarRefExp(s));
+            save->setExpression(0, makeExprList(refs));
+            place->insertStmtBefore(*save, *scope);
         }
     }
 }

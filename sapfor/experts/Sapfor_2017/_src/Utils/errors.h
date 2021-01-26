@@ -40,7 +40,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   24 "coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet"
 //   25 "can not map write to array '%s' to this loop"
 //   26 "write to non distributed array '%s' in this loop"
-//   27 --- FREE
+//   27 "many operator in the same line"
 //   28 "Module with name '%s' must be placed in current file"
 //   29 lowlevel warnings from private analyzer
 //   30 lowlevel notes from private analyzer
@@ -258,7 +258,7 @@ static void printStackTrace() { };
     } \
 } while (0)
 
-// Сводобный - R179
+// Сводобный - R180
 // Гайд по русификации сообщений: При добавлении нового сообщения, меняется последний сводобный идентификатор.
 // В этом файле остаются только спецификаторы, для которых будет заполнен текст. Полный текст пишется в файле
 // russian_errors_text.txt. Специикаторы там тоже сохраняются, по ним в визуализаторе будет восстановлен 
@@ -363,7 +363,7 @@ static const wchar_t *R59 = L"R59:%s";
 static const wchar_t *R60 = L"R60:%s";
 static const wchar_t *R61 = L"R61:%s";
 //1027
-//--- FREE
+static const wchar_t* R179 = L"R179:";
 //1028
 static const wchar_t *R62 = L"R62:%s";
 //1029 && 1030
