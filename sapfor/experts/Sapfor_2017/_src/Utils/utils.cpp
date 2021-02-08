@@ -128,19 +128,21 @@ string OnlyExt(const char *filename)
 void printHelp(const char **passNames, const int lastPass)
 {
     printf("Help info for passes.\n\n");
-    printf(" -f90      free form\n");
-    printf(" -sh       turn on static shadow analysis\n");
-    printf(" -ver/-Ver version of SAPFOR\n");
-    printf(" -priv     turn on static private analysis\n");
-    printf(" -keep     keep temporary files\n");
-    printf(" -keepSPF  keep SPF directives\n");
-    printf(" -keepDVM  keep DVM directives\n");
-    printf(" -allVars  get all parallel versions\n");
-    printf(" -var N    get specific parallel version, N=1,2,..\n");
-    printf(" -parse    run parser with next option\n");
-    //printf(" -q1 Q     quality of analysis in percent (1..100, default 100)\n");
-    //printf(" -q2 S     speed of analysis in percent   (1..100, default 100)\n");
-    printf("\n");    
+    printf(" -f90                free form\n");
+    printf(" -sh                 turn on static shadow analysis\n");
+    printf(" -ver/-Ver           version of SAPFOR\n");
+    printf(" -priv               turn on static private analysis\n");
+    printf(" -keep               keep temporary files\n");
+    printf(" -keepSPF            keep SPF directives\n");
+    printf(" -keepDVM            keep DVM directives\n");
+    printf(" -allVars            get all parallel versions\n");
+    printf(" -var N              get specific parallel version, N=1,2,..\n");
+    printf(" -parse              run parser with next option\n");
+    printf(" -inlineH <funcName> run hierarchical inlining for all functions called from 'funcName'\n");
+    printf(" -inlineI <funcName> <lineNum> <fileName> run incremental inlining for function 'funcName' on 'lineNum' of 'fileName'\n");
+    printf(" -passInfo           print passes information\n");
+    printf("\n");
+
     printf(" -F    <folderName> output to folder\n");
     printf(" -p    <project name>\n");    
     printf(" -pass <pass_number>\n");
@@ -148,7 +150,7 @@ void printHelp(const char **passNames, const int lastPass)
         printf("    pass_num = %d:  %s\n", i, passNames[i]);
     printf("\n");
     printf(" -t    <analysis_num>\n");
-    printf("    analysis_num = 1:  loops unroller\n");
+    /*printf("    analysis_num = 1:  loops unroller\n");
     printf("    analysis_num = 2:  end do loop converter\n");
     printf("    analysis_num = 3:  code style correcter\n");
     printf("    analysis_num = 4:  optimal distribution\n");
@@ -159,12 +161,12 @@ void printHelp(const char **passNames, const int lastPass)
     printf("    analysis_num = 9:  verification: exec in include\n");
     printf("    analysis_num = 10: find functions for including\n");
     printf("    analysis_num = 11: create distribution directives\n");
-    printf("    analysis_num = 12: create parallel directives\n");
-    printf("    analysis_num = 13: insert directives\n");
-    printf("    analysis_num = 14: create array graph\n");
+    printf("    analysis_num = 12: create parallel directives\n");*/
+    printf("    analysis_num = 13: insert parallel directives\n");
+    /*printf("    analysis_num = 14: create array graph\n");
     printf("    analysis_num = 15: check private analysis\n");
     printf("    analysis_num = 16: insert includes\n");
-    printf("    analysis_num = 17: remove DVM directives\n");
+    printf("    analysis_num = 17: remove DVM directives\n");*/
 
     throw(-1);
 }

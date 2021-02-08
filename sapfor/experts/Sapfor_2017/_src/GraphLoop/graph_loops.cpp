@@ -484,7 +484,8 @@ static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
     currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
 }
 
-static void findArrayRef(SgExpression *exp, bool isWirte, set<DIST::Array*> &allUsedArrays, set<DIST::Array*> &writeUsedArrays)
+static void findArrayRef(SgExpression *exp, bool isWirte, set<DIST::Array*>& usedArrays, set<DIST::Array*>& usedArraysWrite,
+                        set<DIST::Array*>& allUsedArrays, set<DIST::Array*>& allUsedArraysWrite)
 {
     if (exp)
     {
@@ -504,17 +505,20 @@ static void findArrayRef(SgExpression *exp, bool isWirte, set<DIST::Array*> &all
             {
                 if (arrayRef->GetNonDistributeFlag() == false)
                 {
-                    allUsedArrays.insert(arrayRef);
+                    usedArrays.insert(arrayRef);
                     if (isWirte)
-                        writeUsedArrays.insert(arrayRef);
+                        usedArraysWrite.insert(arrayRef);
                 }
+                allUsedArrays.insert(arrayRef);
+                if (isWirte)
+                    allUsedArraysWrite.insert(arrayRef);
             }
 
         }
         else
         {
-            findArrayRef(exp->lhs(), false, allUsedArrays, writeUsedArrays);
-            findArrayRef(exp->rhs(), false, allUsedArrays, writeUsedArrays);
+            findArrayRef(exp->lhs(), false, usedArrays, usedArraysWrite, allUsedArrays, allUsedArraysWrite);
+            findArrayRef(exp->rhs(), false, usedArrays, usedArraysWrite, allUsedArrays, allUsedArraysWrite);
         }
     }
 }
@@ -530,7 +534,7 @@ static void findArrayRefs(LoopGraph *loop)
                 bool isWrite = false;
                 if (z == 0 && st->variant() == ASSIGN_STAT)
                     isWrite = true;
-                findArrayRef(st->expr(z), isWrite, loop->usedArrays, loop->usedArraysWrite);
+                findArrayRef(st->expr(z), isWrite, loop->usedArrays, loop->usedArraysWrite, loop->usedArraysAll, loop->usedArraysWriteAll);
             }
         }
     }

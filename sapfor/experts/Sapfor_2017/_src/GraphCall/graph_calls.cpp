@@ -560,9 +560,9 @@ static void findParamInParam(SgExpression *exp, FuncInfo &currInfo)
     }
 }
 
-static void findParamUsedInFuncCalls(SgExpression *exp, FuncInfo &currInfo);
+static void findParamUsedInFuncCalls(SgExpression *exp, FuncInfo &currInfo, const vector<SgStatement*>& containsFunctions, const string& prefix);
 
-static void throughParams(SgExpression *pars, FuncInfo &currInfo)
+static void throughParams(SgExpression *pars, FuncInfo &currInfo, const vector<SgStatement*>& containsFunctions, const string& prefix)
 {
     for (SgExpression *par = pars; par != NULL; par = par->rhs())
     {
@@ -575,29 +575,37 @@ static void throughParams(SgExpression *pars, FuncInfo &currInfo)
 
     // search another func call, possibly used in parameter
     for (SgExpression *par = pars; par != NULL; par = par->rhs())
-        findParamUsedInFuncCalls(pars->lhs(), currInfo);    
+        findParamUsedInFuncCalls(pars->lhs(), currInfo, containsFunctions, prefix);
 }
 
 // Takes random expression, finds there func calls and check their parameters 
 // for using parameters of func where first is called from
-static void findParamUsedInFuncCalls(SgExpression *exp, FuncInfo &currInfo)
+static void findParamUsedInFuncCalls(SgExpression *exp, FuncInfo &currInfo,
+                                     const vector<SgStatement*>& containsFunctions, const string& prefix)
 {
     if (exp)
     {
         if (exp->variant() == FUNC_CALL)
         {
+            vector<string> nameOfCallFunc;
+            nameOfCallFunc.push_back(exp->symbol()->identifier());
+            nameOfCallFunc.push_back(OriginalSymbol(exp->symbol())->identifier());
+
+            for (auto& elem : nameOfCallFunc)
+                correctNameIfContains(NULL, exp, elem, containsFunctions, prefix);
+
             // Add func call which we've just found            
             currInfo.funcsCalledFromThis.push_back(NestedFuncCall(exp->symbol()->identifier()));
 
             // For every found func call iterate through pars
             //cout << "Through params of the call of " << exp->symbol()->identifier() << endl;
-            throughParams(exp->lhs(), currInfo);
+            throughParams(exp->lhs(), currInfo, containsFunctions, prefix);
         }
         else
         {
             // If we've not found func call, search further in all branches
-            findParamUsedInFuncCalls(exp->rhs(), currInfo);
-            findParamUsedInFuncCalls(exp->lhs(), currInfo);
+            findParamUsedInFuncCalls(exp->rhs(), currInfo, containsFunctions, prefix);
+            findParamUsedInFuncCalls(exp->lhs(), currInfo, containsFunctions, prefix);
         }
     }
 }
@@ -975,11 +983,11 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                         processActualParams(st->expr(0), commonBlocks, &proc->actualParams.back());
 
                     // Add func call which we've just found
-                    NestedFuncCall funcCall(st->symbol()->identifier());
+                    NestedFuncCall funcCall(pureNameOfCallFunc[1]);
                     proc->funcsCalledFromThis.push_back(funcCall);
 
                     // search for using pars of cur func in pars of called
-                    throughParams(st->expr(0), *proc);
+                    throughParams(st->expr(0), *proc, containsFunctions, prefix);
                 }
             }
             else
@@ -987,7 +995,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                 for (auto &proc : entryProcs)
                     for (int i = 0; i < 3; ++i)
                         if (st->expr(i))
-                            findParamUsedInFuncCalls(st->expr(i), *proc);
+                            findParamUsedInFuncCalls(st->expr(i), *proc, containsFunctions, prefix);
             }
 
             for (int i = 0; i < 3; ++i)

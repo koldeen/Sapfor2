@@ -301,18 +301,28 @@ static void createExceptList(SgExpression *ex, set<string> &symbs)
     }
 }
 
-static ArraySet excludePrivates(const ArraySet& block)
+ArraySet DvmhRegionInserter::excludePrivates(const ArraySet& block) const
 {
     ArraySet tmp;
-    for (auto& elem : block)
-        if (!elem->IsOmpThreadPrivate() && !elem->IsSpfPrivate())
-            tmp.insert(elem);
+    for (auto& array : block)
+    {
+        set<DIST::Array*> realArrayRefs;
+        getRealArrayRefs(array, array, realArrayRefs, arrayLinksByFuncCalls);
+
+        bool isNotPrivate = true;
+        for (auto& elem : realArrayRefs)
+            if (elem->IsPrivateInLoop())
+                isNotPrivate = false;
+
+        if (!array->IsOmpThreadPrivate() && isNotPrivate)
+            tmp.insert(array);
+    }
     return tmp;
 }
 
 ArraySet DvmhRegionInserter::applyUseFilter(const ArraySet& block, const set<DIST::Array*>& filter) const
 {
-    ArraySet newReadArrays;
+    ArraySet newBlock;
     for (auto& elem : block)
     {
         ArraySet newSet;
@@ -320,9 +330,9 @@ ArraySet DvmhRegionInserter::applyUseFilter(const ArraySet& block, const set<DIS
 
         for (auto& orig : newSet)
             if (filter.find(orig) != filter.end())
-                newReadArrays.insert(elem);
+                newBlock.insert(elem);
     }
-    return newReadArrays;
+    return newBlock;
 }
 
 static bool hasLoopsWithDir(LoopGraph* loop)
@@ -387,7 +397,6 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
         auto readBlocks = get_used_arrs_for_block(st, DVMH_REG_RD);
         auto writeBlocks = get_used_arrs_for_block(st, DVMH_REG_WT);
 
-        //TODO: do it better, exclude only true private arrays
         readBlocks = excludePrivates(readBlocks);
         writeBlocks = excludePrivates(writeBlocks);
 
@@ -404,11 +413,15 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
     const int var = st->variant();
     bool skipGetActualIfProcCall = false;
     bool skipActualIfProcCall = false;
+
+    set<string> exceptSymbsForGetActual, exceptSymbsForActual;
     if (var == PROC_STAT)
     {
         const char* procName = st->symbol()->identifier();
         if (isIntrinsicFunctionName(procName) == 0)
+        {
             skipGetActualIfProcCall = skipActualIfProcCall = true;
+        }
     }    
 
     if (!isSgExecutableStatement(st) || isDVM_stat(st) ||
@@ -425,10 +438,9 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
     //TODO: read and write !!!
     if (!skipGetActualIfProcCall && var != READ_STAT)
     {
-        set<string> exceptSymbsForActual;
         if (var != WRITE_STAT)
             for (int z = 0; z < 3; ++z)
-                createExceptList(st->expr(z), exceptSymbsForActual);
+                createExceptList(st->expr(z), exceptSymbsForGetActual);
                 
         auto readArrays = get_used_arrs(st, DVMH_REG_RD);
 
@@ -436,12 +448,11 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
         readArrays = applyUseFilter(readArrays, writesToArraysInParallelLoops);
         readArrays = excludePrivates(readArrays);
 
-        insertActualDirective(st, readArrays, ACC_GET_ACTUAL_DIR, true, &exceptSymbsForActual);
+        insertActualDirective(st, readArrays, ACC_GET_ACTUAL_DIR, true, &exceptSymbsForGetActual);
     }
 
     if (!skipActualIfProcCall && var != WRITE_STAT)
     {
-        set<string> exceptSymbsForActual;
         if (var != READ_STAT)
             for (int z = 0; z < 3; ++z)
                 createExceptList(st->expr(z), exceptSymbsForActual);

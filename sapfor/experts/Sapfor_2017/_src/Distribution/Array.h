@@ -104,6 +104,7 @@ namespace Distribution
         VECTOR<bool> depracateToDistribute;
 
         bool ompThreadPrivate;
+        bool privateInLoop;
 
     private:
         TemplateLink* getTemlateInfo(const uint64_t regionId, bool withCheck = false)
@@ -147,15 +148,17 @@ namespace Distribution
             id = -1;
             declSymbol = NULL;
             ompThreadPrivate = false;
+            privateInLoop = false;
         }
 
         Array(const STRING &name, const STRING &shortName, const int dimSize, const unsigned id,
               const STRING &declFile, const int declLine, const PAIR<arrayLocation, STRING> &locationPos,
-              Symbol *declSymbol, bool inOmpThreadPriv, const VECTOR<STRING> &regions, const int typeSize) :
+              Symbol *declSymbol, bool inOmpThreadPriv, bool privateInLoop, const VECTOR<STRING> &regions, const int typeSize) :
 
             name(name), dimSize(dimSize), id(id), shortName(shortName), 
             isTemplFlag(false), isNonDistribute(DISTR), isLoopArrayFlag(false),
-            locationPos(locationPos), declSymbol(declSymbol), typeSize(typeSize), ompThreadPrivate(inOmpThreadPriv)
+            locationPos(locationPos), declSymbol(declSymbol), typeSize(typeSize), 
+            ompThreadPrivate(inOmpThreadPriv), privateInLoop(privateInLoop)
         {
             declPlaces.insert(std::make_pair(declFile, declLine));
             sizes.resize(dimSize);
@@ -206,6 +209,7 @@ namespace Distribution
             mappedDims = copy.mappedDims;
             depracateToDistribute = copy.depracateToDistribute;
             ompThreadPrivate = copy.ompThreadPrivate;
+            privateInLoop = copy.privateInLoop;
         }
 
         bool RemoveUnpammedDims()
@@ -590,6 +594,9 @@ namespace Distribution
         bool IsOmpThreadPrivate() const { return ompThreadPrivate; }
         bool IsSpfPrivate() const { return ((isNonDistribute == SPF_PRIV) || (isNonDistribute == IO_PRIV)); }
 
+        bool IsPrivateInLoop() const { return privateInLoop; }
+        void SetPrivateInLoopStatus(bool value) { privateInLoop = value; }
+
         ~Array() 
         {
             for (auto &templ : templateInfo)
@@ -597,7 +604,14 @@ namespace Distribution
         }
     };
 
-    
+    struct ArrayComparator
+    {
+        bool operator()(const Array* left, const Array* right) const
+        {
+            return (left->GetArrayUniqKey() > right->GetArrayUniqKey());
+        }
+    };
+
     struct UnaryAccess
     {
         UnaryAccess()

@@ -985,6 +985,23 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                             }
                         }
                     }
+
+                    if (loopsPrivates.find(key) != loopsPrivates.end() || loopsRedUnited.find(key) != loopsRedUnited.end())
+                    {
+                        auto currOrigArrayS = OriginalSymbol(currExp->symbol());
+                        if (currOrigArrayS->type()->variant() == T_ARRAY)
+                        {
+                            DIST::Array* currArray = getArrayFromDeclarated(declaratedInStmt(currOrigArrayS), currOrigArrayS->identifier());
+                            checkNull(currArray, convertFileName(__FILE__).c_str(), __LINE__);
+                            {
+                                set<DIST::Array*> realArrayRefs;
+                                getRealArrayRefs(currArray, currArray, realArrayRefs, arrayLinksByFuncCalls);
+
+                                for (auto& array : realArrayRefs)
+                                    array->SetPrivateInLoopStatus(true);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -2911,7 +2928,7 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName
                     DIST::Array *arrayToAdd = 
                         new DIST::Array(getShortName(uniqKey), symb->identifier(), ((SgArrayType*)(symb->type()))->dimension(), 
                                         getUniqArrayId(), decl->fileName(), decl->lineNumber(), arrayLocation, new Symbol(symb),
-                                        findOmpThreadPrivDecl(scope, ompThreadPrivate, symb), inRegion, typeSize);
+                                        findOmpThreadPrivDecl(scope, ompThreadPrivate, symb), false, inRegion, typeSize);
 
                     itNew = declaredArrays.insert(itNew, make_pair(uniqKey, make_pair(arrayToAdd, new DIST::ArrayAccessInfo())));
 

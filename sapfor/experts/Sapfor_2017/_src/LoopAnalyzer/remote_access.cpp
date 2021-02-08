@@ -111,7 +111,7 @@ static bool findAllArraysForRemote(SgStatement *current, SgExpression *expr, con
     if (expr->variant() == FUNC_CALL)
         cond = isIntrinsic(((SgFunctionCallExp*)expr)->funName()->identifier());
 
-    if (cond)
+    if (cond) 
     {
         if (expr->lhs())
         {
@@ -127,30 +127,30 @@ static bool findAllArraysForRemote(SgStatement *current, SgExpression *expr, con
     return retVal;
 }
 
-static bool checkExpr(SgExpression *ex)
+static bool checkExpr(SgExpression *ex, const set<int>& noSimpleVars)
 {
     bool retVal = true;
     if (ex == NULL)
         return true;
 
     const int var = ex->variant();
-    if (var == ARRAY_OP || var == ARRAY_REF || var == VAR_REF)
+    if (noSimpleVars.find(var) != noSimpleVars.end())
         return false;
 
     if (ex->lhs())
-        retVal = retVal && checkExpr(ex->lhs());
+        retVal = retVal && checkExpr(ex->lhs(), noSimpleVars);
     if (ex->rhs())
-        retVal = retVal && checkExpr(ex->rhs());
+        retVal = retVal && checkExpr(ex->rhs(), noSimpleVars);
 
     return retVal;
 }
 
-static inline bool isSimpleRef(SgExpression *subs)
+static inline bool isSimpleRef(SgExpression *subs, const set<int> noSimpleVars)
 {
     bool retVal = true;
     while (subs && retVal)
     {
-        retVal = retVal && checkExpr(subs->lhs());
+        retVal = retVal && checkExpr(subs->lhs(), noSimpleVars);
         subs = subs->rhs();
     }
 
@@ -361,10 +361,6 @@ bool createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
     string leftPartOfAssign = "";
     if (st->variant() == ASSIGN_STAT)
         leftPartOfAssign = string(st->expr(0)->unparse());
-    
-    SgExpression* ex = st->expr(NUM);
-    if (NUM == 0 && st->variant() == ASSIGN_STAT)
-        ex = ex->lhs();
 
     if (findAllArraysForRemote(st, st->expr(NUM), sortedLoopGraph, remotes, allArrays, data, currVar, regionId, arrayLinksByFuncCalls))
     {
@@ -433,7 +429,7 @@ bool createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
             {
                 for (auto &elem : allSubs)
                 {
-                    const bool isSimple = isSimpleRef(elem);
+                    const bool isSimple = isSimpleRef(elem, { ARRAY_OP, ARRAY_REF, VAR_REF });
                     if (!isSimple)
                         converToDDOT(elem);
                 }
@@ -447,7 +443,7 @@ bool createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
                     ((varI == ASSIGN_STAT) || (varI != FOR_NODE && (cpV == FUNC_HEDR || cpV == PROC_HEDR || cpV == PROG_HEDR))))
                 {
                     for (auto& elem : allSubs)
-                        if (ifRange(elem))
+                        if (ifRange(elem) || !isSimpleRef(elem, { ARRAY_OP, ARRAY_REF}))
                             converToDDOT(elem);
                 }
                 else 
@@ -553,7 +549,7 @@ static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*
         SgExpression* subs = copyExpr->subscripts();
 
         set<string> tmp;
-        isSimple = isSimpleRef(subs);
+        isSimple = isSimpleRef(subs, { ARRAY_OP, ARRAY_REF, VAR_REF });
         //const bool isDiffInSubs = isArrayRefHasDifferentVars(subs, tmp);
         if (!isSimple) // && !isDiffInSubs)
             converToDDOT(subs);

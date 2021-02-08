@@ -141,6 +141,8 @@ enum passes {
     PURE_SAVE_TO_PARAMS,
     PURE_MODULE_TO_PARAMS,
 
+    REMOVE_UNUSED_FUNCTIONS,
+
     TEST_PASS,
     EMPTY_PASS
 };
@@ -287,6 +289,8 @@ static void setPassValues()
     passNames[PURE_COMMON_TO_PARAMS] = "PURE_COMMON_TO_PARAMS";
     passNames[PURE_SAVE_TO_PARAMS] = "PURE_SAVE_TO_PARAMS";
     passNames[PURE_MODULE_TO_PARAMS] = "PURE_MODULE_TO_PARAMS";
+
+    passNames[REMOVE_UNUSED_FUNCTIONS] = "REMOVE_UNUSED_FUNCTIONS";
 
     passNames[TEST_PASS] = "TEST_PASS";
 }

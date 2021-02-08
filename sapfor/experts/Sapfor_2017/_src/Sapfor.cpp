@@ -1077,6 +1077,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             replaceStructuresToSimpleTypes(file);
         else if (curr_regime == PURE_INTENT_INSERT)
             intentInsert(getObjectForFileFromMap(file_name, allFuncInfo));
+        else if (curr_regime == REMOVE_UNUSED_FUNCTIONS)
+        {
+            auto funcsForFile = getObjectForFileFromMap(file_name, allFuncInfo);
+            for (auto& func : funcsForFile)
+                if (!func->doNotInline && func->deadFunction)
+                    func->funcPointer->GetOriginal()->setUnparseIgnore(true);
+        }
         else if (curr_regime == TEST_PASS)
         {
         //test pass
@@ -2021,10 +2028,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 inliner(startPoint, allFuncInfo, SPF_messages, newSymbsToDeclare);
             }
         }
+        else if (inDataChainsStart.size())
+            inliner(*inDataChainsStart.begin(), allFuncInfo, SPF_messages, newSymbsToDeclare);
 #endif
         createDeclarations(newSymbsToDeclare);
     }
-
 
 #if _WIN32
     const float elapsed = duration_cast<milliseconds>(high_resolution_clock::now() - timeForPass).count() / 1000.;
@@ -2513,6 +2521,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case PURE_COMMON_TO_PARAMS:
     case PURE_SAVE_TO_PARAMS:
     case PURE_MODULE_TO_PARAMS:
+    case REMOVE_UNUSED_FUNCTIONS:
     case TEST_PASS:
         runAnalysis(*project, curr_regime, false);
     case SUBST_EXPR_AND_UNPARSE:
@@ -2582,6 +2591,7 @@ int main(int argc, char **argv)
         bool printText = false;
 
         int serverPort = -1;
+        bool printPasses = false;
 
         for (int i = 0; i < argc; ++i)
         {
@@ -2606,6 +2616,8 @@ int main(int argc, char **argv)
                     i++;
                     curr_regime = atoi(argv[i]);
                 }
+                else if (string(curr_arg) == "-passInfo")
+                    printPasses = true;
                 else if (string(curr_arg) == "-q1")
                 {
                     i++;
@@ -2668,7 +2680,7 @@ int main(int argc, char **argv)
                         curr_regime = CREATE_NESTED_LOOPS;
                 }
                 else if (curr_arg[1] == 'h')
-                    printHelp(passNames, EMPTY_PASS);
+                    ;// printHelp(passNames, EMPTY_PASS);
                 else if (string(curr_arg) == "-leak")
                 {
                     leakMemDump = 1;
@@ -2783,6 +2795,27 @@ int main(int argc, char **argv)
                         serverPort = atoi(argv[i]);
                     break;
                 }
+                else if (string(curr_arg) == "-inlineH")
+                {
+                    inDataProc.clear();
+                    inDataChainsStart.clear();
+                    inDataChains.clear();
+
+                    i++;
+                    inDataChainsStart.insert(argv[i]);
+                }
+                else if (string(curr_arg) == "-inlineI")
+                {
+                    inDataProc.clear();
+                    inDataChainsStart.clear();
+                    inDataChains.clear();
+
+                    i++;
+                    string funcName = argv[i++];
+                    int line = atoi(argv[i++]);
+                    string fileName = argv[i];
+                    inDataProc.push_back(make_tuple(funcName, fileName, line));
+                }
                 break;
             default:
                 break;
@@ -2804,7 +2837,7 @@ int main(int argc, char **argv)
         else
         {
             if (curr_regime == EMPTY_PASS)
-                printHelp(passNames, EMPTY_PASS);
+                printHelp(passNames, printPasses ? EMPTY_PASS : -1);
 
             runPass(curr_regime, proj_name, folderName);
             if (printText)

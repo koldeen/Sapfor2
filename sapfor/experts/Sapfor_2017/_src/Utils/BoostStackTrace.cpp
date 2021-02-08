@@ -46,3 +46,22 @@ void printStackTrace()
 #else
 void printStackTrace() { }
 #endif
+
+//this function is here due to problem with compilation
+#include "statlist.h"
+std::string openDvmStatistic(const char* path, bool& isOk)
+{
+    CStat stat;
+    stat.init(path);
+
+    isOk = true;
+    if (!stat.isinitialized)
+    {
+        isOk = false;
+        return "";
+    }
+
+    json j;
+    stat.to_json(j);
+    return j.dump();
+}

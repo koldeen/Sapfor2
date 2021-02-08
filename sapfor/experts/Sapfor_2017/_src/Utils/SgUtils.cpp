@@ -42,6 +42,7 @@
 #include "../VisualizerCalls/SendMessage.h"
 
 using std::map;
+using std::multimap;
 using std::pair;
 using std::tuple;
 using std::set;
@@ -476,27 +477,32 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
 
     string strUnparse = "";
     if (toString)
-        strUnparse = string(file->firstStatement()->unparse());    
+        strUnparse = string(file->firstStatement()->unparse());
     else
     {
-#ifdef _WIN32
-        FILE* fOut;
-        errno_t err = fopen_s(&fOut, fout, "w");
-#else
-        int err = 0;
-        FILE* fOut = fopen(fout, "w");
-#endif
-        if (fOut == NULL)
+        auto tmp = string(file->firstStatement()->unparse());
+        if (tmp.size() > 0)
         {
-            if (fout)
-                __spf_print(1, "can not open file to write with name '%s' with error %d\n", fout, err);
-            else
-                __spf_print(1, "can not open file to write with name 'NULL'\n");
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+#ifdef _WIN32
+            FILE* fOut;
+            errno_t err = fopen_s(&fOut, fout, "w");
+#else
+            int err = 0;
+            FILE* fOut = fopen(fout, "w");
+#endif
+            if (fOut == NULL)
+            {
+                if (fout)
+                    __spf_print(1, "can not open file to write with name '%s' with error %d\n", fout, err);
+                else
+                    __spf_print(1, "can not open file to write with name 'NULL'\n");
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+
+            file->unparse(fOut);
+            fclose(fOut);
+            fclose(currFile);
         }
-        file->unparse(fOut);
-        fclose(fOut);
-        fclose(currFile);
     }
     //restore
     //XXX: use Sage hack!!
@@ -2341,20 +2347,41 @@ void filterModuleUse(map<string, set<string>>& moduleUsesByFile, map<string, str
     }*/
 }
 
-SgExpression* makeExprList(const vector<SgExpression*>& items)
+SgExpression* makeExprList(const vector<SgExpression*>& items, bool withSort)
 {
     SgExpression* list = NULL;
     if (items.size() == 0)
         return list;
     list = new SgExpression(EXPR_LIST);
-    for (int z = 0; z < items.size(); ++z)
+
+    vector<SgExpression*> newItems;
+    if (withSort)
+    {
+         multimap<string, SgExpression*> sorted;
+         int tmpVal = 0;
+         for (auto& elem : items)
+         {
+             if (elem->variant() == VAR_REF || elem->variant() == ARRAY_REF)
+                 sorted.insert(make_pair(elem->symbol()->identifier(), elem));
+             else
+                 sorted.insert(make_pair(std::to_string(tmpVal++), elem));
+         }
+
+         for (auto& elem : sorted)
+             newItems.push_back(elem.second);
+         std::reverse(newItems.begin(), newItems.end());
+    }
+    else
+        newItems = items;
+
+    for (int z = 0; z < newItems.size(); ++z)
     {
         if (z == 0)
-            list->setLhs(items[z]);
+            list->setLhs(newItems[z]);
         else
         {
             SgExpression* tmp = new SgExpression(EXPR_LIST);
-            tmp->setLhs(items[z]);
+            tmp->setLhs(newItems[z]);
             tmp->setRhs(list);
             list = tmp;
         }

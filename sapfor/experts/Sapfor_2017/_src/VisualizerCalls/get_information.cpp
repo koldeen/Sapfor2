@@ -14,6 +14,9 @@
 #include <utility>
 #include <assert.h>
 
+#include <thread>
+#include <exception>
+
 #ifdef __BOOST
 #include <boost/thread.hpp>
 #include <boost/chrono.hpp>
@@ -35,8 +38,6 @@
 #include "../DynamicAnalysis/gCov_parser_func.h"
 #include "../Distribution/CreateDistributionDirs.h"
 #include "../LoopAnalyzer/loop_analyzer.h"
-#include <thread>
-#include <exception>
 
 #ifdef _WIN32
 #include <direct.h>
@@ -1079,6 +1080,25 @@ int SPF_GetVersionAndBuildDate(void*& context, short *&result)
     return (int)resVal.size() + 1;
 }
 
+extern string openDvmStatistic(const char* path, bool& isOk);
+int SPF_OpenDvmStatistic(void*& context, const short* path, short*& result)
+{
+    MessageManager::clearCache();
+    string resVal = "";
+
+    int strL = -1;
+    char* pathCh = ConvertShortToChar(path, strL);
+    checkNull(pathCh, convertFileName(__FILE__).c_str(), __LINE__);
+
+    bool ok = true;
+    resVal = openDvmStatistic(pathCh, ok);
+    if (!ok)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    copyStringToShort(result, resVal);
+    return (int)resVal.size() + 1;
+}
+
 extern set<string> intrinsicF;
 extern void initIntrinsicFunctionNames();
 
@@ -1545,6 +1565,14 @@ int SPF_InitDeclsWithZero(void*& context, int winHandler, short* options, short*
     return simpleTransformPass(SET_TO_ALL_DECL_INIT_ZERO, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
+int SPF_RemoveUnusedFunctions(void*& context, int winHandler, short* options, short* projName, short* folderName, short*& output,
+                          int*& outputSize, short*& outputMessage, int*& outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(REMOVE_UNUSED_FUNCTIONS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
 static inline void convertBackSlash(char *str, int strL)
 {
     for (int z = 0; z < strL; ++z)
@@ -1656,7 +1684,7 @@ int SPF_InlineProcedure(void*& context, int winHandler, short *options, short* p
         char* file_c = ConvertShortToChar(file, tmp);
         convertBackSlash(file_c, tmp);
 
-        inDataProc.push_back(std::make_tuple(file_c, name_c, line));
+        inDataProc.push_back(std::make_tuple(name_c, file_c, line));
         retCode = runModificationPass(INLINE_PROCEDURES, projName, folderName, size, sizes, newFilesNames, newFiles, file_c);
     }
     catch (int ex)
@@ -2105,7 +2133,7 @@ const wstring Sapfor_RunAnalysis(const char* analysisName_c, const char* options
         else if (whichRun == "SPF_ParseFiles")
             retCode = SPF_ParseFiles(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize);
         else if (whichRun == "SPF_ParseFilesWithOrder")
-            retCode = SPF_ParseFilesWithOrder(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);        
+            retCode = SPF_ParseFilesWithOrder(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
         else if (whichRun == "SPF_StatisticAnalyzer")
             retCode = SPF_StatisticAnalyzer(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize);
         else if (whichRun == "SPF_GetPassesStateStr")
@@ -2116,7 +2144,7 @@ const wstring Sapfor_RunAnalysis(const char* analysisName_c, const char* options
             retCode = SPF_GetIntrinsics(context, result);
         else if (whichRun == "SPF_deleteAllAllocatedData")
             SPF_deleteAllAllocatedData(context);
-        else if (whichRun == "SPF_ÑhangeDirectory")
+        else if (whichRun == "SPF_ÑhangeDirectory") // russian C
         {
             if (options_c == NULL)
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -2136,6 +2164,8 @@ const wstring Sapfor_RunAnalysis(const char* analysisName_c, const char* options
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
         }
+        else if (whichRun == "SPF_OpenDvmStatistic")
+            retCode = SPF_OpenDvmStatistic(context, projSh, result);
         else
         {
             if (showDebug)
@@ -2224,6 +2254,8 @@ const wstring Sapfor_RunTransformation(const char* transformName_c, const char* 
         retCode = SPF_ConvertStructures(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
     else if (whichRun == "SPF_InitDeclsWithZero")
         retCode = SPF_InitDeclsWithZero(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    else if (whichRun == "SPF_RemoveUnusedFunctions")
+        retCode = SPF_RemoveUnusedFunctions(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
     else
     {
         if (showDebug)

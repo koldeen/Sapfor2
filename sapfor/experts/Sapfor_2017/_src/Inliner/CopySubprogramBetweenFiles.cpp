@@ -478,6 +478,7 @@ inline static void findAllConstRef(SgExpression* ex, set<SgSymbol*>& result)
     }
 }
 
+//globalType: 0 - local, 1 - common, 2 - module
 static void detectTypeOfSymbol(const string& funcName, SgSymbol* s, int globalType, set<SgSymbol*>& newSymbols, 
                                const vector<SgSymbol*>& allInCommon, const string& globalName)
 {
@@ -526,24 +527,26 @@ static void detectTypeOfSymbol(const string& funcName, SgSymbol* s, int globalTy
         else
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-        newSymbols.insert(s);
+        if (globalType != 2)
+            newSymbols.insert(s);
+
         checkSymbols(current_file_id, newSymbols);
     }
 }
 
 static void replaceSymbInExp(SgStatement* st, SgExpression* exp, SgExpression* par, const int expIdx, const bool isLeft,
                              const map<string, SgExpression*>& argVars, map<string, SgSymbol*>& locVars, set<SgSymbol*>& newSymbols,
-                             const string& funcName, SgSymbol*& newHedrSymb, map<SgExpression*, string>& collection,
+                             const string& funcName, const string& resultName, SgSymbol*& newHedrSymb, map<SgExpression*, string>& collection,
                              map<string, vector<pair<SgSymbol*, SgExpression*>>>& argVarsLinearForm)
 {
     if (exp)
     {
-        replaceSymbInExp(st, exp->lhs(), exp, expIdx, true, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, argVarsLinearForm);
-        replaceSymbInExp(st, exp->rhs(), exp, expIdx, false, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, argVarsLinearForm);
+        replaceSymbInExp(st, exp->lhs(), exp, expIdx, true, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm);
+        replaceSymbInExp(st, exp->rhs(), exp, expIdx, false, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm);
 
         const int var = exp->variant();
         if (var == FUNC_CALL && exp->symbol())
-            if (!isIntrinsicFunctionName(exp->symbol()->identifier()))
+            if (!isIntrinsicFunctionName(exp->symbol()->identifier()) || exp->symbol()->identifier() == string("dvtime"))
                 newSymbols.insert(exp->symbol());
 
         if ((var == VAR_REF || var == ARRAY_REF || var == CONST_REF || var == IOACCESS) && exp->symbol())
@@ -578,7 +581,7 @@ static void replaceSymbInExp(SgStatement* st, SgExpression* exp, SgExpression* p
                         auto symb = createSymbAndDecl(funcName, varName, expS, newSymbols);
                         it = locVars.insert(it, make_pair(varName, symb));
 
-                        if (varName == funcName && !newHedrSymb)
+                        if (varName == resultName && !newHedrSymb)
                             newHedrSymb = symb;
 
                         if (newHedrSymb != symb)
@@ -591,7 +594,7 @@ static void replaceSymbInExp(SgStatement* st, SgExpression* exp, SgExpression* p
                                 {
                                     auto list = allList;
                                     if (list && list->lhs())
-                                        replaceSymbInExp(NULL, list->lhs(), list, -1, true, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, argVarsLinearForm);
+                                        replaceSymbInExp(NULL, list->lhs(), list, -1, true, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm);
                                     allList = allList->rhs();
                                 }
                             }
@@ -608,7 +611,7 @@ static void replaceSymbInExp(SgStatement* st, SgExpression* exp, SgExpression* p
 
 inline static void replaceSymbInStat(SgStatement* st, SgStatement* tempHedr,
                                      const map<string, SgExpression*>& argVars, map<string, SgSymbol*>& locVars, set<SgSymbol*>& newSymbols,
-                                     const string& funcName, SgSymbol*& newHedrSymb, map<SgExpression*, string>& collection,
+                                     const string& funcName, const string& resultName, SgSymbol*& newHedrSymb, map<SgExpression*, string>& collection,
                                      map<string, vector<pair<SgSymbol*, SgExpression*>>>& argVarsLinearForm)
 {
     if (st->symbol() && st->variant() != PROC_STAT)
@@ -631,7 +634,7 @@ inline static void replaceSymbInStat(SgStatement* st, SgStatement* tempHedr,
                     auto symb = createSymbAndDecl(funcName, varName, s, newSymbols);
                     it = locVars.insert(it, make_pair(varName, symb));
 
-                    if (varName == funcName && !newHedrSymb)
+                    if (varName == resultName && !newHedrSymb)
                         newHedrSymb = symb;
                 }
                 st->setSymbol(*it->second);
@@ -642,12 +645,13 @@ inline static void replaceSymbInStat(SgStatement* st, SgStatement* tempHedr,
     }
 
     for (int i = 0; i < 3; ++i)
-        replaceSymbInExp(st, st->expr(i), NULL, i, false, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, argVarsLinearForm);
+        replaceSymbInExp(st, st->expr(i), NULL, i, false, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm);
 }
 
 static inline void remapVars(SgStatement* tempHedr,
                              const map<string, SgExpression*>& argVars, map<string, SgSymbol*>& locVars,
-                             set<SgSymbol*>& newSymbols, const string& funcName, SgSymbol*& newHedrSymb)
+                             set<SgSymbol*>& newSymbols, const string& funcName, const string& resultName, 
+                             SgSymbol*& newHedrSymb)
 {    
     map<SgExpression*, string> collection;
     map<string, vector<pair<SgSymbol*, SgExpression*>>> argVarsLinearForm;
@@ -658,7 +662,7 @@ static inline void remapVars(SgStatement* tempHedr,
             break;
 
         if (isSgExecutableStatement(st))
-            replaceSymbInStat(st, tempHedr, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, argVarsLinearForm);
+            replaceSymbInStat(st, tempHedr, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm);
         else
             if (st->variant() == DATA_DECL)
                 dataDeclsByFunc[make_pair(funcName, current_file_id)].insert((SgValueExp*)st->expr(0));
@@ -692,7 +696,7 @@ static inline void remapVars(SgStatement* tempHedr,
 
                 tmp->setLhs(elem.second);
                 
-                replaceSymbInExp(NULL, tmp->lhs(), tmp, -1, true, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, dummy);
+                replaceSymbInExp(NULL, tmp->lhs(), tmp, -1, true, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, dummy);
                 
                 SgAssignStmt* init = new SgAssignStmt(*new SgVarRefExp(elem.first), *tmp->lhs());
                 lastDecl->insertStmtAfter(*init, *tempHedr);
@@ -701,15 +705,21 @@ static inline void remapVars(SgStatement* tempHedr,
     }
 }
 
-static void insert(SgStatement* callSt, SgStatement* tempHedr, SgStatement* begin, SgSymbol* newHedrSymb, vector<SgStatement*>& toDelete)
+static void insert(SgStatement* callSt, SgStatement* tempHedr, SgStatement* begin, SgSymbol* newHedrSymb, 
+                   vector<SgStatement*>& toDelete, set<SgStatement*>& useStats)
 {
     auto prev = callSt->lexPrev();
     auto last = tempHedr->lastNodeOfStmt();
 
     auto firstExec = begin->lexNext();
     for (; firstExec && firstExec != tempHedr->lastNodeOfStmt(); firstExec = firstExec->lexNext())
+    {
+        if (firstExec->variant() == USE_STMT)
+            useStats.insert(firstExec->copyPtr());
+
         if (isSgExecutableStatement(firstExec) && firstExec->variant() != FORMAT_STAT)
             break;
+    }
     checkNull(firstExec, convertFileName(__FILE__).c_str(), __LINE__);
 
     tempHedr->extractStmt();
@@ -799,9 +809,8 @@ static int clean(const string& funcName, SgStatement* funcSt, const map<string, 
 }
 
 // true if inserted
-static inline bool insert(SgStatement* callSt, SgStatement* funcStat,
-                          SgExpression* args, set<SgSymbol*>& newSymbols, 
-                          const map<string, FuncInfo*>& funcMap, vector<SgStatement*>& toDelete)
+static inline bool insert(SgStatement* callSt, SgStatement* funcStat, SgExpression* args, set<SgSymbol*>& newSymbols, 
+                          const map<string, FuncInfo*>& funcMap, vector<SgStatement*>& toDelete, set<SgStatement*>& useStats)
 {
     SgSymbol* funcSymb = funcStat->symbol();
     bool isEntry = false;
@@ -850,7 +859,13 @@ static inline bool insert(SgStatement* callSt, SgStatement* funcStat,
     map<string, SgExpression*> argVars = createMapOfArgs(tempHedr, args); // local argument variable -> top argument variable    
     map<string, SgSymbol*> locVars; // local varname -> new local var
 
-    remapVars(tempHedr, argVars, locVars, newSymbols, begin->symbol()->identifier(), newHedrSymb);
+    const string funcName = begin->symbol()->identifier();
+    string resultName = funcName;
+    if (isSgFuncHedrStmt(begin))
+        if (begin->expr(0) && begin->expr(0)->symbol())
+            resultName = begin->expr(0)->symbol()->identifier();
+
+    remapVars(tempHedr, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb);
 
     if (!newHedrSymb && tempSymb->variant() == FUNCTION_NAME) // if no textual use of return variable, create new anyway
         newHedrSymb = createSymbAndDecl("null", string(tempSymb->identifier()) + "_spf", tempSymb, newSymbols);
@@ -878,7 +893,7 @@ static inline bool insert(SgStatement* callSt, SgStatement* funcStat,
 
     // 2.e insert template
     */
-    insert(callSt, tempHedr, begin, newHedrSymb, toDelete);
+    insert(callSt, tempHedr, begin, newHedrSymb, toDelete, useStats);
     return true;
 }
 
@@ -1001,6 +1016,15 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
         SgStatement* insertPlace = callSt;
         SgStatement* currentFunc = getFuncStat(callSt);
 
+        set<string> useStatsInFunc;
+        for (SgStatement* s = currentFunc; s != currentFunc->lastNodeOfStmt(); s = s->lexNext())
+        {
+            if (s->variant() == CONTAINS_STMT)
+                break;
+            if (s->variant() == USE_STMT)
+                useStatsInFunc.insert(s->unparse());
+        }
+
         SgStatement* funcStat = func->funcPointer->GetOriginal();
         if (funcStat->fileName() != fileName)
         {
@@ -1083,6 +1107,7 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
             }
         }
 
+        set<SgStatement*> useStats;
         __spf_print(DEB, "---start inlining---\n"); // DEBUG
         // 2. create function template to modify and insert it
         if (foundCall)
@@ -1102,7 +1127,7 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
                         auto rPart = st->expr(1);
                         if (rPart->variant() == FUNC_CALL && rPart->symbol() && rPart->symbol()->identifier() == funcName)
                         {
-                            bool doInline = insert(st, funcStat, rPart->lhs(), newSymbols, funcMap, toDelete);
+                            bool doInline = insert(st, funcStat, rPart->lhs(), newSymbols, funcMap, toDelete, useStats);
                             change |= doInline;
                             isInlined |= doInline;
                         }
@@ -1111,7 +1136,7 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
                     case PROC_STAT:
                         if (st->symbol() && st->symbol()->identifier() == funcName)
                         {
-                            bool doInline = insert(st, funcStat, st->expr(0), newSymbols, funcMap, toDelete);
+                            bool doInline = insert(st, funcStat, st->expr(0), newSymbols, funcMap, toDelete, useStats);
                             change |= doInline;
                             isInlined |= doInline;
                         }
@@ -1126,6 +1151,16 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
             }
         }
         
+        for (auto& use : useStats)
+        {
+            string currUse = use->unparse();
+            if (useStatsInFunc.find(currUse) == useStatsInFunc.end())
+            {
+                useStatsInFunc.insert(currUse);
+                currentFunc->insertStmtAfter(*use, *currentFunc);
+            }
+        }
+
         checkSymbols(currentFunc->getFileId(), newSymbols);
         newSymbsToDeclare[currentFunc].insert(newSymbols.begin(), newSymbols.end());
     }
@@ -1578,7 +1613,7 @@ void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDecla
             std::reverse(refs.begin(), refs.end());
 
             SgStatement* common = new SgStatement(COMM_STAT);
-            common->setExpression(0, new SgExpression(COMM_LIST, makeExprList(refs), NULL, new SgSymbol(COMMON_NAME, byCommon.first.c_str())));
+            common->setExpression(0, new SgExpression(COMM_LIST, makeExprList(refs, false), NULL, new SgSymbol(COMMON_NAME, byCommon.first.c_str())));
 
             newCommons.push_back(common);
         }

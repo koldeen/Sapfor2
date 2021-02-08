@@ -64,6 +64,7 @@ class DvmhRegionInserter
     bool isLoopParallel(const LoopGraph *loop) const;
     std::vector<SgExpression*> getArrayList(Statement* start, Statement* end, bool left = false) const;
     ArraySet applyUseFilter(const ArraySet& block, const std::set<DIST::Array*>& filter) const;
+    ArraySet excludePrivates(const ArraySet& block) const;
 public:
     DvmhRegionInserter(
         SgFile* curFile,

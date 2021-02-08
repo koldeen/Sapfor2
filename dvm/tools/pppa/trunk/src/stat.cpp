@@ -42,14 +42,14 @@ CStat::CStat(json source){
     stat = NULL;
     iscomp = source["iscomp"];
     nproc = source["nproc"];
-    const char *tmp = ((std::string)source["p_heading"]).c_str();
+    const char *tmp = (source["p_heading"].dump()).c_str();
     std::cout << ">>  p_heading = " << source["p_heading"] << "  " << strlen(tmp) << "  " << tmp << std::endl;
     for (int i = 0; i < strlen(tmp); ++i)
         p_heading[i] = tmp[i];
     proc_info = new CProcInfo[nproc];
     int i = 0;
     for (json::iterator it = source["proc"].begin(); it != source["proc"].end() && i < nproc; ++it, ++i){
-        const char * str = ((std::string)(*it)["node_name"]).c_str();
+        const char * str = ((*it)["node_name"].dump()).c_str();
         proc_info[i].node_name = new char[strlen(str)];
         strcpy(proc_info[i].node_name, str);
         proc_info[i].test_time = (*it)["test_time"];
@@ -110,7 +110,7 @@ CStat::CStat() {
 	spath = NULL;
 };
 
-void CStat::init(char * path) {
+void CStat::init(const char* path) {
     isjson = false;
 	if (isinitialized) {
 		err = true;

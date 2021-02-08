@@ -98,10 +98,10 @@ int main(int argc, char *argv[]){
     char *fout_name_C_cu;    /*ACC*/
     char *fout_name_info_C;  /*ACC*/
 
-
     const char *proj_name = "dvm.proj";
     char *source_name;
     int level, hpf, openmp, isz, dvm_type_size;
+    int a_mode = 0;
 
     // initialisation
     initialize();
@@ -120,6 +120,7 @@ int main(int argc, char *argv[]){
             proj_name = argv[1];
             argv++;
             argc--;
+            a_mode = 1;
         }
         else if (!strcmp(argv[0], "-dc"))
             check_regim = 1;
@@ -240,6 +241,8 @@ int main(int argc, char *argv[]){
             options.setOff(NO_BL_INFO);             /*ACC*/
         else if (!strcmp(argv[0], "-Ohost"))       /*ACC*/
             options.setOn(O_HOST);
+        else if (!strcmp(argv[0], "-noOhost"))     /*ACC*/
+            options.setOff(O_HOST);
         else if (!strcmp(argv[0], "-Opl2"))         /*ACC*/
         {  
             parloop_by_handler = 2;
@@ -312,6 +315,7 @@ int main(int argc, char *argv[]){
         argc--;
         argv++;
     }
+
     // Check options combinations
     options.checkCombinations();
 
@@ -321,19 +325,6 @@ int main(int argc, char *argv[]){
     }
     if (hpf) 
         return 0;  
-
-    //if(ACC_program)
-    {    
-        fout_name_cuf = ChangeFtoCuf(fout_name);         /*ACC*/
-        fout_name_C_cu = ChangeFto_C_Cu(fout_name);      /*ACC*/
-        fout_name_info_C = ChangeFto_info_C(fout_name);  /*ACC*/
-    }
-
-    if (fout_name && source_name && !strcmp(source_name, fout_name))
-    {
-        (void)fprintf(stderr, "Output file has the same name as source file\n");
-        return 1;
-    }
 
     // definition of DvmType size: len_DvmType 
     // len_DvmType==0, if DvmType-size == default_integer_size == 4 
@@ -361,35 +352,51 @@ int main(int argc, char *argv[]){
     {
         (void)fprintf(stderr, "Warning: -noH option is set to -mp mode\n");
         ACC_program = 0;
-    }
+    }    
     if (parloop_by_handler == 2 && !options.isOn(O_HOST))
-       (void)fprintf(stderr, "Warning: -Ohost option is set to -Opl2 mode\n");
-    
+    {   
+        (void)fprintf(stderr, "Warning: -Ohost option is set to -Opl2 mode\n");
+        options.setOn(O_HOST);          
+    }
     if (v_print)
         (void)fprintf(stderr, "<<<<<  Translating  >>>>>\n");
 
+    //------------------------------------------------------------------------------
+    
+    SgProject project(proj_name);
+    SgFile *file;
+    addNumberOfFileToAttribute(&project);
 
-    {
-        SgProject project(proj_name);
-        SgFile *file;
-        addNumberOfFileToAttribute(&project);
-
-        //----------------------------
-        ProjectStructure(project);
-        Private_Vars_Project_Analyzer();
-        //----------------------------
+    //----------------------------
+    ProjectStructure(project);
+    Private_Vars_Project_Analyzer();
+    //----------------------------
         
-        file = &(project.file(0));
-        fin_name = new char[80];
-        sprintf(fin_name, "%s%s", project.fileName(0), " ");
-
+    initVariantNames();           //for project
+    initIntrinsicFunctionNames(); //for project
+    initSupportedVars(); // for project, acc_f2c.cpp
+    initF2C_FunctionCalls(); // for project, acc_f2c.cpp
+    for(int id=project.numberOfFiles()-1; id >= 0; id--)
+    {
+        file = &(project.file(id));  //file->unparsestdout();
+        fin_name = new char[strlen(project.fileName(id))+2];
+        sprintf(fin_name, "%s%s", project.fileName(id), " ");
         //fin_name = strcat(project.fileName(0)," "); 
         // for call of function 'tpoint' 
         //added one symbol to input-file name
-        initVariantNames();           //for project
-        initIntrinsicFunctionNames(); //for project
-        initSupportedVars(); // for project, acc_f2c.cpp
-        initF2C_FunctionCalls(); // for project, acc_f2c.cpp
+        //printf("%s",fin_name); //!!! debug
+        if(a_mode && project.numberOfFiles()>1)
+            fout_name = doOutFileName(file->filename()); //project.fileName(id);
+        else if (fout_name && source_name && !strcmp(source_name, fout_name))
+        {
+            (void)fprintf(stderr, "Output file has the same name as source file\n");
+            return 1;
+        }
+
+        //printf("%s\n", fout_name);///!!! debug
+        fout_name_cuf = ChangeFtoCuf(fout_name);         /*ACC*/
+        fout_name_C_cu = ChangeFto_C_Cu(fout_name);      /*ACC*/
+        fout_name_info_C = ChangeFto_info_C(fout_name);  /*ACC*/
 
         //set the last symbol of file
         last_file_symbol = CUR_FILE_CUR_SYMB(); //LastSymbolOfFile(file)->thesymb;    //for low_level.c
@@ -408,7 +415,8 @@ int main(int argc, char *argv[]){
            printf("%d is label\n",num);
            else
            printf("%d isn't label\n",num);
-           */
+           
+         */
 
         if (openmp) { /*OMP*/
             if (debug_regim > 0) /*OMP*/
@@ -476,7 +484,7 @@ int main(int argc, char *argv[]){
             }            
         }
 
-
+       
         if (v_print)
             (void)fprintf(stderr, "<<<<<  Unparsing   %s  >>>>>\n", fout_name);
         if (mod_gpu) /*ACC*/
@@ -516,10 +524,11 @@ int main(int argc, char *argv[]){
             }
         }
 
-        if (v_print)
-            (void)fprintf(stderr, "\n*****  Done  *****\n");
-        return 0;
     }
+
+    if (v_print)
+        (void)fprintf(stderr, "\n*****  Done  *****\n");
+    return 0;
 }
 
 void initialize()
@@ -577,6 +586,7 @@ void initialize()
     undefined_Tcuda = 0;        /*ACC*/
     options.setOn(C_CUDA);      /*ACC*/
     options.setOn(NO_BL_INFO);  /*ACC*/
+    options.setOn(O_HOST);      /*ACC*/
     parloop_by_handler = 0;     /*ACC*/
     collapse_loop_count = 0;    /*ACC*/
     cuda_functions = 0;         /*ACC*/
@@ -589,6 +599,22 @@ SgSymbol *LastSymbolOfFile(SgFile *f)
     s = s->next();
 
   return s;
+}
+
+char *doOutFileName(const char *fdeb_name)
+{
+    char *name;
+    int i;
+
+    name = (char *)malloc((unsigned)(strlen(fdeb_name) + 5 + 2 + 1));
+    strcpy(name, fdeb_name);
+    for (i = strlen(name) - 1; i >= 0; i--)
+    {
+        if (name[i] == '.')
+            break;
+    }
+    strcpy(name + i, ".DVMH.f");
+    return(name);
 }
 
 int isHPFprogram(char *filename)
@@ -7983,6 +8009,10 @@ SgExpression * head_ref (SgSymbol *ar, int n) {
           return( new SgArrayRefExp(*dvmbuf, *index));
 }
 
+SgExpression * header_section (SgSymbol *ar, int n1, int n2) {      
+       return(new SgArrayRefExp(*ar, *new SgExpression(DDOT, new SgValueExp(n1), new SgValueExp(n2))));
+}
+
 SgExpression * header_ref (SgSymbol *ar, int n) {
 // creates array header reference: Header(n-1) 
 // Header(0:n+1) - distributed array descriptor
@@ -7998,6 +8028,15 @@ SgExpression * header_ref (SgSymbol *ar, int n) {
           return( new SgArrayRefExp(*dvmbuf, *new SgValueExp(ind+n-1)));
 
     */
+}
+
+SgExpression * header_section_in_structure (SgSymbol *ar, int n1, int n2, SgExpression *struct_) {
+// creates  reference of header section
+
+  SgExpression *estr;
+       estr = &(struct_->copy());
+       estr->setRhs(new SgArrayRefExp(*ar, *new SgExpression(DDOT, new SgValueExp(n1), new SgValueExp(n2))));
+       return(estr);
 }
 
 SgExpression * header_ref_in_structure (SgSymbol *ar, int n, SgExpression *struct_) {
@@ -11424,6 +11463,9 @@ void StoreLowerBoundsPlus(SgSymbol *ar,SgExpression *arref)
 {int i,rank;
  SgExpression *le;
  rank = Rank(ar);
+ if(!IS_TEMPLATE(ar) && !IS_POINTER(ar))
+   doAssignTo(header_section(ar,2,rank+1), new SgValueExp(1)); // coefficient's initialization
+
  for(i=0;i<rank;i++) {
    le = IS_POINTER(ar) ? new SgValueExp(1) : Exprn( LowerBound(ar,i));
    doAssignTo(!arref ? header_ref(ar,rank+3+i) : PointerHeaderRef(arref,rank+3+i), le) ; 
@@ -11472,6 +11514,7 @@ void StoreLowerBoundsPlusOfAllocatable(SgSymbol *ar,SgExpression *desc)
 {int i,rank;
  SgExpression *le,*el;
  rank = Rank(ar);
+ doAssignTo(header_section(ar,2,rank+1), new SgValueExp(1)); // coefficient's initialization 
  for(i=0,el=desc->lhs();el;i++,el=el->rhs()) {
    le = (el->lhs()->variant() == DDOT) ? &el->lhs()->lhs()->copy() : new SgValueExp(1)  ;
    doAssignTo(header_ref(ar,rank+3+i), le) ; 
@@ -11494,6 +11537,8 @@ void StoreLowerBoundsPlusOfAllocatableComponent(SgSymbol *ar,SgExpression *desc,
 {int i,rank;
  SgExpression *le,*el;
  rank = Rank(ar);
+ doAssignTo(header_section_in_structure(ar,2,rank+1,struct_), new SgValueExp(1)); // coefficient's initialization
+
  for(i=0,el=desc->lhs();el;i++,el=el->rhs()) {
    le = (el->lhs()->variant() == DDOT) ? &el->lhs()->lhs()->copy() : new SgValueExp(1)  ;
    doAssignTo(header_ref_in_structure(ar,rank+3+i,struct_), le) ; 

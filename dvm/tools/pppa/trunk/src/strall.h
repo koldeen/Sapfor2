@@ -139,7 +139,7 @@ typedef struct tsyn_ch {
 	if (stcond && toright==1) smfrom=sizeof(from)-sizeof(to);\
 	memcpy(&(to),(unsigned char *)(&(from))+smfrom,sizeof(to));
 #else
-#define min(a,b) (((a) <(b)) ? (a):(b))
+#define min_(a,b) (((a) <(b)) ? (a):(b))
 #define MAKESHORT(p,nm,nmfirst)\
 	(&(p->sh.nm)-&(p->sh.nmfirst))*szsh
 #define MAKELONG(p,nm,nmfirst,q_short)\
@@ -156,7 +156,7 @@ typedef struct tsyn_ch {
 	int sz_to;\
 	int smfrom=0,smto=0,mmin;\
 	sz_to=sizeof(to);\
-	mmin=min(sz_to,sz_var);\
+	mmin=min_(sz_to,sz_var);\
 	if (sz_to!=sz_var) {\
 		if (sz_to>sz_var) {\
 			if (torightto==1)	smto=sz_to-sz_var;\

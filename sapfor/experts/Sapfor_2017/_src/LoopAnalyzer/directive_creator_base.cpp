@@ -369,10 +369,10 @@ static inline bool isUnderAcrossDir(const string &array, const vector<pair<pair<
 }
 
 static bool checkForConflict(const map<DIST::Array*, const ArrayInfo*> &currAccesses,
-    const LoopGraph *currentLoop,
-    map<DIST::Array*, pair<int, pair<int, int>>> &arrayWriteAcc,
-    const vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo,
-    set<DIST::Array*> &acrossOutArrays)
+                             const LoopGraph *currentLoop,
+                             map<DIST::Array*, pair<int, pair<int, int>>, DIST::ArrayComparator> &arrayWriteAcc,
+                             const vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo,
+                             set<DIST::Array*> &acrossOutArrays)
 {
     bool hasConflict = false;
 
@@ -493,6 +493,8 @@ static bool checkForConflict(const map<DIST::Array*, const ArrayInfo*> &currAcce
     return hasConflict;
 }
 
+
+
 void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const ArrayInfo*>> &loopInfos,
                               vector<ParallelRegion*> regions, map<int, LoopGraph*> &sortedLoopGraph,
                               const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
@@ -517,9 +519,7 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
         fillAcrossInfoFromDirectives(loopInfo.first, acrossInfo);
         bool hasConflict = false;
         // uniqKey -> pair<position of access, pair<acces>> ///write acceses ///
-        map<DIST::Array*, pair<int, pair<int, int>>> arrayWriteAcc;
-        // uniqKey -> ///read acceses ///
-        map<DIST::Array*, vector<pair<int, int>>> arrayReadAcc;
+        map<DIST::Array*, pair<int, pair<int, int>>, DIST::ArrayComparator> arrayWriteAcc;
         set<DIST::Array*> acrossOutArrays;
 
         __spf_print(PRINT_DIR_RESULT, "  Loop on line %d:\n", loopInfo.first->lineNum);

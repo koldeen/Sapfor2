@@ -71,6 +71,8 @@ include_directories(${sage_include_1})
 include_directories(${zlib_sources}/include)
 #Zlib includes
 include_directories(${sage_include_2})
+#PPPA includes
+include_directories(${pppa_sources})
 
 #JAVA includes 
 if (EXISTS ${JAVA_SDK_DIR}/include)
@@ -295,21 +297,28 @@ set(PARSER  ${parser_sources}/cftn.c
 
 set(PPPA    ${pppa_sources}/inter.cpp
 			${pppa_sources}/potensyn.cpp
+			${pppa_sources}/stat.cpp
 			${pppa_sources}/statfile.cpp
+			${pppa_sources}/statinter.cpp
+			${pppa_sources}/statlist.cpp
 			${pppa_sources}/statprintf.cpp
 			${pppa_sources}/statread.cpp
 			${pppa_sources}/treeinter.cpp  
+			
 			${pppa_sources}/bool.h
 			${pppa_sources}/dvmh_stat.h
 			${pppa_sources}/inter.h
 			${pppa_sources}/potensyn.h
 			${pppa_sources}/statist.h
+			${pppa_sources}/statlist.h
 			${pppa_sources}/statprintf.h
 			${pppa_sources}/statread.h
 			${pppa_sources}/strall.h
 			${pppa_sources}/sysstat.h
 			${pppa_sources}/treeinter.h
-			${pppa_sources}/ver.h)
+			${pppa_sources}/ver.h
+			${pppa_sources}/statinter.h
+			${pppa_sources}/json.hpp)
 			
 set(ZLIB    ${zlib_sources}/src/adler32.c
 			${zlib_sources}/src/compress.c
@@ -353,7 +362,7 @@ set(SOURCE_EXE
 
 add_executable(Sapfor_F ${SOURCE_EXE})
 source_group (CFGraph FILES ${CFG})
-#source_group (Transformations FILES ${TRANSFORMS})
+
 source_group (Transformations\\ExpressionSubstitution FILES ${EXPR_TRANSFORM})
 source_group (Transformations\\CheckPoints FILES ${TR_CP})
 source_group (Transformations\\LoopEndDoConverter FILES ${TR_ENDDO_LOOP})
@@ -365,7 +374,7 @@ source_group (Transformations\\FunctionInlining FILES ${INLINER})
 source_group (Transformations\\FunctionPurifying FILES ${TR_FUNC_PURE})
 source_group (Transformations\\ArrayDimsSwapping FILES ${TR_SWAP_ARR_DIMS})
 source_group (Transformations\\PrivateArrayBreeding FILES ${TR_PRIV_BR})
-source_group (Transformations\\VectorAssignedToLoop FILES ${TR_VECTOR})
+source_group (Transformations\\VectorAssignToLoop FILES ${TR_VECTOR})
 
 source_group (CreateIntervals FILES ${CREATE_INTER_T})
 source_group (DirectiveAnalyzer FILES ${DIRA})

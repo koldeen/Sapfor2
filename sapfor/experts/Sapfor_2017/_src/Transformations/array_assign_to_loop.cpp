@@ -1484,16 +1484,16 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
                 }
                 else
                 {
-                    if (data->lineNumber() < 0)                          
+                    if (data->lineNumber() < 0)
                     {
-                        if ((isUnderParallelLoop(st) || (notDeletedVectorAssign(st) && hasParallelDir(data))))
+                        if (isUnderParallelLoop(st) || notDeletedVectorAssign(st))
                         {
                             st->setVariant(-abs(st->variant()));
                             auto prev = st->lexPrev();
                             if (prev->variant() == DVM_REMOTE_ACCESS_DIR)
                                 toDel.push_back(prev);
 
-                            data->setVariant(abs(data->variant()));                            
+                            data->setVariant(abs(data->variant()));
 
                             if (data->variant() == FOR_NODE || data->variant() == IF_NODE)
                             {
@@ -1555,7 +1555,7 @@ void restoreAssignsFromLoop(SgFile *file)
             if (notDeletedVectorAssign(move.first))
                 move.first->setVariant(-abs(move.first->variant()));
             else
-                move.second->setVariant(-abs(move.second->variant()));                
+                move.second->setVariant(-abs(move.second->variant()));
         }
     }
 }

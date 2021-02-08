@@ -1,3 +1,4 @@
+#include "json.hpp"
 #include <ctime>
 #define _STATFILE_
 #include "statread.h"
@@ -10,7 +11,6 @@
 #include <stdbool.h>
 #include <string>
 #include <sstream>
-#include "json.hpp"
 
 using json = nlohmann::json;
 
@@ -85,7 +85,7 @@ private:
 public:
 	CStat();
 	CStat(json source);
-	void init(char * path) ;
+	void init(const char* path) ;
 	void clear();
 	~CStat() ;
 	CStatInter * inter_tree;                                //"�������" ������ ����������

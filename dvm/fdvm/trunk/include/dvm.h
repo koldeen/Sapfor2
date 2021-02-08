@@ -573,7 +573,7 @@ EXTERN SgSymbol *mod_gpu_symb,*loop_ref_symb;                      /*ACC*/
 EXTERN SgSymbol*index_array_symb;                                  /*ACC*/
 EXTERN SgStatement *if_gpu,*mod_gpu,*created_unit;                 /*ACC*/
 //EXTERN char *fname_gpu[80];                                      /*ACC*/
-EXTERN symb_list *acc_array_list;                                  /*ACC*/
+EXTERN symb_list *acc_array_list, *acc_arg_array_list;             /*ACC*/
 EXTERN int nred_gpu,maxred_gpu, for_kernel, for_host;              /*ACC*/
 EXTERN int device_flag[Ndev];                                      /*ACC*/
 EXTERN int region_debug; //set by option -dgpu ,-dreg              /*ACC*/
@@ -1399,6 +1399,8 @@ SgStatement *getInterface(SgSymbol *s);
 //void Private_Vars_Function_Analyzer(SgStatement* start);
 void Private_Vars_Project_Analyzer();
 void TieList(SgStatement *par);
+symb_list *isNameInSymbList(SgSymbol *s, symb_list *s_list);
+SgSymbol *KernelDummyHeader(SgSymbol *s, SgType *indexTypeInKernel);
 
 /*  hpf.cpp    */ 
 int SearchDistArrayRef(SgExpression *e, SgStatement *stmt);
@@ -2256,8 +2258,8 @@ public:
             }
         }
 
-        if (states[O_PL2])
-            states[O_HOST] = true;
+       // if (states[O_PL2])
+       //     states[O_HOST] = true;
 
         //freeze all changes after initialization
         freezed = true;

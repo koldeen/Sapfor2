@@ -657,11 +657,12 @@ static pair<string, SgStatement*> genDynamicDecl(DIST::Array *templ, SgFile *fil
         templDynSt = new SgStatement(DVM_DYNAMIC_DIR, NULL, NULL, new SgVarRefExp(*findSymbolOrCreate(file, templ->GetShortName())), NULL, NULL);
     else
     {
-        SgExprListExp* list = new SgExprListExp();
-        list->setLhs(new SgVarRefExp(*findSymbolOrCreate(file, templ->GetShortName())));
+        vector<SgExpression*> list;
+        list.push_back(new SgVarRefExp(*findSymbolOrCreate(file, templ->GetShortName())));
         for (auto& elem : allClones)
-            list->append(*new SgVarRefExp(*findSymbolOrCreate(file, elem.second)));
-        templDynSt = new SgStatement(DVM_DYNAMIC_DIR, NULL, NULL, list, NULL, NULL);
+            list.push_back(new SgVarRefExp(*findSymbolOrCreate(file, elem.second)));
+        
+        templDynSt = new SgStatement(DVM_DYNAMIC_DIR, NULL, NULL, makeExprList(list), NULL, NULL);
     }
 
     return make_pair(templDyn, templDynSt);
@@ -1923,7 +1924,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                 }
 
                 string toInsert = "!DVM$ DYNAMIC ";
-                vector<string> toInsertArrays;
+                set<string> toInsertArrays;
                 for (auto &array : dynamicArraysLocal)
                 {
                     if (extractDir)
@@ -1931,7 +1932,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                         if (dynamicArraysAdded.find(array->GetShortName()) != dynamicArraysAdded.end())
                         {
                             dynamicArraysAdded.erase(array->GetShortName());
-                            toInsertArrays.push_back(array->GetShortName());
+                            toInsertArrays.insert(array->GetShortName());
                         }
                     }
                     else
@@ -1939,7 +1940,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                         if (dynamicArraysAdded.find(array->GetShortName()) == dynamicArraysAdded.end())
                         {
                             dynamicArraysAdded.insert(array->GetShortName());
-                            toInsertArrays.push_back(array->GetShortName());
+                            toInsertArrays.insert(array->GetShortName());
                         }
                     }
                 }

@@ -73,6 +73,7 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const 
         for (auto &it : mapFuncInfo)
         {
             FuncInfo *currInfo = it.second;
+            
             for(auto &funcCall : currInfo->funcsCalledFromThis)
             {
                 // Find pointer to info of called function
@@ -92,7 +93,6 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const 
                     // check for using parameter as index
                     // Iterate through all pars of the call
                     int parNo = 0;
-
                     for (auto &parOfCalled : funcCall.NoOfParamUsedForCall)
                     {
                         // If this par of called func is used as index change
@@ -108,6 +108,35 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const 
                                     currInfo->isParamUsedAsIndex[parOfCalling] = true;
                                 }
                             }
+                        }
+                        parNo++;
+                    }
+
+                    // propagate inout types
+                    parNo = 0;
+                    for (auto& parOfCalled : funcCall.NoOfParamUsedForCall)
+                    {
+                        if (parOfCalled.size())
+                        {
+                            if (calledFunc->funcParams.isArgOut(parNo))
+                                for (auto& parOfCalling : parOfCalled)
+                                {
+                                    if (!currInfo->funcParams.isArgOut(parOfCalling))
+                                    {
+                                        currInfo->funcParams.inout_types[parOfCalling] |= OUT_BIT;
+                                        changesDone = true;
+                                    }
+                                }
+
+                            if (calledFunc->funcParams.isArgIn(parNo))
+                                for (auto& parOfCalling : parOfCalled)
+                                {
+                                    if (!currInfo->funcParams.isArgIn(parOfCalling))
+                                    {
+                                        currInfo->funcParams.inout_types[parOfCalling] |= IN_BIT;
+                                        changesDone = true;
+                                    }
+                                }
                         }
                         parNo++;
                     }

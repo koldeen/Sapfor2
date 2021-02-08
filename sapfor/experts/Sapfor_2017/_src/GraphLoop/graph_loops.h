@@ -282,9 +282,6 @@ public:
 
     void removeNonDistrArrays()
     {
-        usedArraysAll = usedArrays;
-        usedArraysWriteAll = usedArraysWrite;
-
         std::set<DIST::Array*> newUsedArrays;        
         for (auto &elem : usedArrays)
             if (elem->GetNonDistributeFlagVal() == DIST::DISTR)

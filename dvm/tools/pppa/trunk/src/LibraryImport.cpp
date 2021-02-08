@@ -1,11 +1,13 @@
 //
-// Created by Пенёк on 03/11/2019.
+// Created by Пенёк on 14.09.2020.
 //
 
-#include "integration.h"
-#include "statlist.h"
-#include <cstdlib>
+#include <jni.h>
+#include <stdio.h>
 #include <iostream>
+#include <string>
+#include "LibraryImport.h"
+#include "statlist.h"
 
 void _stat_to_char(CStat &stat, char * &res){
     json j;
@@ -27,25 +29,22 @@ void _stat_to_char(CStat &stat, char * &res){
     res[str.size()] = '\0';
 }
 
-int read_stat_(char * name, char * &res){
-    CStat stat;
-    stat.init(name);
-    if (!stat.isinitialized)
-        return 1;
-    _stat_to_char(stat, res);
-    return 0;
-}
+JNIEXPORT jstring JNICALL Java_LibraryImport_readStat(JNIEnv * env, jobject obj, jstring s)
+{
+//    printf("Hello, Java! I am C++!!! Hm\n");
+    jboolean isCopy;
+    char *path = (char *) (env)->GetStringUTFChars(s, &isCopy);
+//    std::string string = std::string(path, strlen(path));
+//    std::cout << string << "\n";
+//    char msg[60] = "Puk puk";
+//    std::string str = "Std::string";
+//    jstring result = (env)->NewStringUTF(msg);
 
-int stat_intersect_(char * st1, char * st2, char * &res1, char * &res2){
-    json j1 = json::parse(st1), j2 = json::parse(st2);
-    CStat stat1(j1), stat2(j2), stat_res1, stat_res2;
-    stat_intersect(stat1, stat2, stat_res1, stat_res2);
-    std::cout << "stat_intersect OK " << std::endl;
-    if (!stat1.isinitialized || !stat2.isinitialized || !stat_res1.isinitialized || !stat_res2.isinitialized){
-        std::cout << ">>  Not inicialized\n\n";
-        return 1;
-    }
-    _stat_to_char(stat_res1, res1);
-    _stat_to_char(stat_res2, res2);
-    return 0;
+    CStat stat;
+    stat.init(path);
+    if (!stat.isinitialized)
+        return NULL;
+    char *res;
+    _stat_to_char(stat, res);
+    return (env)->NewStringUTF(res);
 }

@@ -528,6 +528,8 @@ int main(int argc, char *argv[])
             ;
         else if (!strcmp(argv[0], "-Ohost"))          /*ACC*/
             ;
+        else if (!strcmp(argv[0], "-noOhost"))        /*ACC*/
+            ;
         else if (!strcmp(argv[0], "-Opl2"))           /*ACC*/
             ;
         else if (!strcmp(argv[0], "-Opl"))            /*ACC*/
