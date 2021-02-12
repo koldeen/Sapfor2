@@ -193,7 +193,7 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<Paral
     return checkOK;
 }
 
-bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, CommonBlock> &commonBlocks, vector<Messages> &currMessages)
+bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, CommonBlock> &commonBlocks, map<string, vector<Messages>> &messages)
 {
     bool checkOK = true;
 
@@ -266,8 +266,8 @@ bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, 
                         to_wstring(vars[i].getDeclarated()->fileName()).c_str(), vars[i].getDeclarated()->lineNumber(),
                         to_wstring(vars[j].getDeclarated()->fileName()).c_str(), vars[j].getDeclarated()->lineNumber());
 
-                    const int line = currUse->getDeclaratedPlace()->lineNumber();
-                    currMessages.push_back(Messages(typeMessage, line, messageR, messageE, 1039));
+                    messages[vars[i].getDeclarated()->fileName()].push_back(Messages(typeMessage, vars[i].getDeclarated()->lineNumber(), messageR, messageE, 1039));
+                    messages[vars[j].getDeclarated()->fileName()].push_back(Messages(typeMessage, vars[j].getDeclarated()->lineNumber(), messageR, messageE, 1039));
                 }
             }
         }

@@ -809,7 +809,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == VERIFY_COMMON)
         {
-            bool res = CommonBlockChecker(file, file_name, commonBlocks, getObjectForFileFromMap(file_name, SPF_messages));
+            bool res = CommonBlockChecker(file, file_name, commonBlocks, SPF_messages);
             verifyOK &= res;
         }
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
@@ -1994,7 +1994,20 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 {
                     int lvl = getLvlCall(mainF, 0, std::get<0>(inDataProc[z]), std::get<1>(inDataProc[z]), std::get<2>(inDataProc[z]));
                     if (lvl == -1)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    {
+                        bool found = false;
+                        for (auto& func : tmpM)
+                        {
+                            if (func.second->isMain)
+                                continue;
+                            int lvlTmp = getLvlCall(func.second, 0, std::get<0>(inDataProc[z]), std::get<1>(inDataProc[z]), std::get<2>(inDataProc[z]));
+                            if (lvlTmp != -1)
+                                lvl = std::max(lvl, lvlTmp);
+                        }
+
+                        if (lvl == -1)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    }
                     maxLvlCall = std::max(maxLvlCall, lvl);
                     sortByLvl[lvl].push_back(z);
                 }

@@ -1749,14 +1749,15 @@ const vector<const Variable*> CommonBlock::getVariables(int position) const
 
 static void findDeclType(SgExpression *ex, varType &type, const string &toFind)
 {
-    if (ex && type == ANOTHER)
+    if (ex)
     {
         if (ex->symbol() && ex->symbol()->identifier() == toFind)
         {
             switch (ex->variant())
             {
             case VAR_REF:
-                type = SCALAR;
+                if (type != ARRAY)
+                    type = SCALAR;
                 break;
             case ARRAY_REF:
                 type = ARRAY;
@@ -1784,16 +1785,14 @@ static void findDeclType(SgExpression *ex, varType &type, const string &toFind)
 void CommonBlock::addVariables(SgFile *file, SgStatement *function, const vector<pair<SgSymbol*, int>> &newVariables)
 {
     for (auto &varPair : newVariables)
-    {        
-        SgStatement *declStatement = declaratedInStmt(varPair.first);
+    {
+        vector<SgStatement*> allDecls;
+        declaratedInStmt(varPair.first, &allDecls);
         varType type = ANOTHER;
 
-        for (int i = 0; i < 3; ++i)
-        {
-            findDeclType(declStatement->expr(i), type, varPair.first->identifier());
-            if (type != ANOTHER)
-                break;
-        }
+        for (auto& decl : allDecls)
+            for (int i = 0; i < 3; ++i)
+                findDeclType(decl->expr(i), type, varPair.first->identifier());
 
         Variable *exist = hasVariable(varPair.first, type, varPair.second);
         if (exist)

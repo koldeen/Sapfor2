@@ -90,7 +90,7 @@ static char* ConvertShortToChar(const short* source, int& strL)
     return dist;
 }
 
-static void setOptions(const short* options, bool isBuildParallel = false)
+static void setOptions(const short* options, bool isBuildParallel = false, const set<int>* turnOffOptions = NULL)
 {
     if (!optionNames[STATIC_SHADOW_ANALYSIS])
     {
@@ -165,6 +165,26 @@ static void setOptions(const short* options, bool isBuildParallel = false)
     parseForInlining = intOptions[PARSE_FOR_INLINE];
 
     string optAnalisys = splited.size() > ANALYSIS_OPTIONS ? splited[ANALYSIS_OPTIONS] : "";
+
+    if (!turnOffOptions)
+        return;
+
+    for (auto& elem : *turnOffOptions)
+    {
+        if (elem == STATIC_SHADOW_ANALYSIS)
+            staticShadowAnalysis = 0;
+        else if (elem == STATIC_PRIVATE_ANALYSIS)
+            staticPrivateAnalysis = 0;
+        else if (elem == FREE_FORM)
+            out_free_form = 0;
+        else if (elem == KEEP_DVM_DIRECTIVES)
+            keepDvmDirectives = 0;
+        else if (elem == KEEP_SPF_DIRECTIVES)
+            keepSpfDirs = 0;
+        else if (elem == PARALLIZE_FREE_LOOPS)
+            parallizeFreeLoops = 0;
+        //TODO: to add if needed            
+    }
 }
 
 static bool tryOpenProjectFile(const char *project)
@@ -1717,7 +1737,7 @@ int SPF_LoopUnionCurrent(void*& context, int winHandler, short* options, short* 
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);
     clearGlobalMessagesBuffer();
-    setOptions(options);
+    setOptions(options, false, new set<int>{ KEEP_DVM_DIRECTIVES });
 
     int retCode = 0;
     try
@@ -1762,7 +1782,7 @@ int SPF_InlineProcedures(void*& context, int winHandler, short* options, short* 
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);
     clearGlobalMessagesBuffer();
-    setOptions(options);
+    setOptions(options, false, new set<int>{ KEEP_DVM_DIRECTIVES });
 
     int retCode = 0;
     try
