@@ -42,6 +42,7 @@
 #include "../VisualizerCalls/SendMessage.h"
 
 using std::map;
+using std::multimap;
 using std::pair;
 using std::tuple;
 using std::set;
@@ -476,27 +477,32 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
 
     string strUnparse = "";
     if (toString)
-        strUnparse = string(file->firstStatement()->unparse());    
+        strUnparse = string(file->firstStatement()->unparse());
     else
     {
-#ifdef _WIN32
-        FILE* fOut;
-        errno_t err = fopen_s(&fOut, fout, "w");
-#else
-        int err = 0;
-        FILE* fOut = fopen(fout, "w");
-#endif
-        if (fOut == NULL)
+        auto tmp = string(file->firstStatement()->unparse());
+        if (tmp.size() > 0)
         {
-            if (fout)
-                __spf_print(1, "can not open file to write with name '%s' with error %d\n", fout, err);
-            else
-                __spf_print(1, "can not open file to write with name 'NULL'\n");
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+#ifdef _WIN32
+            FILE* fOut;
+            errno_t err = fopen_s(&fOut, fout, "w");
+#else
+            int err = 0;
+            FILE* fOut = fopen(fout, "w");
+#endif
+            if (fOut == NULL)
+            {
+                if (fout)
+                    __spf_print(1, "can not open file to write with name '%s' with error %d\n", fout, err);
+                else
+                    __spf_print(1, "can not open file to write with name 'NULL'\n");
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+
+            file->unparse(fOut);
+            fclose(fOut);
+            fclose(currFile);
         }
-        file->unparse(fOut);
-        fclose(fOut);
-        fclose(currFile);
     }
     //restore
     //XXX: use Sage hack!!
@@ -1214,6 +1220,7 @@ template const vector<SgSymbol*> getAttributes(SgSymbol *st, const set<int> data
 template const vector<SgSymbol*> getAttributes(SgStatement* st, const set<int> dataType);
 template const vector<SgSymbol*> getAttributes(SgExpression* st, const set<int> dataType);
 template const vector<char*> getAttributes(SgSymbol *st, const set<int> dataType);
+template const vector<int*> getAttributes(SgSymbol* st, const set<int> dataType);
 template const vector<SgStatement*> getAttributes(SgStatement *st, const set<int> dataType);
 template const vector<SgExpression*> getAttributes(SgExpression *st, const set<int> dataType);
 template const vector<SgStatement*> getAttributes(SgExpression *st, const set<int> dataType);
@@ -1742,14 +1749,15 @@ const vector<const Variable*> CommonBlock::getVariables(int position) const
 
 static void findDeclType(SgExpression *ex, varType &type, const string &toFind)
 {
-    if (ex && type == ANOTHER)
+    if (ex)
     {
         if (ex->symbol() && ex->symbol()->identifier() == toFind)
         {
             switch (ex->variant())
             {
             case VAR_REF:
-                type = SCALAR;
+                if (type != ARRAY)
+                    type = SCALAR;
                 break;
             case ARRAY_REF:
                 type = ARRAY;
@@ -1777,16 +1785,14 @@ static void findDeclType(SgExpression *ex, varType &type, const string &toFind)
 void CommonBlock::addVariables(SgFile *file, SgStatement *function, const vector<pair<SgSymbol*, int>> &newVariables)
 {
     for (auto &varPair : newVariables)
-    {        
-        SgStatement *declStatement = declaratedInStmt(varPair.first);
+    {
+        vector<SgStatement*> allDecls;
+        declaratedInStmt(varPair.first, &allDecls);
         varType type = ANOTHER;
 
-        for (int i = 0; i < 3; ++i)
-        {
-            findDeclType(declStatement->expr(i), type, varPair.first->identifier());
-            if (type != ANOTHER)
-                break;
-        }
+        for (auto& decl : allDecls)
+            for (int i = 0; i < 3; ++i)
+                findDeclType(decl->expr(i), type, varPair.first->identifier());
 
         Variable *exist = hasVariable(varPair.first, type, varPair.second);
         if (exist)
@@ -2157,33 +2163,16 @@ SgStatement* getFuncStat(SgStatement *st, const set<int> additional)
     return iterator;
 }
 
-SgStatement* duplicateProcedure(SgStatement *toDup, const string &newName, bool withAttributes, bool withComment, bool withSameLines, bool dontInsert)
+SgStatement* duplicateProcedure(SgStatement *toDup, const string *newName, bool withAttributes, bool withComment, bool withSameLines, bool dontInsert)
 {
     if (toDup == NULL)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     if (isSgProgHedrStmt(toDup) == NULL)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-    SgStatement* global = toDup;
-    while (global->variant() != GLOBAL)
-    {        
-        global = global->controlParent();
-        /*if (isSgProgHedrStmt(global))
-        {
-            auto last = global->lastNodeOfStmt();
-            // check for contains
-            for (auto st = global; st != last; st = st->lexNext())
-            {
-                if (st->variant() == CONTAINS_STMT)
-                {
-                    global = st;
-                    break;
-                }
-            }
-            if (global->variant() == CONTAINS_STMT)
-                break;
-        }*/
-    }
+    SgStatement* global = current_file->firstStatement();
+    if (global->variant() != GLOBAL)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
     SgSymbol* orig = toDup->symbol();    
     SgSymbol* copied = &orig->copySubprogram(*global);
@@ -2218,12 +2207,23 @@ SgStatement* duplicateProcedure(SgStatement *toDup, const string &newName, bool 
     }
 
     //move 
-    SgStatement* toMove = global->lexNext()->extractStmt();
-    if (dontInsert == false)
-        toDup->insertStmtBefore(*toMove, *toDup->controlParent());
+    SgStatement* toMove = NULL;
+    if (dontInsert)
+        toMove = global->lexNext()->extractStmt();
+    else
+    {
+        if (toDup->controlParent())
+        {
+            toMove = global->lexNext()->extractStmt();
+            toDup->insertStmtBefore(*toMove, *toDup->controlParent());
+        }
+        else
+            toMove = global->lexNext();
+    }
+
     //change name
-    if (newName != "")
-        copied->changeName(newName.c_str());
+    if (newName)
+        copied->changeName(newName->c_str());
 
     if (!withAttributes && !withComment && !withSameLines)
         return toMove;
@@ -2346,20 +2346,41 @@ void filterModuleUse(map<string, set<string>>& moduleUsesByFile, map<string, str
     }*/
 }
 
-SgExpression* makeExprList(const vector<SgExpression*>& items)
+SgExpression* makeExprList(const vector<SgExpression*>& items, bool withSort)
 {
     SgExpression* list = NULL;
     if (items.size() == 0)
         return list;
     list = new SgExpression(EXPR_LIST);
-    for (int z = 0; z < items.size(); ++z)
+
+    vector<SgExpression*> newItems;
+    if (withSort)
+    {
+         multimap<string, SgExpression*> sorted;
+         int tmpVal = 0;
+         for (auto& elem : items)
+         {
+             if (elem->variant() == VAR_REF || elem->variant() == ARRAY_REF)
+                 sorted.insert(make_pair(elem->symbol()->identifier(), elem));
+             else
+                 sorted.insert(make_pair(std::to_string(tmpVal++), elem));
+         }
+
+         for (auto& elem : sorted)
+             newItems.push_back(elem.second);
+         std::reverse(newItems.begin(), newItems.end());
+    }
+    else
+        newItems = items;
+
+    for (int z = 0; z < newItems.size(); ++z)
     {
         if (z == 0)
-            list->setLhs(items[z]);
+            list->setLhs(newItems[z]);
         else
         {
             SgExpression* tmp = new SgExpression(EXPR_LIST);
-            tmp->setLhs(items[z]);
+            tmp->setLhs(newItems[z]);
             tmp->setRhs(list);
             list = tmp;
         }
@@ -2850,21 +2871,38 @@ static set<FileInfo*> applyModuleDeclsForFile(FileInfo *forFile, const map<strin
     }
 
     vector<string> toInclEnds;
-    for (auto& file : mapFiles)
-        if (file.second != forFile)
-            toInclEnds.push_back(file.second->fileName);
-
     string includeLast = "";
-    if (toInclEnds.size())
-        includeLast += "!SPF SHADOW FILES\n";
 
-    for (auto& incl : toInclEnds)
-        includeLast += "      include '" + incl + "'\n";
+    if (includeForInline)
+    {
+        //find needed modules first
+        vector<string> filesWithModules;
+        for (auto& elem : moduleDelc)
+            filesWithModules.push_back(elem.second);
+        for (auto& file : filesWithModules)
+        {
+            if (file != forFile->fileName && included.find(file) == included.end())
+            {
+                toInclEnds.push_back(file);
+                included.insert(file);
+            }
+        }
+
+        for (auto& file : mapFiles)
+            if (file.second != forFile && included.find(file.second->fileName) == included.end())
+                toInclEnds.push_back(file.second->fileName);
+
+        if (toInclEnds.size())
+            includeLast += "!SPF SHADOW FILES\n";
+
+        for (auto& incl : toInclEnds)
+            includeLast += "      include '" + incl + "'\n";
+    }
 
     string data = include + mainText + includeLast;
     writeFileFromStr(forFile->fileName, data);
 
-    forFile->intcludesAdded = toIncl.size() + toInclEnds.size();
+    forFile->intcludesAdded = toIncl.size();
 
     retFilesMod.insert(forFile);
     return retFilesMod;
@@ -3033,13 +3071,14 @@ static string shiftLines(const string &in, const map<string, const FileInfo*> &m
     byNum = itF->second->intcludesAdded;
     if (byNum == 0)
         return in;
-
-    d -= byNum;
-    if (d <= 0)
+        
+    if (d - byNum <= 0)
     {
         //return in;
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
+    else
+        d -= byNum;
 
     string newStr = in.substr(0, it) + std::to_string(d) + in.substr(in.find(' ', it + 1));
     return newStr;
@@ -3538,4 +3577,92 @@ string nameWithContains(SgStatement* where, SgSymbol* s)
         containsName = st_cp->symbol()->identifier() + std::string(".");
 
     return containsName + s->identifier();
+}
+
+string preprocDataString(string data, bool full)
+{
+    string ret = "";
+
+
+    for (int z = 0; z < data.size(); ++z)
+    {
+        if (data[z] == '\t')
+            data[z] = ' ';
+        else if (data[z] == '\r')
+            data[z] = ' ';
+    }
+
+    auto it = data.find("DATA");
+    if (it == string::npos)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    else
+        it += 4;
+    if (data[it] != ' ')
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    else
+        it++;
+
+    if (full)
+        ret = "DATA ";
+
+    int i = it;
+    while (i != data.size())
+    {
+        if (data[i] != ' ')
+            ret += data[i++];
+        else
+            i++;
+    }
+    return ret;
+}
+
+map<string, string> splitData(const set<SgValueExp*>& dataStats)
+{
+    map<string, string> result;
+    for (auto& dataV : dataStats)
+    {
+        char* value = dataV->thellnd->entry.string_val;
+        string dataS(value);
+        convertToUpper(dataS);
+        dataS = preprocDataString(dataS, false);
+
+        convertToLower(dataS);
+        string currS = "";
+        string currV = "";
+        int startV = -1;
+        for (int z = 0; z < dataS.size(); ++z)
+        {
+            if (startV == -1)
+            {
+                if (dataS[z] == '/')
+                    startV = 0;
+                else if (dataS[z] != ' ' && dataS[z] != ',')
+                    currS += dataS[z];
+            }
+            else if (startV == 0)
+            {
+                if (dataS[z] == '/')
+                {
+                    startV = -1;
+                    result[currS] = currV;
+                    currS = currV = "";
+                }
+                else if (dataS[z] != ' ')
+                    currV += dataS[z];
+            }            
+        }
+    }
+
+    return result;
+}
+
+void extractComments(SgStatement* where, const string& what)
+{
+    if (BIF_CMNT(where->thebif) && CMNT_STRING(BIF_CMNT(where->thebif)))
+    {
+        char* str = CMNT_STRING(BIF_CMNT(where->thebif));
+        string source(str);
+        removeSubstrFromStr(source, what.c_str());
+        sprintf(str, "%s", source.c_str());
+    }
 }

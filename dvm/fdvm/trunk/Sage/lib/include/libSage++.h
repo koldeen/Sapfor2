@@ -921,6 +921,7 @@ public:
   inline SgExpression *subscripts();
   inline SgExpression *subscript(int i);
   inline void addSubscript(SgExpression &e);
+  inline void replaceSubscripts(SgExpression& e);
   inline void setSymbol(SgSymbol &s);
 };
 
@@ -2664,6 +2665,7 @@ class SgParameterStmt: public SgDeclarationStatement{
   // Fortran constants declaration statement
   // variant = PARAM_DECL
 public:
+  SgParameterStmt() : SgDeclarationStatement(PARAM_DECL) { }
   SgParameterStmt(SgExpression &constants, SgExpression &values);
   SgParameterStmt(SgExpression &constantsWithValues);
   ~SgParameterStmt();
@@ -2673,7 +2675,7 @@ public:
   SgSymbol *constant(int i);  // the i-th variable
   SgExpression *value(int i); // the value of i-th variable
   
-  void addConstant(SgSymbol &constant, SgExpression &value);
+  void addConstant(SgSymbol *constant);
   void deleteConstant(int i);
   void deleteTheConstant(SgSymbol &constant);
 };
@@ -4721,6 +4723,9 @@ inline SgExpression * SgArrayRefExp::subscript(int i)
 
 inline void SgArrayRefExp::addSubscript(SgExpression &e)
 { NODE_OPERAND0(thellnd) =  addToExprList(NODE_OPERAND0(thellnd),e.thellnd);}
+
+inline void SgArrayRefExp::replaceSubscripts(SgExpression &e)
+{ NODE_OPERAND0(thellnd) = e.thellnd; }
 
 inline void SgArrayRefExp::setSymbol(SgSymbol &s)
 { NODE_SYMB(thellnd) = s.thesymb;}
@@ -9080,15 +9085,12 @@ inline SgSymbol * SgParameterStmt::constant(int i)
 inline SgExpression * SgParameterStmt::value(int i)
 { return LlndMapping(SYMB_VAL(NODE_SYMB(getPositionInExprList(BIF_LL1(thebif),i)))); }
 
-#ifdef NOT_YET_IMPLEMENTED
-inline void SgParameterStmt::addConstant(SgSymbol &constant, SgExpression &value)
-
+inline void SgParameterStmt::addConstant(SgSymbol *constant)
 { 
-  //            SgRefExp constNode(constant, value);
-  //            BIF_LL1(thebif) = addToExprList(BIF_LL1(thebif), constNode.thellnd);
-  SORRY;
-};
-#endif
+    SgRefExp constNode(CONST_REF, *constant);  
+    BIF_LL1(thebif) = addToExprList(BIF_LL1(thebif), constNode.thellnd); 
+}
+
   
 inline void SgParameterStmt::deleteConstant(int i)
 { BIF_LL1(thebif) = deleteNodeInExprList(BIF_LL1(thebif), i); }

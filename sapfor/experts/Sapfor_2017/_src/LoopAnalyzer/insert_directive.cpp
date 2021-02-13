@@ -70,15 +70,33 @@ static void removeDoubleRealign(vector<vector<Expression*>>& realigns)
 
     bool changed = false;
     for (int z = 1; z < realigns.size(); ++z)
-    {
-        if (string(realigns[z][0]->unparse()) == realigns[z - 1][0]->unparse())
+    {        
+        auto prev = string(realigns[z - 1][0]->unparse());
+        auto curr = string(realigns[z][0]->unparse());
+        if (prev == curr)
         {
             save[z - 1] = false;
             changed = true;
         }
         else
         {
-            //TODO: check list and remove
+            set<string> listNext;
+            SgExpression* ex = realigns[z][0];
+            while (ex)
+            {
+                listNext.insert(ex->lhs()->symbol()->identifier());
+                ex = ex->rhs();
+            }
+
+            ex = realigns[z - 1][0];
+            vector<SgExpression*> newExp;
+            while (ex)
+            {
+                if (listNext.find(ex->lhs()->symbol()->identifier()) == listNext.end())
+                    newExp.push_back(ex->lhs());
+                ex = ex->rhs();
+            }
+            realigns[z - 1][0] = new Expression(makeExprList(newExp));
         }
     }
 
@@ -639,11 +657,12 @@ static pair<string, SgStatement*> genDynamicDecl(DIST::Array *templ, SgFile *fil
         templDynSt = new SgStatement(DVM_DYNAMIC_DIR, NULL, NULL, new SgVarRefExp(*findSymbolOrCreate(file, templ->GetShortName())), NULL, NULL);
     else
     {
-        SgExprListExp* list = new SgExprListExp();
-        list->setLhs(new SgVarRefExp(*findSymbolOrCreate(file, templ->GetShortName())));
+        vector<SgExpression*> list;
+        list.push_back(new SgVarRefExp(*findSymbolOrCreate(file, templ->GetShortName())));
         for (auto& elem : allClones)
-            list->append(*new SgVarRefExp(*findSymbolOrCreate(file, elem.second)));
-        templDynSt = new SgStatement(DVM_DYNAMIC_DIR, NULL, NULL, list, NULL, NULL);
+            list.push_back(new SgVarRefExp(*findSymbolOrCreate(file, elem.second)));
+        
+        templDynSt = new SgStatement(DVM_DYNAMIC_DIR, NULL, NULL, makeExprList(list), NULL, NULL);
     }
 
     return make_pair(templDyn, templDynSt);
@@ -931,17 +950,6 @@ static void createShadowSpec(const vector<LoopGraph*> &loopGraph,
 
         shadowSpecs.push_back(fullShadow);
         shadowSpecs.push_back(fullAcross);
-    }
-}
-
-static inline void extractComments(SgStatement *where, const string &what)
-{    
-    if (BIF_CMNT(where->thebif) && CMNT_STRING(BIF_CMNT(where->thebif)))
-    {
-        char *str = CMNT_STRING(BIF_CMNT(where->thebif));
-        string source(str);
-        removeSubstrFromStr(source, what.c_str());
-        sprintf(str, "%s", source.c_str());
     }
 }
 
@@ -1916,7 +1924,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                 }
 
                 string toInsert = "!DVM$ DYNAMIC ";
-                vector<string> toInsertArrays;
+                set<string> toInsertArrays;
                 for (auto &array : dynamicArraysLocal)
                 {
                     if (extractDir)
@@ -1924,7 +1932,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                         if (dynamicArraysAdded.find(array->GetShortName()) != dynamicArraysAdded.end())
                         {
                             dynamicArraysAdded.erase(array->GetShortName());
-                            toInsertArrays.push_back(array->GetShortName());
+                            toInsertArrays.insert(array->GetShortName());
                         }
                     }
                     else
@@ -1932,7 +1940,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                         if (dynamicArraysAdded.find(array->GetShortName()) == dynamicArraysAdded.end())
                         {
                             dynamicArraysAdded.insert(array->GetShortName());
-                            toInsertArrays.push_back(array->GetShortName());
+                            toInsertArrays.insert(array->GetShortName());
                         }
                     }
                 }

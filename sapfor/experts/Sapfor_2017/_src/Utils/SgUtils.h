@@ -64,11 +64,11 @@ std::map<std::string, std::set<std::string>> createMapOfModuleUses(SgFile* file)
 void printSymbolTable(SgFile *file, std::string filter = "");
 SgStatement* getFuncStat(SgStatement *st, const std::set<int> additional = std::set<int>());
 std::map<SgStatement*, std::vector<DefUseList>> createDefUseMapByPlace();
-SgStatement* duplicateProcedure(SgStatement* toDup, const std::string& newName, bool withAttributes = false, bool withComment = false, bool withSameLines = true, bool dontInsert = false);
+SgStatement* duplicateProcedure(SgStatement* toDup, const std::string* newName, bool withAttributes = false, bool withComment = false, bool withSameLines = true, bool dontInsert = false);
 
 void fillModuleUse(SgFile* file, std::map<std::string, std::set<std::string>>& moduleUses, std::map<std::string, std::string>& moduleDecls);
 void filterModuleUse(std::map<std::string, std::set<std::string>>& moduleUses, std::map<std::string, std::string>& moduleDecls);
-SgExpression* makeExprList(const std::vector<SgExpression*>& items);
+SgExpression* makeExprList(const std::vector<SgExpression*>& items, bool withSort = true);
 std::string unparseProjectToString(SgFile* file, const int curr_regime);
 
 SgStatement* makeDeclaration(SgStatement* curr, const std::vector<SgSymbol*>& s, std::vector<SgExpression*>* inits = NULL);
@@ -82,3 +82,8 @@ void fillUsedModulesInFunction(SgStatement *st, std::vector<SgStatement*> &useSt
 void fillVisibleInUseVariables(SgStatement *useSt, std::map<std::string, SgSymbol*> &vars);
 
 std::string nameWithContains(SgStatement* where, SgSymbol* s);
+
+std::string preprocDataString(std::string data, bool full = true);
+std::map<std::string, std::string> splitData(const std::set<SgValueExp*>& dataStats);
+
+void extractComments(SgStatement* where, const std::string& what);

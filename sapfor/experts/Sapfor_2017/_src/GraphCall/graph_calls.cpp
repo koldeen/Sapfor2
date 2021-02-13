@@ -560,9 +560,9 @@ static void findParamInParam(SgExpression *exp, FuncInfo &currInfo)
     }
 }
 
-static void findParamUsedInFuncCalls(SgExpression *exp, FuncInfo &currInfo);
+static void findParamUsedInFuncCalls(SgExpression *exp, FuncInfo &currInfo, const vector<SgStatement*>& containsFunctions, const string& prefix);
 
-static void throughParams(SgExpression *pars, FuncInfo &currInfo)
+static void throughParams(SgExpression *pars, FuncInfo &currInfo, const vector<SgStatement*>& containsFunctions, const string& prefix)
 {
     for (SgExpression *par = pars; par != NULL; par = par->rhs())
     {
@@ -575,29 +575,37 @@ static void throughParams(SgExpression *pars, FuncInfo &currInfo)
 
     // search another func call, possibly used in parameter
     for (SgExpression *par = pars; par != NULL; par = par->rhs())
-        findParamUsedInFuncCalls(pars->lhs(), currInfo);    
+        findParamUsedInFuncCalls(pars->lhs(), currInfo, containsFunctions, prefix);
 }
 
 // Takes random expression, finds there func calls and check their parameters 
 // for using parameters of func where first is called from
-static void findParamUsedInFuncCalls(SgExpression *exp, FuncInfo &currInfo)
+static void findParamUsedInFuncCalls(SgExpression *exp, FuncInfo &currInfo,
+                                     const vector<SgStatement*>& containsFunctions, const string& prefix)
 {
     if (exp)
     {
         if (exp->variant() == FUNC_CALL)
         {
+            vector<string> nameOfCallFunc;
+            nameOfCallFunc.push_back(exp->symbol()->identifier());
+            nameOfCallFunc.push_back(OriginalSymbol(exp->symbol())->identifier());
+
+            for (auto& elem : nameOfCallFunc)
+                correctNameIfContains(NULL, exp, elem, containsFunctions, prefix);
+
             // Add func call which we've just found            
             currInfo.funcsCalledFromThis.push_back(NestedFuncCall(exp->symbol()->identifier()));
 
             // For every found func call iterate through pars
             //cout << "Through params of the call of " << exp->symbol()->identifier() << endl;
-            throughParams(exp->lhs(), currInfo);
+            throughParams(exp->lhs(), currInfo, containsFunctions, prefix);
         }
         else
         {
             // If we've not found func call, search further in all branches
-            findParamUsedInFuncCalls(exp->rhs(), currInfo);
-            findParamUsedInFuncCalls(exp->lhs(), currInfo);
+            findParamUsedInFuncCalls(exp->rhs(), currInfo, containsFunctions, prefix);
+            findParamUsedInFuncCalls(exp->lhs(), currInfo, containsFunctions, prefix);
         }
     }
 }
@@ -975,11 +983,11 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                         processActualParams(st->expr(0), commonBlocks, &proc->actualParams.back());
 
                     // Add func call which we've just found
-                    NestedFuncCall funcCall(st->symbol()->identifier());
+                    NestedFuncCall funcCall(pureNameOfCallFunc[1]);
                     proc->funcsCalledFromThis.push_back(funcCall);
 
                     // search for using pars of cur func in pars of called
-                    throughParams(st->expr(0), *proc);
+                    throughParams(st->expr(0), *proc, containsFunctions, prefix);
                 }
             }
             else
@@ -987,7 +995,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                 for (auto &proc : entryProcs)
                     for (int i = 0; i < 3; ++i)
                         if (st->expr(i))
-                            findParamUsedInFuncCalls(st->expr(i), *proc);
+                            findParamUsedInFuncCalls(st->expr(i), *proc, containsFunctions, prefix);
             }
 
             for (int i = 0; i < 3; ++i)
@@ -2183,6 +2191,95 @@ void removeDistrStateFromDeadFunctions(const map<string, vector<FuncInfo*>>& all
                 if (it->second->deadFunction)
                     array->SetNonDistributeFlag(DIST::NO_DISTR);
             }
+        }
+    }
+}
+
+int getLvlCall(FuncInfo* currF, int lvl, const string& func, const string& file, int line)
+{
+    if (currF->funcName == func)
+        return 0;
+
+    for (auto& callsFrom : currF->detailCallsFrom)
+    {
+        if (callsFrom.first == func && callsFrom.second == line && currF->fileName == file)
+            return lvl;
+    }
+    
+    int whatLvl = -1;
+    for (auto& callsFrom : currF->callsFromV)
+    {
+        int outLvl = getLvlCall(callsFrom, lvl + 1, func, file, line);
+        if (outLvl != -1)
+        {
+            whatLvl = outLvl;
+            break;
+        }
+    }
+
+    return whatLvl;
+}
+
+
+void setInlineAttributeToCalls(const map<string, FuncInfo*>& allFunctions, 
+                               const map<string, set<pair<string, int>>>& inDataChains,
+                               const map<string, vector<SgStatement*>>& hiddenData)
+{
+    set<pair<string, int>> pointsForShadowCopies;
+
+    for (auto& elem : allFunctions)
+    {
+        auto itNeed = inDataChains.find(elem.first);
+
+        const FuncInfo* curr = elem.second;
+        set<pair<string, int>> needToInline;
+        if (itNeed != inDataChains.end()) 
+            needToInline = itNeed->second;
+
+        for (int k = 0; k < curr->detailCallsFrom.size(); ++k)
+        {
+            if (needToInline.find(curr->detailCallsFrom[k]) == needToInline.end() &&
+                !isIntrinsicFunctionName(curr->detailCallsFrom[k].first.c_str()))
+            {
+                pair<void*, int> detail = curr->pointerDetailCallsFrom[k];
+
+                if (SgFile::switchToFile(curr->fileName) == -1)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                if (detail.second == PROC_STAT)
+                    ((SgStatement*)detail.first)->addAttribute(BOOL_VAL);
+                else if (detail.second == FUNC_CALL)
+                {
+                    //TODO: many functions in same statement
+                    SgStatement* callSt = SgStatement::getStatementByFileAndLine(curr->fileName, curr->detailCallsFrom[k].second);
+                    if (!callSt)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    //((SgExpression*)detail.first)->addAttribute(BOOL_VAL);
+                    callSt->addAttribute(BOOL_VAL);
+                }
+                else
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                pointsForShadowCopies.insert(make_pair(curr->fileName, curr->detailCallsFrom[k].second));
+                __spf_print(1, " added attribute to '%s' <%s, %d>\n", curr->detailCallsFrom[k].first.c_str(), curr->fileName.c_str(), curr->detailCallsFrom[k].second);
+            }
+        }
+    }
+
+    if (pointsForShadowCopies.size())
+    {
+        for (auto& byFile : hiddenData)
+        {
+            if (SgFile::switchToFile(byFile.first) == -1)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            for (auto& stF : byFile.second)
+                for (auto st = stF; st != stF->lastNodeOfStmt(); st = st->lexNext())
+                    if (pointsForShadowCopies.find(make_pair(st->fileName(), st->lineNumber())) != pointsForShadowCopies.end())
+                    {
+                        st->addAttribute(BOOL_VAL);
+                        //__spf_print(1, " added attribute to shadow copy in file '%s' <%s %d>\n", byFile.first.c_str(), st->fileName(), st->lineNumber());
+                    }
         }
     }
 }

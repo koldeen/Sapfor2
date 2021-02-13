@@ -905,41 +905,6 @@ static SgExpression* moveSaveAssignToMod(SgExpression* ex, SgStatement*& saveMod
     return new SgExpression(RENAME_NODE, new SgVarRefExp((withInit) ? ex->lhs()->symbol() : ex->symbol()), new SgVarRefExp(copy));
 }
 
-static string preprocDataString(string data)
-{
-    string ret = "";
-    
-
-    for (int z = 0; z < data.size(); ++z)
-    {
-        if (data[z] == '\t')
-            data[z] = ' ';
-        else if (data[z] == '\r')
-            data[z] = ' ';
-    }
-
-    auto it = data.find("DATA");
-    if (it == string::npos)
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    else
-        it += 4;
-    if (data[it] != ' ')
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    else
-        it++;
-    ret = "DATA ";
-
-    int i = it;
-    while (i != data.size())
-    {
-        if (data[i] != ' ')
-            ret += data[i++];
-        else
-            i++;
-    }
-    return ret;
-}
-
 void convertSaveToModule(SgFile* file)
 {
     int numF = file->numberOfFunctions();

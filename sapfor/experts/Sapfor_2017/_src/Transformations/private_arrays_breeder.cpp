@@ -300,22 +300,26 @@ static void extendArrayRefs(const vector<SgSymbol*> &indexes, SgStatement *st, S
     }
 }
 
-static SgStatement* createNewDeclarationStatemnet(SgStatement *originalDeclaration, SgSymbol* arraySymbol)
-{
-    SgStatement *firstStmtOfFile = NULL;
-    for (firstStmtOfFile = originalDeclaration; strcmp(firstStmtOfFile->fileName(), current_file->filename()); firstStmtOfFile = firstStmtOfFile->lexNext())
-    {}// Yes, it's an empty for loop
+static SgStatement* createNewDeclarationStatemnet(SgStatement* loop, SgStatement *originalDeclaration, SgSymbol* arraySymbol)
+{    
+    SgStatement *lastDecl = getFuncStat(loop);
+    while (lastDecl)
+    {
+        if (isSgExecutableStatement(lastDecl))
+            break;
+        lastDecl = lastDecl->lexNext();
+    }
 
     SgExpression *exprList = NULL;
     for (exprList = originalDeclaration->expr(0); strcmp(exprList->lhs()->symbol()->identifier(), arraySymbol->identifier()); exprList = exprList->rhs())
-    {}// More empty loops, MOAR!
+    { }// More empty loops, MOAR!
 
     SgExpression newExprList(EXPR_LIST, exprList->lhs(), NULL, NULL);
     SgStatement *newDeclaration = originalDeclaration->copyPtr();
 
     newDeclaration->setExpression(0, newExprList);
-    firstStmtOfFile->insertStmtAfter(*newDeclaration, *firstStmtOfFile->controlParent());
-
+    lastDecl->insertStmtBefore(*newDeclaration, *lastDecl->controlParent());
+        
     return newDeclaration;
 }
 
@@ -569,7 +573,7 @@ static void debreedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, vector<int> 
 
     replaceFunctionBounds(forLoop, maxDepth);
     SgStatement *originalDeclaration = declaratedInStmt(arraySymbol);
-    SgStatement *copiedDeclaration = createNewDeclarationStatemnet(originalDeclaration, arraySymbol);
+    SgStatement *copiedDeclaration = createNewDeclarationStatemnet(forLoop->loop->GetOriginal(), originalDeclaration, arraySymbol);
 
     SgSymbol *newSymbol = reduceToVariable
             ? createReducedToVariableArray(copiedDeclaration, forLoop->lineNum, arraySymbol)
@@ -624,7 +628,7 @@ static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBre
     replaceFunctionBounds(forLoop, depthOfBreed);
 
     SgStatement *originalDeclaration = declaratedInStmt(arraySymbol);
-    SgStatement *copiedOriginalArrayDeclaration = createNewDeclarationStatemnet(originalDeclaration, arraySymbol);
+    SgStatement *copiedOriginalArrayDeclaration = createNewDeclarationStatemnet(forLoop->loop->GetOriginal(), originalDeclaration, arraySymbol);
     SgSymbol *newArraySymbol = alterArrayDeclaration(copiedOriginalArrayDeclaration, arraySymbol, dimensions, true);
 
     if (newArraySymbol)

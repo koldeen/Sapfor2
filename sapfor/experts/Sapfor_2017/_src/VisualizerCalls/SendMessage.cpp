@@ -48,6 +48,30 @@ static SOCKET clientSocket = INVALID_SOCKET;
 
 #define CLIENT "[SAPFOR]"
 
+static int doRecv(SOCKET& soc, string& command)
+{
+    int count = 0; //общее количество прочитаного
+    int err = 0; //количество прочитанного на данной итерации.
+    const int maxSize = 4096; //максимальный размер прочитываемой за раз порции.
+    char* buf = NULL; //буфер
+    do
+    {
+        buf = new char[maxSize + 1];
+        err = recv(soc, buf, maxSize, 0);
+        if (err > 0)
+        {
+            count += err;
+            buf[err] = '\0';
+            command += buf;
+        }
+        delete[] buf;
+        buf = NULL;
+
+    } while (err > 0 && command.back() != '\n');
+    __print(CLIENT, "'%s' length='%d'\n", command.c_str(), command.length());
+    return err < 0 ? err : count;
+}
+
 static int decodeMessage(const string& message, vector<string>& pars, int &winH, int countPars)
 {
     int sI = 0;
@@ -319,22 +343,22 @@ void RunSapforAsClient(int serverPort)
     client = INVALID_SOCKET;
     if (connectAndCreate(client, "127.0.0.1", serverPort > 0 ? serverPort : 8889) != 0)
         return;
- 
-    char* buf = new char[4096];
-    wstring result;
+     
     while (true)
-    {        
-        int count = recv(client, buf, 4096, 0);
+    {
+        wstring result = L"";
+        string message = "";
+
+        __print(CLIENT, "start recv message");
+        int count = doRecv(client, message);
+        __print(CLIENT, "end recv message with size %d", count);
         if (count > 0)
         {
-            buf[count] = '\0';
-            string message = buf;
             string code;
-
-            string copy = message;
+            /*string copy = message;
             if (copy.back() == '\n')
                 copy = copy.erase(copy.size() - 1);
-            __print(CLIENT, "Recv message: '%s'", copy.c_str());
+            __print(CLIENT, "Recv message: '%s'", copy.c_str());*/
 
             int z = 0;
             for (; z < message.size(); ++z)

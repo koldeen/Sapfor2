@@ -276,43 +276,9 @@ static SgStatement* skipDvmhRegionInterval(SgStatement *start)
     return st->lexNext();
 }
 
-static void createExceptList(SgExpression *ex, set<string> &symbs)
-{
-    if (ex)
-    {
-        if (ex->variant() == FUNC_CALL)
-        {
-            SgExpression* list = ex->lhs();
-            while (list)
-            {
-                int listVar = list->lhs()->variant();
-                if (listVar == ARRAY_REF)
-                    symbs.insert(list->lhs()->symbol()->identifier());
-                else
-                    createExceptList(list->lhs(), symbs);
-                list = list->rhs();
-            }
-        }
-        else
-        {
-            createExceptList(ex->lhs(), symbs);
-            createExceptList(ex->rhs(), symbs);
-        }
-    }
-}
-
-static ArraySet excludePrivates(const ArraySet& block)
-{
-    ArraySet tmp;
-    for (auto& elem : block)
-        if (!elem->IsOmpThreadPrivate() && !elem->IsSpfPrivate())
-            tmp.insert(elem);
-    return tmp;
-}
-
 ArraySet DvmhRegionInserter::applyUseFilter(const ArraySet& block, const set<DIST::Array*>& filter) const
 {
-    ArraySet newReadArrays;
+    ArraySet newBlock;
     for (auto& elem : block)
     {
         ArraySet newSet;
@@ -320,9 +286,9 @@ ArraySet DvmhRegionInserter::applyUseFilter(const ArraySet& block, const set<DIS
 
         for (auto& orig : newSet)
             if (filter.find(orig) != filter.end())
-                newReadArrays.insert(elem);
+                newBlock.insert(elem);
     }
-    return newReadArrays;
+    return newBlock;
 }
 
 static bool hasLoopsWithDir(LoopGraph* loop)
@@ -333,11 +299,99 @@ static bool hasLoopsWithDir(LoopGraph* loop)
     return retVal;
 }
 
+static void analyzeFunctionParameters(SgExpression* paramList, ArraySet& arrays);
+static void analyzeFunctionParameter(SgExpression* ex, ArraySet& arrays)
+{
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF)
+        {
+            auto type = ex->symbol()->type();
+            if (type->variant() == T_ARRAY && (ex->lhs() || ex->rhs()))
+            {
+                auto origS = OriginalSymbol(ex->symbol());
+                DIST::Array* currArray = getArrayFromDeclarated(declaratedInStmt(origS), origS->identifier());
+                checkNull(currArray, convertFileName(__FILE__).c_str(), __LINE__);
+
+                arrays.insert(currArray);
+            }
+        }
+        analyzeFunctionParameter(ex->lhs(), arrays);
+        analyzeFunctionParameter(ex->rhs(), arrays);
+    }
+}
+
+static void analyzeFunctionParameters(SgExpression* paramList, ArraySet& arrays)
+{
+    while (paramList)
+    {
+        SgExpression* ex = paramList->lhs();
+        if (ex->variant() != FUNC_CALL)
+            analyzeFunctionParameter(ex, arrays);
+        else
+            analyzeFunctionParameters(ex->lhs(), arrays);
+ 
+        paramList = paramList->rhs();
+    }
+}
+
+static void createExceptList(SgExpression* ex, set<string>& symbs, ArraySet& arrays)
+{
+    if (ex)
+    {
+        if (ex->variant() == FUNC_CALL)
+        {
+            SgExpression* list = ex->lhs();
+            analyzeFunctionParameters(list, arrays);
+            while (list)
+            {
+                int listVar = list->lhs()->variant();
+                if (listVar == ARRAY_REF)
+                {
+                    auto type = ex->symbol()->type();
+                    if (type->variant() == T_ARRAY && !ex->lhs() && !ex->rhs())
+                        symbs.insert(list->lhs()->symbol()->identifier());
+                }
+                else
+                    createExceptList(list->lhs(), symbs, arrays);
+                list = list->rhs();
+            }
+        }
+        else
+        {
+            createExceptList(ex->lhs(), symbs, arrays);
+            createExceptList(ex->rhs(), symbs, arrays);
+        }
+    }
+}
+
+ArraySet DvmhRegionInserter::excludePrivates(const ArraySet& block) const
+{
+    ArraySet tmp;
+    for (auto& array : block)
+    {
+        set<DIST::Array*> realArrayRefs;
+        getRealArrayRefs(array, array, realArrayRefs, arrayLinksByFuncCalls);
+
+        bool isNotPrivate = true;
+        for (auto& elem : realArrayRefs)
+            if (elem->IsPrivateInLoop())
+                isNotPrivate = false;
+
+        if (!array->IsOmpThreadPrivate() && isNotPrivate)
+            tmp.insert(array);
+    }
+    return tmp;
+}
+
 //TODO:
 SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<ParallelRegion*>* regs)
 {
     if (st == NULL)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    if (st->variant() < 0)
+        return st->lastNodeOfStmt()->lexNext();
 
     // Skip regions
     if (st->variant() == ACC_REGION_DIR)
@@ -384,7 +438,6 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
         auto readBlocks = get_used_arrs_for_block(st, DVMH_REG_RD);
         auto writeBlocks = get_used_arrs_for_block(st, DVMH_REG_WT);
 
-        //TODO: do it better, exclude only true private arrays
         readBlocks = excludePrivates(readBlocks);
         writeBlocks = excludePrivates(writeBlocks);
 
@@ -401,11 +454,28 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
     const int var = st->variant();
     bool skipGetActualIfProcCall = false;
     bool skipActualIfProcCall = false;
+    
+    //TODO: do it better!
     if (var == PROC_STAT)
     {
         const char* procName = st->symbol()->identifier();
         if (isIntrinsicFunctionName(procName) == 0)
+        {
             skipGetActualIfProcCall = skipActualIfProcCall = true;
+
+            ArraySet arraysToGetActual, arraysToActual;
+            analyzeFunctionParameters(st->expr(0), arraysToGetActual);
+
+            auto writeArrays = get_used_arrs(st, DVMH_REG_WT);
+            writeArrays = excludePrivates(writeArrays);
+
+            for (auto& array : writeArrays)
+                if (arraysToGetActual.find(array) != arraysToGetActual.end())
+                    arraysToActual.insert(array);
+
+            insertActualDirective(st, arraysToGetActual, ACC_GET_ACTUAL_DIR, true);
+            insertActualDirective(st->lexNext(), arraysToActual, ACC_ACTUAL_DIR, false);
+        }
     }    
 
     if (!isSgExecutableStatement(st) || isDVM_stat(st) ||
@@ -422,31 +492,37 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st, const vector<Paralle
     //TODO: read and write !!!
     if (!skipGetActualIfProcCall && var != READ_STAT)
     {
-        set<string> exceptSymbsForActual;
+        set<string> exceptSymbsForGetActual;
+        ArraySet forGetActual;
+
         if (var != WRITE_STAT)
             for (int z = 0; z < 3; ++z)
-                createExceptList(st->expr(z), exceptSymbsForActual);
+                createExceptList(st->expr(z), exceptSymbsForGetActual, forGetActual);
                 
         auto readArrays = get_used_arrs(st, DVMH_REG_RD);
-
+        readArrays = excludePrivates(readArrays);
         //filtering by writes in DVMH regions
         readArrays = applyUseFilter(readArrays, writesToArraysInParallelLoops);
-        readArrays = excludePrivates(readArrays);
+        readArrays.insert(forGetActual.begin(), forGetActual.end());
 
-        insertActualDirective(st, readArrays, ACC_GET_ACTUAL_DIR, true, &exceptSymbsForActual);
+        insertActualDirective(st, readArrays, ACC_GET_ACTUAL_DIR, true, &exceptSymbsForGetActual);
     }
 
     if (!skipActualIfProcCall && var != WRITE_STAT)
     {
         set<string> exceptSymbsForActual;
+        ArraySet forActual;
+
         if (var != READ_STAT)
             for (int z = 0; z < 3; ++z)
-                createExceptList(st->expr(z), exceptSymbsForActual);
+                createExceptList(st->expr(z), exceptSymbsForActual, forActual);
 
         auto writeArrays = get_used_arrs(st, DVMH_REG_WT);
         writeArrays = excludePrivates(writeArrays);
         //filtering by use in DVMH regions
         writeArrays = applyUseFilter(writeArrays, usedArraysInParallelLoops);
+        writeArrays.insert(forActual.begin(), forActual.end());
+
         insertActualDirective(st->lexNext(), writeArrays, ACC_ACTUAL_DIR, false, &exceptSymbsForActual);
     }
     return st->lexNext();
@@ -555,6 +631,21 @@ void DvmhRegionInserter::insertDirectives(const vector<ParallelRegion*> *regs)
     }
 }
 
+static bool hasFuncCalls(SgExpression* ex)
+{
+    if (ex)
+    {
+        if (ex->variant() == FUNC_CALL && !isIntrinsicFunctionName(ex->symbol()->identifier()))
+            return true;
+
+        bool resH = hasFuncCalls(ex->rhs());
+        bool resL = hasFuncCalls(ex->rhs());
+
+        return resH || resL;
+    }
+    return false;
+}
+
 void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &arraySet, int variant, bool moveComments, const set<string>* exceptSymbs)
 {
     if (!st || (variant != ACC_ACTUAL_DIR && variant != ACC_GET_ACTUAL_DIR) || (arraySet.size() == 0))
@@ -605,8 +696,9 @@ void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &
     }
     else if (variant == ACC_ACTUAL_DIR)
     {
+        
         auto prev = st->lexPrev();
-        if (prev && prev->variant() == ASSIGN_STAT)
+        if (prev && prev->variant() == ASSIGN_STAT && !hasFuncCalls(prev->expr(1)) && !hasFuncCalls(prev->expr(0)))
         {
             // actualizing only left part of assign
             list.clear();
@@ -618,7 +710,6 @@ void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &
             if (arrayList)
             {
                 SgExpression* listA = arrayList->lhs();
-
                 if (listA && listA->variant() == EXPR_LIST)
                     if (listA->lhs() && listA->lhs()->variant() == DDOT)
                         if (listA->lhs()->lhs() && listA->lhs()->lhs()->variant() == DDOT)
@@ -639,6 +730,7 @@ void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &
     actualizingSt->setExpression(0, makeExprList(list));
 
     st->insertStmtBefore(*actualizingSt, *st->controlParent());
+    
     if (moveComments)
     {
         if (st->comments())
@@ -712,7 +804,7 @@ static string getInterfaceBlock(SgStatement* func, const FuncParam& pars)
     if (!func->switchToFile())
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-    auto copy = duplicateProcedure(func, "", false, false, false, true);
+    auto copy = duplicateProcedure(func, NULL, false, false, false, true);
 
     const set<string> ident(pars.identificators.begin(), pars.identificators.end());
 

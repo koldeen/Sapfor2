@@ -25,3 +25,14 @@ void DvmhRegion::append(DvmhRegion& region)
     for (auto& loop : region.getLoops())
         addLoop(loop);
 }
+
+int DvmhRegion::getLineForSort() const
+{
+    if (loops.size() == 0)
+        return -1;
+
+    int line = loops[0]->lineNum;
+    if (line < 0)
+        line = loops[0]->altLineNum;
+    return line;
+}

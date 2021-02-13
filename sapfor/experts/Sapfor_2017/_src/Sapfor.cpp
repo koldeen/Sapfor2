@@ -551,6 +551,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             bool res = EquivalenceChecker(file, file_name, parallelRegions, SPF_messages);
             verifyOK &= res;
         }
+        else if (curr_regime == VERIFY_OPERATORS)
+        {
+            bool res = OperatorChecker(file, SPF_messages);
+            verifyOK &= res;
+        }
         else if (curr_regime == CREATE_PARALLEL_DIRS)
         {
             auto &loopsInFile = getObjectForFileFromMap(file_name, loopGraph);
@@ -804,7 +809,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == VERIFY_COMMON)
         {
-            bool res = CommonBlockChecker(file, file_name, commonBlocks, getObjectForFileFromMap(file_name, SPF_messages));
+            bool res = CommonBlockChecker(file, file_name, commonBlocks, SPF_messages);
             verifyOK &= res;
         }
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
@@ -1072,6 +1077,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             replaceStructuresToSimpleTypes(file);
         else if (curr_regime == PURE_INTENT_INSERT)
             intentInsert(getObjectForFileFromMap(file_name, allFuncInfo));
+        else if (curr_regime == REMOVE_UNUSED_FUNCTIONS)
+        {
+            auto funcsForFile = getObjectForFileFromMap(file_name, allFuncInfo);
+            for (auto& func : funcsForFile)
+                if (!func->doNotInline && func->deadFunction)
+                    func->funcPointer->GetOriginal()->setUnparseIgnore(true);
+        }
         else if (curr_regime == TEST_PASS)
         {
         //test pass
@@ -1409,7 +1421,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
              curr_regime == VERIFY_DVM_DIRS ||
              curr_regime == VERIFY_EQUIVALENCE ||
              curr_regime == VERIFY_COMMON ||
-             curr_regime == VERIFY_FUNC_DECL)
+             curr_regime == VERIFY_FUNC_DECL || 
+             curr_regime == VERIFY_OPERATORS)
     {
         if (verifyOK == false)
             throw(-1);
@@ -1959,27 +1972,80 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         map<SgStatement*, set<SgSymbol*>> newSymbsToDeclare;
         map<string, FuncInfo*> tmpM;
         createMapOfFunc(allFuncInfo, tmpM);
+        FuncInfo* mainF = NULL;
         for (auto& elem : tmpM)
-        {
             if (elem.second->isMain)
+                mainF = elem.second;
+        checkNull(mainF, convertFileName(__FILE__).c_str(), __LINE__);
+        
+        //inliner(mainF->funcName, allFuncInfo, SPF_messages, newSymbsToDeclare);
+        //inDataProc.push_back(make_tuple("zran3", "mg.f", 197));
+        //inDataProc.push_back(make_tuple("ini", "ssubr117.f", 23));
+        
+#if 1
+        if (inDataProc.size())
+        {
+            map<int, vector<int>> sortByLvl;
+
+            int maxLvlCall = 0;
+            for (int z = 0; z < inDataProc.size(); ++z)
             {
-                inliner(elem.second->funcName, allFuncInfo, SPF_messages, newSymbsToDeclare); // DEBUG
-                break;
+                if (std::get<2>(inDataProc[z]) != -1)
+                {
+                    int lvl = getLvlCall(mainF, 0, std::get<0>(inDataProc[z]), std::get<1>(inDataProc[z]), std::get<2>(inDataProc[z]));
+                    if (lvl == -1)
+                    {
+                        bool found = false;
+                        for (auto& func : tmpM)
+                        {
+                            if (func.second->isMain)
+                                continue;
+                            int lvlTmp = getLvlCall(func.second, 0, std::get<0>(inDataProc[z]), std::get<1>(inDataProc[z]), std::get<2>(inDataProc[z]));
+                            if (lvlTmp != -1)
+                                lvl = std::max(lvl, lvlTmp);
+                        }
+
+                        if (lvl == -1)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    }
+                    maxLvlCall = std::max(maxLvlCall, lvl);
+                    sortByLvl[lvl].push_back(z);
+                }
+            }
+
+            for (int z = 0; z < inDataProc.size(); ++z)
+                if (std::get<2>(inDataProc[z]) == -1)
+                    sortByLvl[maxLvlCall + 1].push_back(z);
+
+            for (auto& byLvl : sortByLvl)
+            {
+                for (auto& idx : byLvl.second)
+                {
+                    auto& tup = inDataProc[idx];
+
+                    if (std::get<2>(tup) != -1)
+                    {
+                        __spf_print(1, "call inliner with [%s %s %d]\n", std::get<1>(tup).c_str(), std::get<0>(tup).c_str(), std::get<2>(tup));
+                        inliner(std::get<1>(tup), std::get<0>(tup), std::get<2>(tup), allFuncInfo, SPF_messages, newSymbsToDeclare);
+                    }
+                }
             }
         }
-        //inliner("lhsinit", 1574, allFuncInfo, SPF_messages); // DEBUG
-        //inliner("pro_hz", 1326, allFuncInfo, SPF_messages); // DEBUG
-        
-        /*for (auto &tup : inDataProc)
+        else if (inDataChains.size())
         {
-            bool error = inliner(std::get<0>(tup), std::get<1>(tup), std::get<2>(tup), allFuncInfo, SPF_messages);
-            if (error)
-                internalExit = 1;
-        }*/
-
+            setInlineAttributeToCalls(tmpM, inDataChains, hiddenData);
+            
+            for (auto& startPoint : inDataChainsStart)
+            {
+                __spf_print(1, "call inliner from '%s'\n", startPoint.c_str());
+                inliner(startPoint, allFuncInfo, SPF_messages, newSymbsToDeclare);
+            }
+        }
+        else if (inDataChainsStart.size())
+            inliner(*inDataChainsStart.begin(), allFuncInfo, SPF_messages, newSymbsToDeclare);
+#endif
         createDeclarations(newSymbsToDeclare);
     }
-
 
 #if _WIN32
     const float elapsed = duration_cast<milliseconds>(high_resolution_clock::now() - timeForPass).count() / 1000.;
@@ -2122,6 +2188,8 @@ static SgProject* createProject(const char *proj_name)
         const string fileN = file->filename();
         auto first = file->firstStatement();
         SgStatement* lastValid = NULL;
+
+        const string toFind = "!SPF SHADOW FILES";
         for (SgStatement* st = first->lexNext(), *stPrev = first; 
              st; 
              st = st->lexNext(), stPrev = stPrev->lexNext())
@@ -2129,10 +2197,13 @@ static SgProject* createProject(const char *proj_name)
             if (st->comments())
             {
                 string comm(st->comments());
-                if (comm.find("!SPF SHADOW FILES") != string::npos)
+                if (comm.find(toFind) != string::npos)
                 {
                     if (st->variant() == CONTROL_END)
+                    {
+                        extractComments(st, toFind);
                         lastValid = st;
+                    }
                     else
                         lastValid = stPrev;
                     break;
@@ -2151,15 +2222,15 @@ static SgProject* createProject(const char *proj_name)
                 st = st->lexNext();
             }
 
-            /*for (auto st = lastValid->lexNext(); st; st = st->lexNext())
-                ;*/
-
+            __spf_print(1, "hidden data for file '%s'\n", file->filename());
             set<int> validVars = { PROG_HEDR, FUNC_HEDR, PROC_HEDR, BLOCK_DATA, MODULE_STMT };
             for (auto& elem : toExtract)
             {
                 int var = elem->variant();
                 if (validVars.find(var) == validVars.end())
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                __spf_print(1, "  [%s, %d]\n", elem->fileName(), elem->lineNumber());
                 hiddenData[fileN].push_back(elem->extractStmt());
             }
             lastValid->setLexNext((SgStatement*)NULL);
@@ -2463,6 +2534,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case PURE_COMMON_TO_PARAMS:
     case PURE_SAVE_TO_PARAMS:
     case PURE_MODULE_TO_PARAMS:
+    case REMOVE_UNUSED_FUNCTIONS:
     case TEST_PASS:
         runAnalysis(*project, curr_regime, false);
     case SUBST_EXPR_AND_UNPARSE:
@@ -2532,6 +2604,7 @@ int main(int argc, char **argv)
         bool printText = false;
 
         int serverPort = -1;
+        bool printPasses = false;
 
         for (int i = 0; i < argc; ++i)
         {
@@ -2556,6 +2629,8 @@ int main(int argc, char **argv)
                     i++;
                     curr_regime = atoi(argv[i]);
                 }
+                else if (string(curr_arg) == "-passInfo")
+                    printPasses = true;
                 else if (string(curr_arg) == "-q1")
                 {
                     i++;
@@ -2618,7 +2693,7 @@ int main(int argc, char **argv)
                         curr_regime = CREATE_NESTED_LOOPS;
                 }
                 else if (curr_arg[1] == 'h')
-                    printHelp(passNames, EMPTY_PASS);
+                    ;// printHelp(passNames, EMPTY_PASS);
                 else if (string(curr_arg) == "-leak")
                 {
                     leakMemDump = 1;
@@ -2733,6 +2808,27 @@ int main(int argc, char **argv)
                         serverPort = atoi(argv[i]);
                     break;
                 }
+                else if (string(curr_arg) == "-inlineH")
+                {
+                    inDataProc.clear();
+                    inDataChainsStart.clear();
+                    inDataChains.clear();
+
+                    i++;
+                    inDataChainsStart.insert(argv[i]);
+                }
+                else if (string(curr_arg) == "-inlineI")
+                {
+                    inDataProc.clear();
+                    inDataChainsStart.clear();
+                    inDataChains.clear();
+
+                    i++;
+                    string funcName = argv[i++];
+                    int line = atoi(argv[i++]);
+                    string fileName = argv[i];
+                    inDataProc.push_back(make_tuple(funcName, fileName, line));
+                }
                 break;
             default:
                 break;
@@ -2754,7 +2850,7 @@ int main(int argc, char **argv)
         else
         {
             if (curr_regime == EMPTY_PASS)
-                printHelp(passNames, EMPTY_PASS);
+                printHelp(passNames, printPasses ? EMPTY_PASS : -1);
 
             runPass(curr_regime, proj_name, folderName);
             if (printText)

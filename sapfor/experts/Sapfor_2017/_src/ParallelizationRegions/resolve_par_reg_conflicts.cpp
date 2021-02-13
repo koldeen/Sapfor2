@@ -994,7 +994,7 @@ static void copyFunction(ParallelRegion *region,
         string newFuncName = string(funcSymb->identifier()) + suffix;
                 
         // create copy function symbol and copy function for original function
-        SgStatement* copyFunc = duplicateProcedure(funcStat, newFuncName, false, false, false);
+        SgStatement* copyFunc = duplicateProcedure(funcStat, &newFuncName, false, false, false);
         newFuncSymb = copyFunc->symbol();
 
         if (SgFile::switchToFile(func->fileName) == -1)

@@ -2368,10 +2368,10 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
             }
             else
             {
-                char* tmp = new char[strlen("ifdef ") + strlen(fermiPreprocDir) + 1];
-                tmp[0] = 0;
-                strcat(tmp, "#ifdef ");
-                strcat(tmp, fermiPreprocDir);
+                std::string preproc = std::string("#ifdef ") + fermiPreprocDir;
+                char* tmp = new char[preproc.size() + 1];
+                strcpy(tmp, preproc.data());
+                
                 st_end->insertStmtBefore(*PreprocessorDirective(tmp), *st_hedr);
                 e = &SgAssignOp(*new SgVarRefExp(shared_mem), *new SgValueExp(shared_mem_count));
                 stmt = new SgCExpStmt(*e);

@@ -74,7 +74,7 @@ void Sleep(int millisec) { usleep(millisec * 2000); }
 
 #define SERV "[SERVER]"
 
-static const char* version = "2";
+static const char* VERSION = "2";
 
 extern void __bst_create(const char* name);
 extern bool __bst_tryToLock();
@@ -369,8 +369,8 @@ static bool doCommand(SOCKET& spfSoc, SOCKET& javaSoc, SOCKET& serverSoc1, SOCKE
     }
     else if (command.find("get_version:") == 0)
     {
-        __print(SERV, "Get version of server: %s", version);
-        returnToJava = version;
+        __print(SERV, "Get version of server: %s", VERSION);
+        returnToJava = string(VERSION) + " |" + __DATE__ + "| |" + __TIME__ + "|\n";
         return true;
     }
     else
@@ -411,29 +411,25 @@ static bool isVizDebug(int argc, char** argv)
 
 static int doRecv(SOCKET& soc, string& command)
 {
-    int count = 0;
-    int err = 0;
-    const int maxSize = 4096;
-    char* buf = new char[maxSize + 1];
-
-    do 
+    int count = 0; //общее количество прочитаного
+    int err = 0; //количество прочитанного на данной итерации.
+    const int maxSize = 4096; //максимальный размер прочитываемой за раз порции.
+    char* buf = NULL; //буфер
+    do
     {
+        buf = new char[maxSize + 1];
         err = recv(soc, buf, maxSize, 0);
-        if (err > 0)
-            count += err;
-        if (count >= maxSize)
+        if (err > 0) 
         {
+            count += err;
             buf[err] = '\0';
             command += buf;
         }
-    } while (err > 0 && err == maxSize);
+        delete[] buf;
+        buf = NULL;
 
-    if (err > 0)
-    {
-        buf[err] = '\0';
-        command += buf;
-    }
-    delete []buf;
+    } while (err > 0 && command.back() != '\n');
+    __print(SERV, "'%s' length='%d'\n", command.c_str(), command.length());
     return err < 0 ? err : count;
 }
 
@@ -599,7 +595,6 @@ int main(int argc, char** argv)
                         else
                         {
                             memcpy(buf, returnToJava.c_str(), sizeof(char) * returnToJava.size());
-                            buf[returnToJava.size()] = '\n';
                             needToRecv = returnToJava.size();
                         }
 
@@ -608,6 +603,7 @@ int main(int argc, char** argv)
                         {
                             closesocket(javaSoc);
                             javaSoc = INVALID_SOCKET;
+                            break;
                         }
                         else
                         {
@@ -615,7 +611,6 @@ int main(int argc, char** argv)
                             if (needToRecv > 1)
                                 continue;
                         }
-
                     }
                     break;
                 }

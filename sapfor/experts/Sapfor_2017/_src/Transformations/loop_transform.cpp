@@ -10,6 +10,7 @@
 #include "../SageAnalysisTool/definesValues.h"
 #include "../Utils/SgUtils.h"
 #include "../SageAnalysisTool/depGraph.h"
+#include "../GraphCall/graph_calls_func.h"
 
 using std::pair;
 using std::map;
@@ -601,7 +602,7 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, void*> &depInfo
                 LoopGraph *firstChild = current->children.at(0);
 
                 if (outerTightened)
-                    firstChild->perfectLoop = ((SgForStmt *) firstChild->loop)->isPerfectLoopNest();
+                    firstChild->perfectLoop = countPerfectLoopNest(firstChild->loop);
 
                 __spf_print(1, "createNestedLoops for loop at %d. Tighten success: %d\n", current->lineNum, outerTightened);
 

@@ -977,7 +977,7 @@ static SgStatement* convertFromSumToLoop(SgStatement *assign, SgFile *file, vect
 
 static SgStatement* convertFromWhereToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
 {
-    SgStatement* result;
+    SgStatement* result = NULL;
     
     if (assign->expr(0) == NULL || assign->expr(1) == NULL)
         return result;
@@ -1140,6 +1140,19 @@ static SgStatement* convertFromWhereToLoop(SgStatement *assign, SgFile *file, ve
     return result;
 }
 
+bool notDeletedVectorAssign(SgStatement* st)
+{
+    if (!st)
+        return false;
+
+    SgExpression* rPart = st->expr(1);
+    if (!rPart)
+        return false;
+
+    const int var = rPart->variant();
+    return (var == ADD_OP || var == MULT_OP || var == SUBT_OP || var == FUNC_CALL && !strcmp(rPart->symbol()->identifier(), "sum") || var == ARRAY_REF);
+}
+
 // functionality: convert A[(...)] = B[(...)] to loop 
 //                move (create copy) init assigns in DECL before the first executable
 void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
@@ -1246,7 +1259,9 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
             for (auto& par : parameters)
             {
                 st->insertStmtBefore(*par, *st->controlParent());
-                st->nodeBefore()->setUnparseIgnore(true);
+                auto inserted = st->lexPrev();
+                inserted->setUnparseIgnore(true);
+                inserted->addAttribute(SPF_PARAMETER_OP, st, sizeof(SgStatement*));
             }
             
             if (firstExec && st->variant() == USE_STMT)
@@ -1363,24 +1378,12 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
         for (auto &move : toMove)
         {
             move.first->addAttribute(ASSIGN_STAT, move.second, sizeof(SgStatement*));
+
             char *comments = move.first->comments();
             if (comments)
                 move.second->setComments(comments);
         }
     }
-}
-
-bool notDeletedVectorAssign(SgStatement *st)
-{
-    if (!st)
-        return false;
-
-    SgExpression* rPart = st->expr(1);
-    if (!rPart)
-        return false;
-
-    const int var = rPart->variant();
-    return (var == ADD_OP || var == MULT_OP || var == SUBT_OP || var == FUNC_CALL && !strcmp(rPart->symbol()->identifier(), "sum"));
 }
 
 static bool isUnderParallelLoop(SgStatement *st)
@@ -1413,7 +1416,8 @@ static bool hasParallelDir(SgStatement* st)
     SgStatement* last = st->lastNodeOfStmt();
     while (st != last)
     {
-        if (st->variant() == FOR_NODE && st->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
+        int var = st->variant();
+        if ((var == FOR_NODE || var == -FOR_NODE) && st->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
             has = true;
         st = st->lexNext();
     }
@@ -1442,7 +1446,6 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
 
-        vector<pair<SgStatement*, SgStatement*>> toMove;
         set<SgSymbol*> newDeclarations;
         set<SgSymbol*> declaratedInFunction;
 
@@ -1462,49 +1465,58 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
                 lastDeclarated = st;
         }
 
+        vector<SgStatement*> toDel;
         for (st = file->functions(i); st != lastNode; st = st->lexNext())
         {
             for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ASSIGN_STAT }))
             {
                 if (reversed)
                 {
-                    if (data->lineNumber() > 0)
+                    if (data->lineNumber() < 0)
                     {
-                        toMove.push_back(make_pair(st, data));
-                        st->lexPrev()->insertStmtAfter(*data, *st->controlParent());
+                        data->setVariant(abs(data->variant()));
 
-                        data->addAttribute(ASSIGN_STAT, st, sizeof(SgStatement*));
+                        if (notDeletedVectorAssign(st))
+                            st->setVariant(-abs(st->variant()));
+                        else
+                            st->setVariant(abs(st->variant()));
                     }
                 }
                 else
                 {
-                    if (data->lineNumber() < 0 && 
-                        (isUnderParallelLoop(st) || (notDeletedVectorAssign(st) && hasParallelDir(data))))
+                    if (data->lineNumber() < 0)
                     {
-                        toMove.push_back(make_pair(st, data));
-                        if (st->lexPrev()->variant() == DVM_REMOTE_ACCESS_DIR)
-                            toMove.push_back(make_pair(st->lexPrev(), (SgStatement*)NULL));
-                        st->insertStmtAfter(*data, *st->controlParent());
+                        if (isUnderParallelLoop(st) || notDeletedVectorAssign(st))
+                        {
+                            st->setVariant(-abs(st->variant()));
+                            auto prev = st->lexPrev();
+                            if (prev->variant() == DVM_REMOTE_ACCESS_DIR)
+                                toDel.push_back(prev);
 
-                        if (data->variant() == FOR_NODE || data->variant() == IF_NODE)
-                        {
-                            for (auto st_loc = data; st_loc != data->lastNodeOfStmt(); st_loc = st_loc->lexNext())
-                                if (st_loc->variant() == FOR_NODE)
-                                    newDeclarations.insert(st_loc->symbol());
+                            data->setVariant(abs(data->variant()));
+
+                            if (data->variant() == FOR_NODE || data->variant() == IF_NODE)
+                            {
+                                for (auto st_loc = data; st_loc != data->lastNodeOfStmt(); st_loc = st_loc->lexNext())
+                                    if (st_loc->variant() == FOR_NODE)
+                                        newDeclarations.insert(st_loc->symbol());
+                            }
+                            else if (data->variant() == ASSIGN_STAT && data->lexNext()->variant() == FOR_NODE)
+                            {
+                                for (auto st_loc = data->lexNext(); st_loc != data->lexNext()->lastNodeOfStmt(); st_loc = st_loc->lexNext())
+                                    if (st_loc->variant() == FOR_NODE)
+                                        newDeclarations.insert(st_loc->symbol());
+                            }
                         }
-                        else if (data->variant() == ASSIGN_STAT && data->lexNext()->variant() == FOR_NODE)
-                        {
-                            for (auto st_loc = data->lexNext(); st_loc != data->lexNext()->lastNodeOfStmt(); st_loc = st_loc->lexNext())
-                                if (st_loc->variant() == FOR_NODE)
-                                    newDeclarations.insert(st_loc->symbol());
-                        }
+                        else
+                            data->setVariant(-abs(data->variant()));
                     }
                 }
             }
         }
 
-        for (auto& move : toMove)
-            move.first->extractStmt();
+        for (auto& elem : toDel)
+            elem->extractStmt();
 
         //insert new declaration of symbols for converted loops
         for (auto &toDecl : newDeclarations)
@@ -1538,7 +1550,12 @@ void restoreAssignsFromLoop(SgFile *file)
                     toMove.push_back(make_pair(st, data));
         }
 
-        for (auto &move : toMove)
-            move.second->extractStmt();
+        for (auto& move : toMove)
+        {
+            if (notDeletedVectorAssign(move.first))
+                move.first->setVariant(-abs(move.first->variant()));
+            else
+                move.second->setVariant(-abs(move.second->variant()));
+        }
     }
 }

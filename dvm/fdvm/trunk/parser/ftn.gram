@@ -3141,7 +3141,10 @@ simple_const: numeric_bool_const
             | string_constant opt_substring
              {
               if ($2 != LLNULL)
+              {
 		 $$ = make_llnd(fi, ARRAY_OP, $1, $2, SMNULL); 
+                 $$->type = global_string;
+              }
 	      else 
                  $$ = $1;
              }

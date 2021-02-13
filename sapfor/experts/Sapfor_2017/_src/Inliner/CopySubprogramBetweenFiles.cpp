@@ -25,6 +25,24 @@ using std::to_string;
 
 #define DEB 0
 
+extern map<string, vector<SgStatement*>> hiddenData;
+
+static map<SgSymbol*, SgSymbol*> linkToOrig;
+static map<pair<string, int>, map<string, SgSymbol*>> createdByFunc; // key == <funcName, fileID>
+static map<string, int> createdVarCounterByName;
+static map<pair<string, int>, map<string, pair<SgSymbol*, string>>> replacedConstRef; // key == <funcName, fileID>
+static map<pair<string, int>, set<SgValueExp*>> dataDeclsByFunc; // key == <funcName, fileID>
+
+static void checkSymbols(const int currFileId, const set<SgSymbol*>& symbs)
+{    
+    for (auto& symb : symbs)
+        if (symb->getFileId() != currFileId)
+        {
+            __spf_print(1, "check failed - given %d, correct %d\n", symb->getFileId(), currFileId); // DEBUG
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+}
+
 static map<string, SgExpression*> createMapOfArgs(SgStatement* tempHedr, SgExpression* actualArgs)
 {
     __spf_print(DEB, "------create map of vars------\n"); // DEBUG
@@ -48,11 +66,12 @@ static map<string, SgExpression*> createMapOfArgs(SgStatement* tempHedr, SgExpre
     return vars;
 }
 
-static map<string, map<string, SgSymbol*>> createdByFunc;
-static map<string, int> createdVarCounterByName;
-
 static inline SgSymbol* createSymbAndDecl(const string& funcName, const string& varName, SgSymbol* newS, set<SgSymbol*>& newSymbols, SgType* type = NULL)
 {
+    SgSymbol* original = newS;
+    if (newS)
+        newS = &newS->copy();
+
     int* count;
     if (createdVarCounterByName.find(varName) == createdVarCounterByName.end())
     {
@@ -66,8 +85,46 @@ static inline SgSymbol* createSymbAndDecl(const string& funcName, const string& 
     int nextCount = checkSymbNameAndCorrect(base, count[0]);
     const string newName = base + to_string(nextCount);
 
+    const pair<string, int> key = make_pair(funcName, current_file_id);
     if (newS)
-        newS->changeName(newName.c_str());
+    {
+        if (isSgConstantSymb(newS))
+        {
+            if (funcName != "null" && createdByFunc[key].find(varName) == createdByFunc[key].end() ||
+                funcName == "null")
+            {
+
+                auto it = replacedConstRef[key].find(newS->identifier());
+                if (it != replacedConstRef[key].end() && it->second.first->identifier() != it->second.second)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                if (it == replacedConstRef[key].end())
+                {
+                    //check replaces
+                    SgSymbol* wasDone = NULL;
+                    for (auto& elem : replacedConstRef[key])
+                        if (elem.second.second == varName)
+                            wasDone = elem.second.first;
+
+                    if (wasDone == NULL)
+                    {
+                        replacedConstRef[key][newS->identifier()] = make_pair(newS, newName.c_str());
+                        newS->changeName(newName.c_str());
+                    }
+                    else
+                        newS = wasDone;
+                }
+            }
+            else if (funcName != "null" && createdByFunc[key].find(varName) != createdByFunc[key].end())
+            {
+                ; //skip
+            }
+            else
+                newS->changeName(newName.c_str());
+        }
+        else
+            newS->changeName(newName.c_str());
+    }
     else
         newS = findSymbolOrCreate(current_file, newName, type);
 
@@ -76,29 +133,82 @@ static inline SgSymbol* createSymbAndDecl(const string& funcName, const string& 
 
     if (funcName != "null")
     {
-        auto itS = createdByFunc[funcName].find(varName);
-        if (itS == createdByFunc[funcName].end())
+        auto itS = createdByFunc[key].find(varName);
+        if (itS == createdByFunc[key].end())
         {
-            createdByFunc[funcName][varName] = newS;
+            createdByFunc[key][varName] = newS;
             count[0] = nextCount;
+            if (original && (original->attributes() & ALLOCATABLE_BIT))
+                linkToOrig[newS] = original;
         }
         else
             newS = itS->second;
     }
+    //printf("newS %s = %d\n", newS->identifier(), newS->id());
     newSymbols.insert(newS);
+    checkSymbols(current_file_id, newSymbols);
     return newS;
 }
 
 static SgValueExp* oneExpr = NULL;
 static SgValueExp* zeroExpr = NULL;
-//TODO: for allocatable
+
 static vector<SgExpression*> getLowBounds(SgSymbol* arrayS)
-{   
+{
+
     if (oneExpr == NULL)
         oneExpr = new SgValueExp(1);
 
-    auto type = isSgArrayType(arrayS->type());
-    auto list = type->getDimList();
+    SgExpression* list = NULL;
+    
+
+    if (arrayS->attributes() & ALLOCATABLE_BIT)
+    {   
+        SgSymbol* copyFrom = NULL;
+        if (linkToOrig.find(arrayS) == linkToOrig.end())
+            copyFrom = arrayS;
+        else
+            copyFrom = linkToOrig[arrayS];
+
+        SgStatement* decl = declaratedInStmt(copyFrom);
+        checkNull(decl, convertFileName(__FILE__).c_str(), __LINE__);
+
+        int consistInAllocates = 0;
+        const string origName = OriginalSymbol(copyFrom)->identifier();
+
+        for (auto& data : getAttributes<SgStatement*, SgStatement*>(decl, set<int>{ ALLOCATE_STMT }))
+        {
+            if (data->variant() != ALLOCATE_STMT)
+                continue;
+
+            SgExpression* iter = data->expr(0);
+            
+            while (iter)
+            {
+                SgArrayRefExp* arrayRef = isSgArrayRefExp(iter->lhs());
+                if (arrayRef != NULL)
+                {
+                    SgSymbol* origS = OriginalSymbol(arrayRef->symbol());
+                    if (origS->identifier() == origName)
+                    {
+                        consistInAllocates++;
+                        list = iter->lhs()->lhs();
+                    }
+                }
+                iter = iter->rhs();
+            }
+        }
+
+        if (consistInAllocates != 1)
+            list = NULL;
+
+        checkNull(list, convertFileName(__FILE__).c_str(), __LINE__);
+    }
+    else
+    {
+        auto type = isSgArrayType(arrayS->type());
+        list = type->getDimList();
+    }
 
     vector<SgExpression*> bounds;
     while (list)
@@ -113,10 +223,11 @@ static vector<SgExpression*> getLowBounds(SgSymbol* arrayS)
     return bounds;
 }
 
-
-//TODO: for allocatable
 static vector<SgExpression*> getBoundsExpression(SgSymbol* arrayS)
 {
+    if (arrayS->attributes() & ALLOCATABLE_BIT)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
     auto type = isSgArrayType(arrayS->type());
     auto list = type->getDimList();
 
@@ -133,8 +244,85 @@ static vector<SgExpression*> getBoundsExpression(SgSymbol* arrayS)
     return bounds;
 }
 
+static SgArrayRefExp* addressPass(SgArrayRefExp* result, SgArrayRefExp* arrayExpOld, SgArrayRefExp* arrayExpNew,
+                                  const vector<SgExpression*>& boundsOld, const vector<SgExpression*>& boundsNew,
+                                  map<SgExpression*, string>& collection)
+{
+    //TODO: check dims position
+    for (int z = 0; z < boundsOld.size(); ++z)
+    {
+        checkNull(boundsOld[z], convertFileName(__FILE__).c_str(), __LINE__);
+        checkNull(boundsNew[z], convertFileName(__FILE__).c_str(), __LINE__);
+        if (isEqExpressions(boundsOld[z], boundsNew[z], collection))
+            result->addSubscript(arrayExpOld->subscript(z)->copy());
+        else
+            result->addSubscript(arrayExpOld->subscript(z)->copy() + (boundsNew[z]->copy() - boundsOld[z]->copy()));
+    }
+    return result;
+}
+
+static SgArrayRefExp* linearize(SgArrayRefExp* result, SgArrayRefExp* arrayExpOld, SgExpression* oldExp,
+                                map<string, vector<pair<SgSymbol*, SgExpression*>>>& argVarsLinearForm,
+                                const vector<SgExpression*>& boundsOld, const vector<SgExpression*>& boundsNew,
+                                map<SgExpression*, string>& collection)
+{
+    const string arrayName = oldExp->symbol()->identifier();
+    const int numOldSubs = arrayExpOld->numberOfSubscripts();
+
+    auto itL = argVarsLinearForm.find(arrayName);
+    if (itL == argVarsLinearForm.end())
+    {
+        vector<pair<SgSymbol*, SgExpression*>> newVars;
+        int boundsN = 0;
+        auto initDeclareBounds = getBoundsExpression(oldExp->symbol());
+        for (int z = 0; z < boundsOld.size() - 1; ++z)
+        {
+            pair<SgSymbol*, SgExpression*> forDim;
+            string dimName = "s_";
+            int nextBoound = checkSymbNameAndCorrect(dimName, boundsN);
+            dimName += to_string(nextBoound);
+
+            forDim.first = new SgSymbol(VARIABLE_NAME, dimName.c_str());
+            forDim.second = initDeclareBounds[z];
+            newVars.push_back(forDim);
+        }
+        itL = argVarsLinearForm.insert(itL, make_pair(arrayName, newVars));
+    }
+
+    SgExpression* linearForm = NULL;
+    if (numOldSubs != 0)
+    {
+        for (int z = 0; z < boundsOld.size(); ++z)
+        {
+            SgExpression* nextArg = &(arrayExpOld->subscript(z)->copy() - boundsOld[z]->copy());
+
+            for (int p = 0; p < z; ++p)
+                nextArg = &(*nextArg * *new SgVarRefExp(itL->second[p].first));
+
+            if (linearForm)
+                linearForm = &(*linearForm + *nextArg);
+            else
+                linearForm = nextArg;
+        }
+
+        int numS = result->numberOfSubscripts();
+        if (!isEqExpressions(zeroExpr, boundsNew[0], collection) && numS == 0)
+            linearForm = &(*linearForm + boundsNew[0]->copy());
+
+        if (numS == 0)
+            result->addSubscript(*linearForm);
+        else if (numS == 1)
+            result->replaceSubscripts(*result->subscript(0) + *linearForm);
+        else // TODO
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+    
+    return result;
+}
+
 static SgExpression* doReplace(SgExpression* oldExp, SgExpression* newExp, map<SgExpression*, string>& collection, 
-                               bool& needToReplace, map<string, vector<pair<SgSymbol*, SgExpression*>>>& argVarsLinearForm)
+                               map<string, vector<pair<SgSymbol*, SgExpression*>>>& argVarsLinearForm, 
+                               map<string, vector<Messages>>& messages)
 {
     if (oneExpr == NULL)
         oneExpr = new SgValueExp(1);
@@ -143,7 +331,6 @@ static SgExpression* doReplace(SgExpression* oldExp, SgExpression* newExp, map<S
         zeroExpr = new SgValueExp(0);
 
     SgExpression* retVal = NULL;
-    needToReplace = false;
     if (oldExp)        
     {
         if (oldExp->variant() == ARRAY_REF && oldExp->symbol() && oldExp->symbol()->type()->variant() == T_ARRAY)
@@ -154,6 +341,10 @@ static SgExpression* doReplace(SgExpression* oldExp, SgExpression* newExp, map<S
             SgArrayRefExp* arrayExpOld = isSgArrayRefExp(oldExp);
             SgArrayRefExp* arrayExpNew = isSgArrayRefExp(newExp);
 
+            //arrayExpOld->unparsestdout();
+            //arrayExpNew->unparsestdout();
+            //printf("\n");
+
             auto boundsOld = getLowBounds(oldExp->symbol());
             auto boundsNew = getLowBounds(newExp->symbol());
 
@@ -163,85 +354,31 @@ static SgExpression* doReplace(SgExpression* oldExp, SgExpression* newExp, map<S
             {
                 SgArrayRefExp* result = (SgArrayRefExp*)arrayExpNew->copyPtr();
                 if (boundsOld.size() != boundsNew.size() && boundsNew.size() != 1 && boundsOld.size() != 1)
+                {
+                    arrayExpOld->unparsestdout();
+                    arrayExpNew->unparsestdout();
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
 
                 if (boundsNew.size() == 1 && boundsOld.size() > 1)
-                {
-                    needToReplace = true;
-                    const string arrayName = oldExp->symbol()->identifier();
-                    auto itL = argVarsLinearForm.find(arrayName);
-                    if (itL == argVarsLinearForm.end())
-                    {
-                        vector<pair<SgSymbol*, SgExpression*>> newVars;
-                        int boundsN = 0;
-                        auto initDeclareBounds = getBoundsExpression(oldExp->symbol());
-                        for (int z = 0; z < boundsOld.size() - 1; ++z)
-                        {
-                            pair<SgSymbol*, SgExpression*> forDim;
-                            string dimName = "s_";                                                        
-                            int nextBoound = checkSymbNameAndCorrect(dimName, boundsN);
-                            dimName += to_string(nextBoound);
-
-                            forDim.first = new SgSymbol(VARIABLE_NAME, dimName.c_str());
-                            forDim.second = initDeclareBounds[z];
-                            newVars.push_back(forDim);
-                        }
-                        itL = argVarsLinearForm.insert(itL, make_pair(arrayName, newVars));
-                    }
-                    
-                    SgExpression* linearForm = NULL;
-                    for (int z = 0; z < boundsOld.size(); ++z)
-                    {                        
-                        SgExpression* nextArg = &(arrayExpOld->subscript(z)->copy() - boundsOld[z]->copy());
-                        for (int p = 0; p < z; ++p)
-                            nextArg = &(*nextArg * *new SgVarRefExp(itL->second[p].first));
-                        
-                        if (linearForm)
-                            linearForm = &(*linearForm + *nextArg);
-                        else
-                            linearForm = nextArg;
-                    }
-
-                    if (isEqExpressions(zeroExpr, boundsNew[0], collection))
-                        result->addSubscript(*linearForm);
-                    else
-                        result->addSubscript(*linearForm + boundsNew[0]->copy());
-                }
+                    result = linearize(result, arrayExpOld, oldExp, argVarsLinearForm, boundsOld, boundsNew, collection);
                 else if (boundsNew.size() > 1 && boundsOld.size() == 1)
                 {
+                    arrayExpOld->unparsestdout();
+                    arrayExpNew->unparsestdout();
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
                 else if (numOldSubs != 0)
-                {
-                    for (int z = 0; z < boundsOld.size(); ++z)
-                    {
-                        checkNull(boundsOld[z], convertFileName(__FILE__).c_str(), __LINE__);
-                        checkNull(boundsNew[z], convertFileName(__FILE__).c_str(), __LINE__);
-                        if (isEqExpressions(boundsOld[z], boundsNew[z], collection))
-                            result->addSubscript(arrayExpOld->subscript(z)->copy());
-                        else
-                            result->addSubscript(arrayExpOld->subscript(z)->copy() + (boundsNew[z]->copy() - boundsOld[z]->copy()));
-                    }
-                }
+                    result = addressPass(result, arrayExpOld, arrayExpNew, boundsOld, boundsNew, collection);
                 retVal = result;
             }
-            else if (numNewSubs >= numOldSubs)
+            else if (numNewSubs >= numOldSubs && numOldSubs != 0)
             {
                 SgArrayRefExp* result = new SgArrayRefExp(*arrayExpNew->symbol());
                 if (boundsOld.size() > boundsNew.size())
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                //TODO: check dims position
-                for (int z = 0; z < boundsOld.size(); ++z)
-                {
-                    checkNull(boundsOld[z], convertFileName(__FILE__).c_str(), __LINE__);
-                    checkNull(boundsNew[z], convertFileName(__FILE__).c_str(), __LINE__);
-                    if (isEqExpressions(boundsOld[z], boundsNew[z], collection))
-                        result->addSubscript(arrayExpOld->subscript(z)->copy());
-                    else
-                        result->addSubscript(arrayExpOld->subscript(z)->copy() + (boundsNew[z]->copy() - boundsOld[z]->copy()));
-                }                
-
+                result = addressPass(result, arrayExpOld, arrayExpNew, boundsOld, boundsNew, collection);
                 for (int z = 0; z < boundsNew.size() - boundsOld.size(); ++z)
                     result->addSubscript(arrayExpNew->subscript(boundsOld.size() + z)->copy());
 
@@ -249,9 +386,17 @@ static SgExpression* doReplace(SgExpression* oldExp, SgExpression* newExp, map<S
             }
             else
             {
-                retVal = newExp->copyPtr();
-                retVal->setLhs(oldExp->lhs());
-                retVal->setRhs(oldExp->rhs());
+                if (boundsNew.size() == 1 && boundsOld.size() > 1)
+                {
+                    SgArrayRefExp* result = (SgArrayRefExp*)arrayExpNew->copyPtr();
+                    retVal = linearize(result, arrayExpOld, oldExp, argVarsLinearForm, boundsOld, boundsNew, collection);
+                }
+                else
+                {
+                    retVal = newExp->copyPtr();
+                    retVal->setLhs(oldExp->lhs());
+                    retVal->setRhs(oldExp->rhs());
+                }
             }
         }
         else
@@ -264,7 +409,7 @@ static SgExpression* doReplace(SgExpression* oldExp, SgExpression* newExp, map<S
 
 //return 0 - local, 1 - common, 2 - module
 //TODO: common synonyms
-static int isGlobal(SgStatement* st, SgSymbol* toCheckS, string* globalName = NULL)
+static int isGlobal(SgStatement* st, SgSymbol* toCheckS, vector<SgSymbol*>* allInCommon = NULL, string* globalName = NULL)
 {
     //by USE
     if (toCheckS != OriginalSymbol(toCheckS))
@@ -277,8 +422,9 @@ static int isGlobal(SgStatement* st, SgSymbol* toCheckS, string* globalName = NU
     const string toCheck = toCheckS->identifier();
     SgStatement* func = getFuncStat(st);
     map<string, vector<SgExpression*>> commonBlocksRef;
-    getCommonBlocksRef(commonBlocksRef, func, func->lastNodeOfStmt());
+    getCommonBlocksRef(commonBlocksRef, func, func ? func->lastNodeOfStmt() : NULL);
 
+    int isCommon = 0;
     for (auto& commonBlockRef : commonBlocksRef)
     {
         for (auto& commExp : commonBlockRef.second)
@@ -292,42 +438,134 @@ static int isGlobal(SgStatement* st, SgSymbol* toCheckS, string* globalName = NU
                 {
                     if (globalName)
                         globalName[0] = commonBlockRef.first;
-                    return 1;
+                    isCommon = 1;
+                    break;
                 }
             }
+            if (isCommon == 1)
+                break;
         }
+
+        if (isCommon == 1 && allInCommon)
+            for (auto& commExp : commonBlockRef.second)
+                for (auto exp = commExp->lhs(); exp; exp = exp->rhs())
+                    allInCommon[0].push_back(exp->lhs()->symbol());
+
+        if (isCommon == 1)
+            break;
     }
-    return 0;
+    return isCommon;
 }
 
+inline static void findAllConstRef(SgExpression* ex, set<SgSymbol*>& result)
+{
+    if (ex)
+    {
+        if (ex->variant() == CONST_REF)
+        {
+            result.insert(ex->symbol());
+            auto constS = isSgConstantSymb(ex->symbol());
+            if (!constS)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            auto val = constS->constantValue();
+            if (!val)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            findAllConstRef(val, result);
+        }
+
+        findAllConstRef(ex->lhs(), result);
+        findAllConstRef(ex->rhs(), result);
+    }
+}
+
+//globalType: 0 - local, 1 - common, 2 - module
+static void detectTypeOfSymbol(const string& funcName, SgSymbol* s, int globalType, set<SgSymbol*>& newSymbols, 
+                               const vector<SgSymbol*>& allInCommon, const string& globalName)
+{
+    const pair<string, int> key = make_pair(funcName, current_file_id);
+    if (newSymbols.find(s) == newSymbols.end())
+    {
+        char* newAttr = new char[globalName.size() + 1];
+        strcpy(newAttr, globalName.c_str());
+        if (globalType == 1)
+        {
+            if (allInCommon.size() == 0)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            int pos = 0;
+            for (auto& commS : allInCommon)
+            {
+                commS->addAttribute(COMM_STAT, newAttr, sizeof(char*));
+                int* posS = new int[1];
+                posS[0] = pos;
+                commS->addAttribute(COMM_LIST, posS, sizeof(int*));
+
+                if (isSgArrayType(commS->type()))
+                {
+                    set<SgSymbol*> constInDecl;
+                    auto arrT = isSgArrayType(commS->type());
+                    findAllConstRef(arrT->getDimList(), constInDecl);
+
+                    for (auto& elem : constInDecl)
+                    {
+                        auto itS = replacedConstRef[key].find(elem->identifier());
+                        if (itS == replacedConstRef[key].end())
+                        {
+                            replacedConstRef[key][elem->identifier()] = make_pair(elem, elem->identifier());
+                            newSymbols.insert(elem);
+                            checkSymbols(current_file_id, newSymbols);
+                        }
+                    }
+                }
+                newSymbols.insert(commS);
+                checkSymbols(current_file_id, newSymbols);
+                ++pos;
+            }
+        }
+        else if (globalType == 2)
+            s->addAttribute(MODULE_STMT, newAttr, sizeof(char*));
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (globalType != 2)
+            newSymbols.insert(s);
+
+        checkSymbols(current_file_id, newSymbols);
+    }
+}
 
 static void replaceSymbInExp(SgStatement* st, SgExpression* exp, SgExpression* par, const int expIdx, const bool isLeft,
                              const map<string, SgExpression*>& argVars, map<string, SgSymbol*>& locVars, set<SgSymbol*>& newSymbols,
-                             const string& funcName, SgSymbol*& newHedrSymb, map<SgExpression*, string>& collection,
-                             map<string, vector<pair<SgSymbol*, SgExpression*>>>& argVarsLinearForm)
+                             const string& funcName, const string& resultName, SgSymbol*& newHedrSymb, map<SgExpression*, string>& collection,
+                             map<string, vector<pair<SgSymbol*, SgExpression*>>>& argVarsLinearForm,
+                             map<string, vector<Messages>>& messages)
 {
     if (exp)
     {
-        replaceSymbInExp(st, exp->lhs(), exp, expIdx, true, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, argVarsLinearForm);
-        replaceSymbInExp(st, exp->rhs(), exp, expIdx, false, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, argVarsLinearForm);
+        replaceSymbInExp(st, exp->lhs(), exp, expIdx, true, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages);
+        replaceSymbInExp(st, exp->rhs(), exp, expIdx, false, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages);
 
         const int var = exp->variant();
-        if ((var == VAR_REF || var == ARRAY_REF || var == FUNCTION_REF) && exp->symbol())
+        if (var == FUNC_CALL && exp->symbol())
+            if (!isIntrinsicFunctionName(exp->symbol()->identifier()) || exp->symbol()->identifier() == string("dvtime"))
+                newSymbols.insert(exp->symbol());
+
+        if ((var == VAR_REF || var == ARRAY_REF || var == CONST_REF || var == IOACCESS) && exp->symbol())
         {
             const string varName = exp->symbol()->identifier();
             auto it = argVars.find(varName);
             if (it != argVars.end())
             {
                 SgExpression* copy = NULL;
-                bool needToReplace = false;
                 if (!par)
                 {
-                    copy = doReplace(st->expr(expIdx), it->second, collection, needToReplace, argVarsLinearForm);
+                    copy = doReplace(st->expr(expIdx), it->second, collection, argVarsLinearForm, messages);
                     st->setExpression(expIdx, copy);
                 }
                 else
                 {
-                    copy = doReplace((isLeft ? par->lhs() : par->rhs()), it->second, collection, needToReplace, argVarsLinearForm);
+                    copy = doReplace((isLeft ? par->lhs() : par->rhs()), it->second, collection, argVarsLinearForm, messages);
                     isLeft ? par->setLhs(copy) : par->setRhs(copy);
                 }
             }
@@ -335,16 +573,17 @@ static void replaceSymbInExp(SgStatement* st, SgExpression* exp, SgExpression* p
             {
                 auto expS = exp->symbol();
                 string globalName;
-                int globalType = isGlobal(st, expS, &globalName);
+                vector<SgSymbol*> allInCommon;
+                int globalType = isGlobal(st, expS, &allInCommon, &globalName);
                 if (globalType == 0)
                 {
                     auto it = locVars.find(varName);
                     if (it == locVars.end())
                     {
-                        auto symb = createSymbAndDecl(funcName, varName, &expS->copy(), newSymbols);
+                        auto symb = createSymbAndDecl(funcName, varName, expS, newSymbols);
                         it = locVars.insert(it, make_pair(varName, symb));
 
-                        if (varName == funcName && !newHedrSymb)
+                        if (varName == resultName && !newHedrSymb)
                             newHedrSymb = symb;
 
                         if (newHedrSymb != symb)
@@ -352,30 +591,21 @@ static void replaceSymbInExp(SgStatement* st, SgExpression* exp, SgExpression* p
                             auto arrType = isSgArrayType(symb->type());
                             if (arrType)
                             {
-                                auto list = arrType->getDimList();
-                                if (list && list->lhs())
-                                    replaceSymbInExp(NULL, list->lhs(), list, -1, true, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, argVarsLinearForm);
+                                auto allList = arrType->getDimList();
+                                while (allList)
+                                {
+                                    auto list = allList;
+                                    if (list && list->lhs())
+                                        replaceSymbInExp(NULL, list->lhs(), list, -1, true, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages);
+                                    allList = allList->rhs();
+                                }
                             }
                         }
                     }
                     exp->setSymbol(*it->second);
                 }
                 else
-                {
-                    if (newSymbols.find(expS) == newSymbols.end())
-                    {
-                        char* newAttr = new char[globalName.size() + 1];
-                        strcpy(newAttr, globalName.c_str());
-                        if (globalType == 1)
-                            expS->addAttribute(COMM_STAT, newAttr, sizeof(char*));
-                        else if (globalType == 2)
-                            expS->addAttribute(MODULE_STMT, newAttr, sizeof(char*));
-                        else
-                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                        newSymbols.insert(expS);
-                    }
-                }
+                    detectTypeOfSymbol(funcName, expS, globalType, newSymbols, allInCommon, globalName);
             }
         }
     }
@@ -383,8 +613,9 @@ static void replaceSymbInExp(SgStatement* st, SgExpression* exp, SgExpression* p
 
 inline static void replaceSymbInStat(SgStatement* st, SgStatement* tempHedr,
                                      const map<string, SgExpression*>& argVars, map<string, SgSymbol*>& locVars, set<SgSymbol*>& newSymbols,
-                                     const string& funcName, SgSymbol*& newHedrSymb, map<SgExpression*, string>& collection,
-                                     map<string, vector<pair<SgSymbol*, SgExpression*>>>& argVarsLinearForm)
+                                     const string& funcName, const string& resultName, SgSymbol*& newHedrSymb, map<SgExpression*, string>& collection,
+                                     map<string, vector<pair<SgSymbol*, SgExpression*>>>& argVarsLinearForm,
+                                     map<string, vector<Messages>>& messages)
 {
     if (st->symbol() && st->variant() != PROC_STAT)
     {
@@ -396,46 +627,34 @@ inline static void replaceSymbInStat(SgStatement* st, SgStatement* tempHedr,
         else
         {
             string globalName;
-            int globalType = isGlobal(st, s, &globalName);
+            vector<SgSymbol*> allInCommon;
+            int globalType = isGlobal(st, s, &allInCommon, &globalName);
             if (globalType == 0)
             {
                 auto it = locVars.find(varName);
                 if (it == locVars.end())
                 {
-                    auto symb = createSymbAndDecl(funcName, varName, &s->copy(), newSymbols);
+                    auto symb = createSymbAndDecl(funcName, varName, s, newSymbols);
                     it = locVars.insert(it, make_pair(varName, symb));
 
-                    if (varName == funcName && !newHedrSymb)
+                    if (varName == resultName && !newHedrSymb)
                         newHedrSymb = symb;
                 }
                 st->setSymbol(*it->second);
             }
             else
-            {
-                if (newSymbols.find(s) == newSymbols.end())
-                {
-                    char* newAttr = new char[globalName.size() + 1];
-                    strcpy(newAttr, globalName.c_str());
-                    if (globalType == 1)
-                        s->addAttribute(COMM_STAT, newAttr, sizeof(char*));
-                    else if (globalType == 2)
-                        s->addAttribute(MODULE_STMT, newAttr, sizeof(char*));
-                    else
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                    newSymbols.insert(s);
-                }
-            }
+                detectTypeOfSymbol(funcName, s, globalType, newSymbols, allInCommon, globalName);
         }
     }
 
     for (int i = 0; i < 3; ++i)
-        replaceSymbInExp(st, st->expr(i), NULL, i, false, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, argVarsLinearForm);
+        replaceSymbInExp(st, st->expr(i), NULL, i, false, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages);
 }
 
 static inline void remapVars(SgStatement* tempHedr,
                              const map<string, SgExpression*>& argVars, map<string, SgSymbol*>& locVars,
-                             set<SgSymbol*>& newSymbols, const string& funcName, SgSymbol*& newHedrSymb)
+                             set<SgSymbol*>& newSymbols, const string& funcName, const string& resultName, 
+                             SgSymbol*& newHedrSymb, map<string, vector<Messages>>& messages)
 {    
     map<SgExpression*, string> collection;
     map<string, vector<pair<SgSymbol*, SgExpression*>>> argVarsLinearForm;
@@ -446,7 +665,10 @@ static inline void remapVars(SgStatement* tempHedr,
             break;
 
         if (isSgExecutableStatement(st))
-            replaceSymbInStat(st, tempHedr, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, argVarsLinearForm);
+            replaceSymbInStat(st, tempHedr, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages);
+        else
+            if (st->variant() == DATA_DECL)
+                dataDeclsByFunc[make_pair(funcName, current_file_id)].insert((SgValueExp*)st->expr(0));
     }
 
     if (argVarsLinearForm.size())
@@ -463,7 +685,7 @@ static inline void remapVars(SgStatement* tempHedr,
             {
                 lastDecl = st;
                 break;
-            }               
+            }
         }
 
         SgExpression* tmp = new SgExprListExp();
@@ -473,32 +695,37 @@ static inline void remapVars(SgStatement* tempHedr,
             for (auto& elem : bySymb.second)
             {
                 newSymbols.insert(elem.first);
-                
-                tmp->setLhs(elem.second);
-                replaceSymbInExp(NULL, tmp->lhs(), tmp, -1, true, argVars, locVars, newSymbols, funcName, newHedrSymb, collection, dummy);
+                checkSymbols(current_file_id, newSymbols);
 
-                SgAssignStmt* init = new SgAssignStmt(*new SgVarRefExp(elem.first), *elem.second);
+                tmp->setLhs(elem.second);
+                
+                replaceSymbInExp(NULL, tmp->lhs(), tmp, -1, true, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, dummy, messages);
+                
+                SgAssignStmt* init = new SgAssignStmt(*new SgVarRefExp(elem.first), *tmp->lhs());
                 lastDecl->insertStmtAfter(*init, *tempHedr);
             }
         }
     }
 }
 
-static void insert(SgStatement* callSt, SgStatement* tempHedr, SgStatement* begin, SgSymbol* newHedrSymb, vector<SgStatement*>& toDelete)
+static void insert(SgStatement* callSt, SgStatement* tempHedr, SgStatement* begin, SgSymbol* newHedrSymb, 
+                   vector<SgStatement*>& toDelete, set<SgStatement*>& useStats)
 {
     auto prev = callSt->lexPrev();
     auto last = tempHedr->lastNodeOfStmt();
 
     auto firstExec = begin->lexNext();
     for (; firstExec && firstExec != tempHedr->lastNodeOfStmt(); firstExec = firstExec->lexNext())
+    {
+        if (firstExec->variant() == USE_STMT)
+            useStats.insert(firstExec->copyPtr());
+
         if (isSgExecutableStatement(firstExec) && firstExec->variant() != FORMAT_STAT)
             break;
+    }
     checkNull(firstExec, convertFileName(__FILE__).c_str(), __LINE__);
 
     tempHedr->extractStmt();
-    //simple convertation
-    if (prev->variant() == LOGIF_NODE)
-        prev->setVariant(IF_NODE);
 
     prev->insertStmtAfter(*firstExec, *callSt->controlParent());
     for (auto st = prev->lexNext(); st != callSt; st = st->lexNext())
@@ -581,17 +808,13 @@ static int clean(const string& funcName, SgStatement* funcSt, const map<string, 
             break;
         }
     }
-
-    // TODO: move all FORMAT statements into the top level routine
-
-    // TODO: remap all local subprogram variables by creating new unconflicting top level variables
     return gotoLabelId;
 }
 
 // true if inserted
-static inline bool insert(SgFile* file, SgStatement* callSt, SgStatement* funcStat,
-                          SgExpression* args, set<SgSymbol*>& newSymbols, 
-                          const map<string, FuncInfo*>& funcMap, vector<SgStatement*>& toDelete)
+static inline bool insert(SgStatement* callSt, SgStatement* funcStat, SgExpression* args, set<SgSymbol*>& newSymbols, 
+                          const map<string, FuncInfo*>& funcMap, vector<SgStatement*>& toDelete, set<SgStatement*>& useStats,
+                          map<string, vector<Messages>>& messages)
 {
     SgSymbol* funcSymb = funcStat->symbol();
     bool isEntry = false;
@@ -599,10 +822,6 @@ static inline bool insert(SgFile* file, SgStatement* callSt, SgStatement* funcSt
 
     SgStatement* tempHedr = NULL;
     SgSymbol* tempSymb = NULL;
-
-    // TODO: check arguments
-    //if (!TestConformability())
-    //    return false;
 
     __spf_print(DEB, "------creating template------\n"); // DEBUG
     // 2.a create function template
@@ -621,7 +840,7 @@ static inline bool insert(SgFile* file, SgStatement* callSt, SgStatement* funcSt
     }
 
     // insert template after global statement in current file
-    tempHedr = duplicateProcedure(funcStat, "", false, false, false);
+    tempHedr = duplicateProcedure(funcStat, NULL, true, false, false);
     tempSymb = tempHedr->symbol();
 
     if (string(tempSymb->identifier()) != funcSymb->identifier())
@@ -644,10 +863,16 @@ static inline bool insert(SgFile* file, SgStatement* callSt, SgStatement* funcSt
     map<string, SgExpression*> argVars = createMapOfArgs(tempHedr, args); // local argument variable -> top argument variable    
     map<string, SgSymbol*> locVars; // local varname -> new local var
 
-    remapVars(tempHedr, argVars, locVars, newSymbols, begin->symbol()->identifier(), newHedrSymb);
+    const string funcName = begin->symbol()->identifier();
+    string resultName = funcName;
+    if (isSgFuncHedrStmt(begin))
+        if (begin->expr(0) && begin->expr(0)->symbol())
+            resultName = begin->expr(0)->symbol()->identifier();
+
+    remapVars(tempHedr, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, messages);
 
     if (!newHedrSymb && tempSymb->variant() == FUNCTION_NAME) // if no textual use of return variable, create new anyway
-        newHedrSymb = createSymbAndDecl("null", string(tempSymb->identifier()) + "_spf", &tempSymb->copy(), newSymbols);
+        newHedrSymb = createSymbAndDecl("null", string(tempSymb->identifier()) + "_spf", tempSymb, newSymbols);
 
     // clean function
     int gotoLabId = clean(funcSymb->identifier(), tempHedr, funcMap, toDelete);
@@ -672,7 +897,7 @@ static inline bool insert(SgFile* file, SgStatement* callSt, SgStatement* funcSt
 
     // 2.e insert template
     */
-    insert(callSt, tempHedr, begin, newHedrSymb, toDelete);
+    insert(callSt, tempHedr, begin, newHedrSymb, toDelete, useStats);
     return true;
 }
 
@@ -680,7 +905,7 @@ static inline void replaceCall(SgExpression* exp, SgExpression* par, const int i
                                SgStatement* callSt, set<SgSymbol*>& newSymbols, SgStatement* insertPlace)
 {
     // create new call variable for this call and its declaration
-    SgSymbol* v = createSymbAndDecl("null", "arg", &exp->symbol()->copy(), newSymbols);
+    SgSymbol* v = createSymbAndDecl("null", "arg", exp->symbol(), newSymbols);
 
     SgAssignStmt* assign = new SgAssignStmt(*new SgVarRefExp(*v), *exp->copyPtr());
     assign->setlineNumber(getNextNegativeLineNumber());
@@ -795,7 +1020,41 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
         SgStatement* insertPlace = callSt;
         SgStatement* currentFunc = getFuncStat(callSt);
 
+        set<string> useStatsInFunc;
+        for (SgStatement* s = currentFunc; s != currentFunc->lastNodeOfStmt(); s = s->lexNext())
+        {
+            if (s->variant() == CONTAINS_STMT)
+                break;
+            if (s->variant() == USE_STMT)
+                useStatsInFunc.insert(s->unparse());
+        }
+
         SgStatement* funcStat = func->funcPointer->GetOriginal();
+        if (funcStat->fileName() != fileName)
+        {
+            //get from shadow copies
+            auto itF = hiddenData.find(fileName);
+            if (itF == hiddenData.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            const string fromFile = funcStat->fileName();
+            const int line = funcStat->lineNumber();
+
+            bool done = false;
+            for (auto& shadowFunc : itF->second)
+            {
+                if (shadowFunc->fileName() == fromFile && shadowFunc->lineNumber() == line)
+                {
+                    funcStat = shadowFunc;
+                    done = true;
+                    break;
+                }
+            }
+
+            if (!done)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+
         set<SgSymbol*> newSymbols;
 
         bool foundCall = false;
@@ -814,12 +1073,15 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
         __spf_print(DEB, "------start inliner-----\n"); // DEBUG        
         __spf_print(DEB, "---statement preprocessing---\n"); // DEBUG
 
+        //simple convertation
+        if (callSt->controlParent()->variant() == LOGIF_NODE)
+            callSt->controlParent()->setVariant(IF_NODE);
+
         SgStatement* begin = callSt->lexPrev();
         SgStatement* end = callSt->lexNext();
 
         // 1.a: make statement preprocessing
         // if call statement contains several inlining functions, split every such call
-        // TODO: check if-clause
         for (int i = 0; i < 3; ++i)
             recFindFuncCall(callSt->expr(i), NULL, i, false, funcName, foundCall, callSt, newSymbols, insertPlace);
 
@@ -849,6 +1111,7 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
             }
         }
 
+        set<SgStatement*> useStats;
         __spf_print(DEB, "---start inlining---\n"); // DEBUG
         // 2. create function template to modify and insert it
         if (foundCall)
@@ -868,7 +1131,7 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
                         auto rPart = st->expr(1);
                         if (rPart->variant() == FUNC_CALL && rPart->symbol() && rPart->symbol()->identifier() == funcName)
                         {
-                            bool doInline = insert(current_file, st, funcStat, rPart->lhs(), newSymbols, funcMap, toDelete);
+                            bool doInline = insert(st, funcStat, rPart->lhs(), newSymbols, funcMap, toDelete, useStats, SPF_messages);
                             change |= doInline;
                             isInlined |= doInline;
                         }
@@ -877,7 +1140,7 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
                     case PROC_STAT:
                         if (st->symbol() && st->symbol()->identifier() == funcName)
                         {
-                            bool doInline = insert(current_file, st, funcStat, st->expr(0), newSymbols, funcMap, toDelete);
+                            bool doInline = insert(st, funcStat, st->expr(0), newSymbols, funcMap, toDelete, useStats, SPF_messages);
                             change |= doInline;
                             isInlined |= doInline;
                         }
@@ -889,10 +1152,21 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
 
                 for (auto& st : toDelete)
                     st->extractStmt();
-            }            
+            }
+        }
+        
+        for (auto& use : useStats)
+        {
+            string currUse = use->unparse();
+            if (useStatsInFunc.find(currUse) == useStatsInFunc.end())
+            {
+                useStatsInFunc.insert(currUse);
+                currentFunc->insertStmtAfter(*use, *currentFunc);
+            }
         }
 
-        newSymbsToDeclare[currentFunc].insert(newSymbols.begin(), newSymbols.end());        
+        checkSymbols(currentFunc->getFileId(), newSymbols);
+        newSymbsToDeclare[currentFunc].insert(newSymbols.begin(), newSymbols.end());
     }
 
     return isInlined;
@@ -929,6 +1203,18 @@ static vector<pair<SgStatement*, SgStatement*>> getNextBounds(SgStatement* point
     return parts;
 }
 
+static bool dontInlineByAttribute(SgStatement* st)
+{
+    bool dontInline = false;
+    for (int k = 0; k < st->numberOfAttributes(); ++k)
+        if (st->getAttribute(k)->getAttributeType() == BOOL_VAL)
+            dontInline = true;
+
+    if (dontInline)
+        __spf_print(1, " skip call in statement with line %d by attribute\n", st->lineNumber());
+    return dontInline;
+}
+
 static void fillNewFunctions(SgExpression* ex, SgStatement* main,
                              map<FuncInfo*, set<SgStatement*>>& nextInfo,
                              const map<string, FuncInfo*>& funcMap)
@@ -937,7 +1223,8 @@ static void fillNewFunctions(SgExpression* ex, SgStatement* main,
     {
         if (ex->variant() == FUNC_CALL)
             if (funcMap.find(ex->symbol()->identifier()) != funcMap.end())
-                nextInfo[funcMap.at(ex->symbol()->identifier())].insert(main);
+                if (!dontInlineByAttribute(main))
+                    nextInfo[funcMap.at(ex->symbol()->identifier())].insert(main);
 
         fillNewFunctions(ex->lhs(), main, nextInfo, funcMap);
         fillNewFunctions(ex->rhs(), main, nextInfo, funcMap);
@@ -952,7 +1239,8 @@ static void fillNewFunctions(SgStatement* begin, SgStatement* end,
     {
         if (st->variant() == PROC_STAT)
             if (funcMap.find(st->symbol()->identifier()) != funcMap.end())
-                nextInfo[funcMap.at(st->symbol()->identifier())].insert(st);
+                if (!dontInlineByAttribute(st))
+                    nextInfo[funcMap.at(st->symbol()->identifier())].insert(st);
 
         for (int z = 0; z < 3; ++z)
             fillNewFunctions(st->expr(z), st, nextInfo, funcMap);
@@ -970,19 +1258,20 @@ static map<FuncInfo*, set<SgStatement*>> fillNextDeep(const set<SgStatement*>& i
     return nextInfo;
 }
 
-bool inliner(const string& funcName, const int lineNumber,
+bool inliner(const string& fileName_in, const string& funcName, const int lineNumber,
              const map<string, vector<FuncInfo*>>& allFuncInfo, map<string, vector<Messages>>& SPF_messages, 
-             map<SgStatement*, set<SgSymbol*>>& newSymbsToDeclare, int deepLvl)
+             map<SgStatement*, set<SgSymbol*>>& newSymbsToDeclare, 
+             int deepLvl)
 {   
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
 
     auto func = getFuncInfo(funcMap, funcName);
-    const string& fileName = func->fileName;
+    const string& fileName = (fileName_in == "") ? func->fileName : fileName_in;
 
-    if (func)
+    if (func && !func->doNotInline)
     {
-        if (SgFile::switchToFile(func->fileName) == -1)
+        if (SgFile::switchToFile(fileName) == -1)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         //TODO:
@@ -1014,6 +1303,11 @@ bool inliner(const string& funcName, const int lineNumber,
         set<SgStatement*> markers;
         for (auto& elem : toInsert)
         {
+            bool dontInline = dontInlineByAttribute(elem);
+            
+            if (dontInline)
+                continue;
+
             insertedIn.insert(getFuncStat(elem));
             //insert bounds
             auto cp = elem->controlParent();
@@ -1026,6 +1320,9 @@ bool inliner(const string& funcName, const int lineNumber,
             markers.insert(boundAfter);
             markers.insert(boundBefore);
         }
+
+        if (markers.size() == 0)
+            return 0;
 
         __spf_print(1, "INLINE %s\n", func->funcName.c_str());
         //1 level
@@ -1046,6 +1343,12 @@ bool inliner(const string& funcName, const int lineNumber,
                 {
                     for (int p = 0; p < currDeep; ++p)
                         __spf_print(1, "  ");
+
+                    if (next.first->doNotInline)
+                    {
+                        __spf_print(1, "skip %s by flag\n", next.first->funcName.c_str());
+                        continue;
+                    }
                     __spf_print(1, "INLINE %s\n", next.first->funcName.c_str());
                     bool isInlined = run_inliner(funcMap, next.second, SPF_messages, fileName, next.first, newSymbsToDeclare);
                     changed |= isInlined;
@@ -1069,15 +1372,94 @@ bool inliner(const string& allInFunc, const map<string, vector<FuncInfo*>>& allF
     createMapOfFunc(allFuncInfo, funcMap);
 
     auto func = getFuncInfo(funcMap, allInFunc);
-    if (func)
+    if (func && !func->doNotInline)
     {
         if (SgFile::switchToFile(func->fileName) == -1)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         for (auto& callFrom : func->detailCallsFrom)
         {
-            bool res = inliner(callFrom.first, callFrom.second, allFuncInfo, SPF_messages, newSymbsToDeclare, deepLvl);
+            bool res = inliner(func->fileName, callFrom.first, callFrom.second, allFuncInfo, SPF_messages, newSymbsToDeclare, deepLvl);
             result = result && res;
+        }
+    }
+    return result;
+}
+
+static vector<SgSymbol*> sortConstRefs(const map<string, SgSymbol*>& constRefs)
+{
+    map<SgSymbol*, set<string>> deps;
+    map<SgSymbol*, pair<string, int>> constRefByFunc; // value is <funcName, fileId>
+    for (auto& byF : replacedConstRef)
+        for (auto& s : byF.second)
+            constRefByFunc[s.second.first] = byF.first;
+
+    bool printInternal = false;
+    for (auto& elem : constRefs)
+    {
+        SgSymbol* s = elem.second;
+
+        if (constRefByFunc.find(s) == constRefByFunc.end())
+        {
+            __spf_print(1, " const not found '%s' with id %d\n", s->identifier(), s->id());
+            printInternal = true;
+            continue;
+        }
+        auto& inFunc = constRefByFunc[s];
+        map<string, pair<SgSymbol*, string>>& byFuncRefpl = replacedConstRef[inFunc];
+
+        deps[s] = set<string>();
+        set<SgSymbol*> tmp;
+        findAllConstRef(isSgConstantSymb(elem.second)->constantValue(), tmp);
+        for (auto& ref : tmp)
+        {
+            auto itS = byFuncRefpl.find(ref->identifier());
+            if (itS != byFuncRefpl.end())
+            {
+                auto newName = itS->second.second.c_str();
+                ref->changeName(newName);
+                deps[elem.second].insert(newName);
+            }
+            else
+                deps[s].insert(ref->identifier());
+        }
+    }
+
+    if (printInternal)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    set<string> added;
+    vector<SgSymbol*> result;
+    for (auto& elem : deps)
+    {
+        bool existInRef = false;
+        for (auto& dep : elem.second)
+            if (constRefs.find(dep) != constRefs.end())
+                existInRef = true;
+
+        if (!existInRef)
+        {
+            result.push_back(elem.first);
+            added.insert(elem.first->identifier());
+        }
+    }
+
+    while (result.size() != constRefs.size())
+    {
+        for (auto& elem : deps)
+        {
+            if (added.find(elem.first->identifier()) != added.end())
+                continue;
+
+            bool needToAdd = true;
+            for (auto& dep : elem.second)
+                if (added.find(dep) == added.end() && (dep != elem.first->identifier()))
+                    needToAdd = false;
+            if (needToAdd)
+            {
+                result.push_back(elem.first);
+                added.insert(elem.first->identifier());
+            }
         }
     }
     return result;
@@ -1085,26 +1467,123 @@ bool inliner(const string& allInFunc, const map<string, vector<FuncInfo*>>& allF
 
 void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDeclare)
 {
+    map<pair<string, int>, map<string, string>> preprocDataByFunc; // key is <funcName, int>
+    for (auto& dataByF : dataDeclsByFunc)
+        preprocDataByFunc[dataByF.first] = splitData(dataByF.second);
+
+    map<SgSymbol*, pair<pair<string, int>, string>> originalInfo; // value is <<funcName, int>, sName>
+    for (auto& elem : createdByFunc)
+        for (auto& s : elem.second)
+            originalInfo[s.second] = make_pair(elem.first, s.first);
+
     for (auto& byFunc : newSymbsToDeclare)
     {
         if (!byFunc.first->switchToFile())
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
+        __spf_print(1, "symbols checking for function '%s'\n", byFunc.first->symbol()->identifier());
+        int currFileId = byFunc.first->getFileId();
+        checkSymbols(currFileId, byFunc.second);
+
         map<string, map<string, vector<SgSymbol*>>> groups;
-        map<string, map<string, SgSymbol*>> commons;
+        map<string, map<string, vector<SgSymbol*>>> groupsConstRefs;
+        map<string, map<int, SgSymbol*>> commons;
+        map<string, SgSymbol*> constRefs;
+        map<string, SgSymbol*> saveRefs;
+        map<SgSymbol*, string> declRefs;
+        set<SgSymbol*> allocatable;
+
+        SgStatement* place = byFunc.first;
+        while (isSgProgHedrStmt(place) == NULL && place->variant() != MODULE_STMT)
+            place = place->controlParent();
+        SgStatement* scope = place;
+
+        set<string> declared;
+        while (isSgExecutableStatement(place) == NULL && place != scope->lastNodeOfStmt())
+        {
+            if (place->variant() == VAR_DECL ||
+                place->variant() == VAR_DECL_90 ||
+                place->variant() == DIM_STAT)
+            {
+                for (auto list = place->expr(0); list; list = list->rhs())
+                {
+                    auto elem = list->lhs();
+                    if (elem && elem->symbol())
+                        declared.insert(elem->symbol()->identifier());
+                }
+            }
+            else if (place->variant() == COMM_STAT)
+            {
+                for (SgExpression* exp = place->expr(0); exp; exp = exp->rhs())
+                {
+                    for (auto list = exp->lhs(); list; list = list->rhs())
+                    {
+                        auto elem = list->lhs();
+                        if (elem && elem->symbol())
+                            declared.insert(elem->symbol()->identifier());
+                    }                    
+                }
+            }
+            else if (place->variant() == PARAM_DECL)
+            {
+                SgParameterStmt* param = (SgParameterStmt*)place;
+                for (int z = 0; z < param->numberOfConstants(); ++z)
+                    declared.insert(param->constant(z)->identifier());
+            }
+            place = place->lexNext();
+        }
+
         for (auto& toDec : byFunc.second)
         {
+            if (declared.find(toDec->identifier()) != declared.end())
+                continue;
+
+            if (isSgConstantSymb(toDec))
+                constRefs[toDec->identifier()] = toDec;
+
+            if (toDec->attributes())
+            {
+                if ((toDec->attributes() & SAVE_BIT) || (toDec->attributes() & DATA_BIT))
+                    saveRefs[toDec->identifier()] = toDec;
+
+                if (toDec->attributes() & ALLOCATABLE_BIT)
+                    allocatable.insert(toDec);
+
+                if (toDec->attributes() & DATA_BIT)
+                {
+                    auto itD = originalInfo.find(toDec);
+                    if (itD == originalInfo.end())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    auto itDF = preprocDataByFunc.find(itD->second.first);
+                    if (itDF == preprocDataByFunc.end())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    
+                    auto info = itDF->second.find(itD->second.second);
+                    if (info == itDF->second.end())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    declRefs[toDec] = info->second;
+                }
+            }
+
             int globalType = isGlobal(byFunc.first, toDec);
             if (globalType != 0)
                 continue;
             else
             {
-                auto attrsC = getAttributes<SgSymbol*, char*>(toDec, set<int> { COMM_STAT });                
+                auto attrsC = getAttributes<SgSymbol*, char*>(toDec, set<int> { COMM_STAT });
                 if (attrsC.size() && attrsC.size() != 1)
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                 if (attrsC.size())
-                    commons[attrsC[0]][toDec->identifier()] = toDec;
+                {
+                    auto attrsPos = getAttributes<SgSymbol*, int*>(toDec, set<int> { COMM_LIST });
+                    if (attrsPos.size() && attrsPos.size() != 1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    commons[attrsC[0]][*attrsPos[0]] = toDec; // sort by position
+                }
 
                 auto attrsM = getAttributes<SgSymbol*, char*>(toDec, set<int> { MODULE_STMT });
                 if (attrsM.size())
@@ -1116,7 +1595,28 @@ void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDecla
             if (it == string::npos)
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-            groups[newDecl.substr(0, it)][toDec->identifier()].push_back(toDec);
+            if (isSgConstantSymb(toDec))
+                groupsConstRefs[newDecl.substr(0, it)][toDec->identifier()].push_back(toDec);
+            else
+                groups[newDecl.substr(0, it)][toDec->identifier()].push_back(toDec);
+        }
+
+        //insert PARAMETER
+        if (constRefs.size())
+        {
+            for (auto& toDecls : groupsConstRefs)
+            {
+                vector<SgSymbol*> unitedList;
+                for (auto& elem : toDecls.second)
+                    unitedList.push_back(elem.second[0]);
+                makeDeclaration(byFunc.first, unitedList);
+            }
+
+            SgParameterStmt* param = new SgParameterStmt();
+            for (auto& elem : sortConstRefs(constRefs))
+                param->addConstant(elem);
+
+            place->insertStmtBefore(*param, *scope);
         }
 
         for (auto& toDecls : groups)
@@ -1133,25 +1633,60 @@ void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDecla
             vector<SgExpression*> refs;
             for (auto& s : byCommon.second)
                 refs.push_back(new SgVarRefExp(s.second));
+            std::reverse(refs.begin(), refs.end());
 
             SgStatement* common = new SgStatement(COMM_STAT);
-            common->setExpression(0, new SgExpression(COMM_LIST, makeExprList(refs), NULL, new SgSymbol(COMMON_NAME, byCommon.first.c_str())));            
+            common->setExpression(0, new SgExpression(COMM_LIST, makeExprList(refs, false), NULL, new SgSymbol(COMMON_NAME, byCommon.first.c_str())));
 
             newCommons.push_back(common);
         }
 
         if (newCommons.size())
-        {
-            SgStatement* place = byFunc.first;
-            while (isSgProgHedrStmt(place) == NULL && place->variant() != MODULE_STMT)
-                place = place->controlParent();
-            SgStatement* scope = place;
-
-            while (isSgExecutableStatement(place) == NULL && place != scope->lastNodeOfStmt())
-                place = place->lexNext();
-
             for (auto& elem : newCommons)
                 place->insertStmtBefore(*elem, *scope);
+
+        //insert SAVE
+        if (saveRefs.size())
+        {
+            SgStatement* save = new SgStatement(SAVE_DECL);
+            vector<SgExpression*> refs;
+            for (auto& s : saveRefs)
+                refs.push_back(new SgVarRefExp(s.second));
+            save->setExpression(0, makeExprList(refs));
+            place->insertStmtBefore(*save, *scope);
+        }
+
+        if (declRefs.size())
+        {
+            SgStatement* decl = new SgStatement(DATA_DECL);
+            SgExpression* value = new SgExpression(STMT_STR);
+
+            string dataS = "data ";
+            int z = 0;
+            for (auto& elem : declRefs)
+            {
+                dataS += elem.first->identifier() + string("/") + elem.second + "/";
+                if (z != declRefs.size() - 1)
+                    dataS += ",";
+                ++z;
+            }
+
+            value->thellnd->entry.string_val = new char[dataS.size() + 1];
+            strcpy(value->thellnd->entry.string_val, dataS.c_str());
+
+            decl->setExpression(0, value);
+            place->insertStmtBefore(*decl, *scope);
+        }
+
+        //insert ALLOCATABLE
+        if (allocatable.size())
+        {
+            SgStatement* save = new SgStatement(ALLOCATABLE_STMT);
+            vector<SgExpression*> refs;
+            for (auto& s : allocatable)
+                refs.push_back(new SgVarRefExp(s));
+            save->setExpression(0, makeExprList(refs));
+            place->insertStmtBefore(*save, *scope);
         }
     }
 }

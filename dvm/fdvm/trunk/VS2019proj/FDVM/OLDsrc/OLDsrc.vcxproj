@@ -11,19 +11,36 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\Sage\Sage++\libSage++.cpp" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\anal_ind.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\db.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\dbutils.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\db_unp.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\db_unp_comm.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\db_unp_vpc.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\garb_coll.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\glob_anal.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\ker_fun.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\list.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\make_nodes.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\mod_ref.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\ndeps.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\readnodes.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\sets.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\setutils.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\symb_alg.c" />
+    <ClCompile Include="..\..\..\Sage\lib\oldsrc\writenodes.c" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{DC00DD23-EDC2-4B24-9988-3C12FD6D5E87}</ProjectGuid>
+    <ProjectGuid>{F9CB6387-131D-4AC3-ACED-F7BD66A3B81C}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>SageLib</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+    <RootNamespace>OLDsrc</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <UseIntelIPP>false</UseIntelIPP>
     <UseIntelTBB>false</UseIntelTBB>
@@ -61,7 +78,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>-I. -I../../../Sage/lib/include -I../../../Sage/h -I../../../include /D "SYS5" /D "YYDEBUG" %(AdditionalOptions)</AdditionalOptions>
       <BrowseInformation>true</BrowseInformation>
     </ClCompile>
@@ -81,7 +98,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>-I. -I../../../Sage/lib/include -I../../../Sage/h -I../../../include /D "SYS5" /D "YYDEBUG" %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>

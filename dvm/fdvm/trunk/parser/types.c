@@ -267,13 +267,13 @@ set_expr_type(expr)
 	    case (EQV_OP):
 	    case (NEQV_OP):
 	    case (GTEQL_OP):
-		 if ((expr->entry.binary_op.l_operand == LLNULL) ||
+	        if ((expr->entry.binary_op.l_operand == LLNULL) ||
                      (expr->entry.binary_op.l_operand->type == TYNULL) ||
 		     (expr->entry.binary_op.r_operand == LLNULL) ||
                      (expr->entry.binary_op.r_operand->type == TYNULL))
-		   /*err("Inconsistent operands to boolean operation", 26);*/
-                     expr->type = global_default;
-		if (expr->entry.binary_op.l_operand->type->variant == T_ARRAY)
+		     /*   err("Inconsistent operands to boolean operation", 26); */
+                     expr->type = global_default; 
+		else if (expr->entry.binary_op.l_operand->type->variant == T_ARRAY)
 		{
 		     expr->type = copy_type_node(expr->entry.binary_op.l_operand->type);
 		     expr->type->entry.ar_decl.base_type =  global_bool;
@@ -291,11 +291,12 @@ set_expr_type(expr)
 	    case (MULT_OP):
             case (EXP_OP):
 		 if ((expr->entry.binary_op.l_operand == LLNULL) ||
-                     (expr->entry.binary_op.l_operand->type == TYNULL) ||
-		     (expr->entry.binary_op.r_operand == LLNULL) ||
-                     (expr->entry.binary_op.r_operand->type == TYNULL))
+		     (expr->entry.binary_op.r_operand == LLNULL)) 
+                 {
 		   /* err("Inconsistent operands to arithmetic operation", 27);*/
                      expr->type = global_default;
+                     break;
+                 }
   	        l_operand = expr->entry.binary_op.l_operand->type;
 		r_operand = expr->entry.binary_op.r_operand->type;
 		if (! l_operand || ! r_operand)

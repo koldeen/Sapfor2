@@ -124,8 +124,9 @@ std::map<std::string, std::string> outData; // file -> new unparsed text
 //
 
 //for SPF INLINE PROCEDURES
-std::vector<std::tuple<std::string, std::string, int>> inDataProc; // [<file, proc, line>]
-std::vector<FuncInfo*> inDataAllProc; // all procedures
+std::vector<std::tuple<std::string, std::string, int>> inDataProc; // [<proc, file, line>]
+std::map<std::string, std::set<std::pair<std::string, int>>> inDataChains;
+std::set<std::string> inDataChainsStart;
 std::map<std::string, std::vector<SgStatement*>> hiddenData; // [<file -> all hidden stmts]
 //
 
