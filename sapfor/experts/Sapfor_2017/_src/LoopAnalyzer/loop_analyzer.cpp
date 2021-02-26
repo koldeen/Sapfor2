@@ -283,12 +283,12 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             {
                 if (parentLoops.size() != 0 && (arrayRefString.first || side == LEFT))
                 {
-                    __spf_print(1, "WARN: array ref '%s' at line %d does not have loop variables\n", arrayRefString.second.c_str(), currLine);
+                    __spf_print(1, "WARN: array ref '%s' in %d dimension at line %d does not have loop variables\n", arrayRefString.second.c_str(), dimNum + 1, currLine);
 
                     wstring messageE, messageR;
-                    __spf_printToLongBuf(messageE, L"array ref '%s' does not have loop variables", to_wstring(arrayRefString.second).c_str());
+                    __spf_printToLongBuf(messageE, L"array ref '%s' in %d dimension does not have loop variables", to_wstring(arrayRefString.second).c_str(), dimNum + 1);
 
-                    __spf_printToLongBuf(messageR, R55, to_wstring(arrayRefString.second).c_str());
+                    __spf_printToLongBuf(messageR, R55, to_wstring(arrayRefString.second).c_str(), dimNum + 1);
 
                     if (currLine > 0)
                         currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1021));
