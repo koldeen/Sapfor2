@@ -652,6 +652,16 @@ read_symb_nodes()
             symb_ptr->entry.proc_decl.local_size = (int)tmp[7];
             symb_ptr->entry.Template.base_name = NULL_CHECK(head_symb,tmp[8]);
 	    break;
+	case MODULE_NAME:
+	    if ((int)fread( (char *) tmp, sizeof(u_shrt), 2+1, fd) < 0)
+		return -1;
+	    if (need_swap)
+		swab((char *)tmp, (char *)tmp, (2+1)*sizeof(u_shrt));
+
+	    symb_ptr->entry.Template.symb_list = NULL_CHECK(head_symb,(*tmp));
+	    symb_ptr->entry.Template.func_hedr = NULL_CHECK(head_bfnd,tmp[1]);
+            symb_ptr->entry.Template.base_name = NULL_CHECK(head_symb,tmp[2]);
+	    break;
 	case MEMBER_FUNC:	/*  NEW ADDED FOR VPC */
 	    if ((int)fread( (char *) tmp, sizeof(u_shrt), 11, fd) < 0)
 		return -1;

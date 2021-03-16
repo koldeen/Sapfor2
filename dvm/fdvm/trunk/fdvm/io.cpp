@@ -442,8 +442,8 @@ int Check_ReadWritePrint(SgExpression *ioc[], SgStatement *stmt, int error_msg)
      if (iol->rhs() )  // there are other items in I/O-list
         return FixError("Illegal I/O list ",190,NULL,stmt,error_msg);
  
-     if(ioc[IOSTAT_] ) 
-        return FixError("IOSTAT= specifier is illegal in I/O of distributed array", 187,NULL,stmt,error_msg); 
+     //if(ioc[IOSTAT_] ) 
+     //  return FixError("IOSTAT= specifier is illegal in I/O of distributed array", 187,NULL,stmt,error_msg); 
 
      if(ioc[FMT_] && !isSgKeywordValExp(ioc[FMT_]) || ioc[NML_] ) 
         return FixError("I/O of distributed array controlled by format specification or NAMELIST is not supported in FDVM", 191,NULL,stmt,error_msg);
@@ -509,8 +509,13 @@ void Replace_ReadWritePrint( SgExpression *ioc[], SgStatement *stmt)
                                   // first item is distributed array refference
                 if (iol->rhs())  // error: there are other items in I/O-list
                    return;
-                if(!e->lhs() && IOtype != 2)  //whole array and format=* or unformatted                               
-                       IO_ThroughBuffer(e->symbol(),stmt);                    
+                if(!e->lhs() && IOtype != 2)  //whole array and format=* or unformatted  
+                {     
+                       if (ioc[IOSTAT_])  // there is keyed argument IOSTAT 
+                           InsertSendIOSTAT(ioc[IOSTAT_]);
+                           
+                       IO_ThroughBuffer(e->symbol(),stmt,ioc[IOSTAT_]); 
+                }                   
                    else 
                        return;    //error
                    
@@ -604,15 +609,19 @@ void ReadWritePrint_Statement(SgStatement *stmt, int error_msg)
                    err("Illegal I/O list ", 190,stmt);  
                    return;
                 }
-                if(ioc[IOSTAT_] && error_msg) {
-                  err("IOSTAT= specifier is illegal in I/O of distributed array", 187,stmt);
-                   return;
-                 }
+                //if(ioc[IOSTAT_] && error_msg) {
+                //  err("IOSTAT= specifier is illegal in I/O of distributed array", 187,stmt);
+                //   return;
+                // }
                 if(!e->lhs())  //whole array
                    if(IOtype != 2) { 
                        sio = e->symbol();           
                            //buf_use[TypeIndex(sio->type()->baseType())] = 1; 
-                       IO_ThroughBuffer(sio,stmt);
+                       if (ioc[IOSTAT_])  // there is keyed argument IOSTAT 
+                         InsertSendIOSTAT(ioc[IOSTAT_]);
+                       
+                       IO_ThroughBuffer(sio,stmt,ioc[IOSTAT_]);
+
                        if(IN_COMPUTE_REGION && !inparloop && !in_checksection && error_msg)   
                          err("Illegal statement in the range of region (not implemented yet)", 576,stmt); 
                     }
@@ -648,83 +657,84 @@ void ReadWritePrint_Statement(SgStatement *stmt, int error_msg)
              
 }
 
-void IO_ThroughBuffer(SgSymbol *ar, SgStatement *stmt)
+void IO_ThroughBuffer(SgSymbol *ar, SgStatement *stmt, SgExpression *eiostat)
 {
- SgStatement *dost, *contst,*ifst;
- SgExpression *esize,*econd,*iodo, *iolist,*ubound,*are,*d, *eN[8];
- SgValueExp c1(1),c0(0);
- SgLabel *loop_lab; 
- //SgSymbol *sio;
- int i,l,rank,s,s0,N[8],itype,imem;
- int m = -1;
- int init,last,step;
- int M=0;
- 
- contst = NULL;
- imem=ndvm;
- ReplaceContext(stmt);
- 
- itype = TypeIndex(ar->type()->baseType());
- if(itype == -1)  //may be derived type 
- {
-    Error("Illegal type's array in input-output statement: %s",ar->identifier(),999,stmt);
-    return;
- } else
-    buf_use[itype] = 1;
- l = rank = Rank(ar);  
- s = IOBufSize;  //SIZE_IO_BUF;
- for(i=1; i<=rank; i++) {
-    //calculating size of i-th dimension
-    esize = ReplaceParameter(ArrayDimSize(ar, i));
-    eN[i] = NULL;
-    if(esize && esize->variant()==STAR_RANGE)
-    {
-      Error("Assumed-size array: %s",ar->identifier(),162,stmt);
+   SgStatement *dost=NULL, *contst, *ifst, *next;
+   SgExpression *esize,*econd,*iodo, *iolist,*ubound,*are,*d, *eN[8];
+   SgValueExp c1(1),c0(0);
+   SgLabel *loop_lab=NULL; 
+   //SgSymbol *sio;
+   int i,l,rank,s,s0,N[8],itype,imem;
+   int m = -1;
+   int init,last,step;
+   int M=0;
+   cur_st = stmt;
+   next = stmt->lexNext();
+   contst = NULL;
+   imem=ndvm;
+   ReplaceContext(stmt);
+   
+   itype = TypeIndex(ar->type()->baseType());
+   if(itype == -1)  //may be derived type 
+   {
+      Error("Illegal type's array in input-output statement: %s",ar->identifier(),999,stmt);
       return;
-    }
-    if(esize->isInteger())
-      N[i] = esize->valueInteger();
-    else 
-      {N[i] = -1; eN[i] = esize;} //!! dummy argument 
-    if((N[i] <= 0) && !eN[i])
-    {
-      Error("Array shape declaration error: '%s'", ar->identifier(),193, stmt);
-      return;
-    }
-  }
-    // calculating s
- for(i=1; i<=rank; i++) {
-    if(eN[i]) {
-      l=i-1;
-      break;
-    }
-    s0 = s / N[i];
-    if(!s0) { // s0 == 0
-      l = i-1;  
-      break;
-    }
-    else
-      s = s0;
- }
- if(l==rank) { // generating assign statement: m = 1
-   // m = ndvm;
-   //doAssignStmtBefore(&c1.copy(),stmt); 
-   M=1;
- }
- else
-   m = ndvm++;
+   } else
+      buf_use[itype] = 1;
+   l = rank = Rank(ar);  
+   s = IOBufSize;  //SIZE_IO_BUF;
+   for(i=1; i<=rank; i++) {
+      //calculating size of i-th dimension
+      esize = ReplaceParameter(ArrayDimSize(ar, i));
+      eN[i] = NULL;
+      if(esize && esize->variant()==STAR_RANGE)
+      {
+         Error("Assumed-size array: %s",ar->identifier(),162,stmt);
+         return;
+      }
+      if(esize->isInteger())
+         N[i] = esize->valueInteger();
+      else 
+        {N[i] = -1; eN[i] = esize;} //!! dummy argument 
+      if((N[i] <= 0) && !eN[i])
+      {
+         Error("Array shape declaration error: '%s'", ar->identifier(),193, stmt);
+         return;
+      }
+   }
+   // calculating s
+   for(i=1; i<=rank; i++) {
+      if(eN[i]) {
+         l=i-1;
+         break;
+      }
+      s0 = s / N[i];
+      if(!s0) { // s0 == 0
+         l = i-1;  
+         break;
+      }
+      else
+         s = s0;
+   }
+   if(l==rank) { // generating assign statement: m = 1
+      // m = ndvm;
+      //doAssignStmtBefore(&c1.copy(),stmt); 
+      M=1;
+   }
+   else
+      m = ndvm++;
 
- if(l+1 <= rank) {
- // generating DO statement: DO label idvm01 = 0, N[l+1]-1, s 
+   if(l+1 <= rank) {
+     // generating DO statement: DO label idvm01 = 0, N[l+1]-1, s 
           
-   loop_lab = GetLabel();
-   contst = new SgStatement(CONT_STAT);
-   esize = eN[l+1] ? &(eN[l+1]->copy() - c1.copy()) : new SgValueExp(N[l+1]-1);
-   dost= new SgForStmt(*loop_var[1], c0.copy(), *esize, *new SgValueExp(s), *contst);
-   BIF_LABEL_USE(dost->thebif) = loop_lab->thelabel;
-   (dost->lexNext())->setLabel(*loop_lab); 
+      loop_lab = GetLabel();
+      contst = new SgStatement(CONT_STAT);
+      esize = eN[l+1] ? &(eN[l+1]->copy() - c1.copy()) : new SgValueExp(N[l+1]-1);
+      dost= new SgForStmt(*loop_var[1], c0.copy(), *esize, *new SgValueExp(s), *contst);
+      BIF_LABEL_USE(dost->thebif) = loop_lab->thelabel;
+      (dost->lexNext())->setLabel(*loop_lab); 
  
-   if(l+2 <= rank)   
+      if(l+2 <= rank)   
      // generating DO nest:
      // DO label idvm02 = 0, N[rank]-1
      // DO label idvm03 = 0, N[rank-1]-1
@@ -732,113 +742,118 @@ void IO_ThroughBuffer(SgSymbol *ar, SgStatement *stmt)
      // DO label idvm0j = 0, N[l+2]-1
 
                                        //for(i=rank; i>l+1; i--) {  //27.11.09
-     for(i=l+2; i<=rank; i++) {
-        esize = eN[i] ? &(eN[i]->copy() - c1.copy()) : new SgValueExp(N[i]-1);
-        dost= new SgForStmt(*loop_var[rank-i+2], c0.copy(), *esize, *dost);  
+      for(i=l+2; i<=rank; i++) {
+         esize = eN[i] ? &(eN[i]->copy() - c1.copy()) : new SgValueExp(N[i]-1);
+         dost= new SgForStmt(*loop_var[rank-i+2], c0.copy(), *esize, *dost);  
                          
-        BIF_LABEL_USE(dost->thebif) = loop_lab->thelabel;
-     }
+         BIF_LABEL_USE(dost->thebif) = loop_lab->thelabel;
+      }
+      
+      cur_st->insertStmtAfter(*dost);
 
-   cur_st->insertStmtAfter(*dost);
+      for(i=l+1; i<=rank; i++)
+         contst->lexNext()->extractStmt(); // extracting ENDDO
 
-   for(i=l+1; i<=rank; i++)
-      contst->lexNext()->extractStmt(); // extracting ENDDO
-
-   if((N[l+1]<0) || (N[l+1]-(N[l+1]/s)*s)) {  
-   // generating the construction
-   // IF (Il+1 + s .LE. Nl+1) THEN 
-   //    m = s
-   // ELSE 
-   //    m = Nl+1 - Il+1
-   // ENDIF 
-   // and then insert it before CONTINUE statement
-     esize = eN[l+1] ? &(eN[l+1]->copy()) : new SgValueExp(N[l+1]);
-     econd = & (( *new SgVarRefExp(*loop_var[1]) + *new SgValueExp(s)) <= *esize);
-     ifst = new SgIfStmt(*econd,                                                                     *new SgAssignStmt(*DVM000(m),*new SgValueExp(s)),                   *new SgAssignStmt(*DVM000(m),*esize - *new SgVarRefExp(*loop_var[1])));
-     contst -> insertStmtBefore(*ifst);
-   }
-   else 
-     
+      if((N[l+1]<0) || (N[l+1]-(N[l+1]/s)*s)) {  
+      // generating the construction
+      // IF (Il+1 + s .LE. Nl+1) THEN 
+      //    m = s
+      // ELSE 
+      //    m = Nl+1 - Il+1
+      // ENDIF 
+      // and then insert it before CONTINUE statement
+         esize = eN[l+1] ? &(eN[l+1]->copy()) : new SgValueExp(N[l+1]);
+         econd = & (( *new SgVarRefExp(*loop_var[1]) + *new SgValueExp(s)) <= *esize);
+         ifst = new SgIfStmt(*econd, *new SgAssignStmt(*DVM000(m),*new SgValueExp(s)), *new SgAssignStmt(*DVM000(m),*esize - *new SgVarRefExp(*loop_var[1])));
+         contst -> insertStmtBefore(*ifst);
+      }
+      else      
      //dost->insertStmtBefore(*new SgAssignStmt(*DVM000(m),*new SgValueExp(s)));     
-     M=s;
-   //cur_st = ifst;   
-   stmt->extractStmt();
-   contst -> insertStmtBefore(*stmt);
-   // transfering label over D0-statements
-   BIF_LABEL(dost->thebif) = BIF_LABEL(stmt->thebif);
-   BIF_LABEL(stmt->thebif) = NULL;
-   //cur_st = stmt;
- }
- // creating implicit loop as element of I/O list:
- // (BUF(I0), I0= 1,N1*...*Nl*m)
- ubound = DVM000(m);
- N[0] = 1; 
- for(i=1; i<=l; i++)
-      N[0] = N[0] * N[i];
- if(M)   // M= const
-   ubound = new SgValueExp(N[0]*M);   
- else {
+         M=s;
+     //cur_st = ifst;   
+      stmt->extractStmt();
+      contst -> insertStmtBefore(*stmt);
+      // transfering label over D0-statements
+      BIF_LABEL(dost->thebif) = BIF_LABEL(stmt->thebif);
+      BIF_LABEL(stmt->thebif) = NULL;
+     //cur_st = stmt;
+   }
+   // creating implicit loop as element of I/O list:
+   // (BUF(I0), I0= 1,N1*...*Nl*m)
    ubound = DVM000(m);
-   if(N[0]  != 1) 
-   ubound = &( *ubound * (*new SgValueExp(N[0])) );   
- }   
+   N[0] = 1; 
+   for(i=1; i<=l; i++)
+      N[0] = N[0] * N[i];
+   if(M)   // M= const
+      ubound = new SgValueExp(N[0]*M);   
+   else {
+      ubound = DVM000(m);
+      if(N[0]  != 1) 
+         ubound = &( *ubound * (*new SgValueExp(N[0])) );   
+   }   
 
- //   ubound = &( *ubound * (*new SgValueExp(N[0])));   
-// iodo = new SgExpression(DDOT,&c1.copy(), ubound,NULL);
- iodo = & SgDDotOp(c1.copy(),*ubound);
- iodo = new SgExpression(SEQ,iodo,NULL,NULL);
- iodo = new  SgExpression(IOACCESS,NULL,iodo,loop_var[0]);
-// iodo = new SgIOAccessExp(*loop_var[0], c1.copy(), *ubound);//Sage error
- iodo -> setLhs(new SgArrayRefExp(*bufIO[itype],                                                              *new SgVarRefExp(*loop_var[0])));
- iolist = new SgExprListExp(*iodo);
- // iolist -> setLhs(iodo);
-// replacing I/O list in source I/O statement
- stmt -> setExpression(0,*iolist);
- //generating assign statement
- //dvm000(i) = ArrCpy(...)
- are = new SgArrayRefExp(*bufIO[Integer],c1.copy()); //!!! itype=>Integer (bufIO[itype])
- init = ndvm;
- //if(l+2 <= rank)
+   //   ubound = &( *ubound * (*new SgValueExp(N[0])));   
+   // iodo = new SgExpression(DDOT,&c1.copy(), ubound,NULL);
+   iodo = & SgDDotOp(c1.copy(),*ubound);
+   iodo = new SgExpression(SEQ,iodo,NULL,NULL);
+   iodo = new  SgExpression(IOACCESS,NULL,iodo,loop_var[0]);
+   // iodo = new SgIOAccessExp(*loop_var[0], c1.copy(), *ubound);//Sage error
+   iodo -> setLhs(new SgArrayRefExp(*bufIO[itype], *new SgVarRefExp(*loop_var[0])));
+   iolist = new SgExprListExp(*iodo);
+   // iolist -> setLhs(iodo);
+   // replacing I/O list in source I/O statement
+   stmt -> setExpression(0,*iolist);
+   //generating assign statement
+   //dvm000(i) = ArrCpy(...)
+   are = new SgArrayRefExp(*bufIO[Integer],c1.copy()); //!!! itype=>Integer (bufIO[itype])
+   init = ndvm;
+   //if(l+2 <= rank)
    for(i=2; i<(rank-l+1);i++ )
-     doAssignStmtBefore(new SgVarRefExp(*loop_var[i]),stmt);
- if(l+1 <= rank)
-   doAssignStmtBefore(new SgVarRefExp(*loop_var[1]),stmt);
+      doAssignStmtBefore(new SgVarRefExp(*loop_var[i]),stmt);
+   if(l+1 <= rank)
+      doAssignStmtBefore(new SgVarRefExp(*loop_var[1]),stmt);
  
- for(i=l; i; i-- )
-  doAssignStmtBefore(new SgValueExp(-1),stmt); 
- last = ndvm;
- //if(l+2 <= rank) 
+   for(i=l; i; i-- )
+      doAssignStmtBefore(new SgValueExp(-1),stmt); 
+   last = ndvm;
+   //if(l+2 <= rank) 
    for(i=2; i<(rank-l+1);i++ )
-     doAssignStmtBefore(new SgVarRefExp(*loop_var[i]),stmt);
- if(l+1 <= rank) {
-   d = new SgVarRefExp(*loop_var[1]);
-   if(M != 1)  
-     d = (M)? &(*d+(*new SgValueExp(M-1))) : &(*d+(*DVM000(m))-c1.copy()); 
-   doAssignStmtBefore(d,stmt);
- }
+      doAssignStmtBefore(new SgVarRefExp(*loop_var[i]),stmt);
+   if(l+1 <= rank) {
+      d = new SgVarRefExp(*loop_var[1]);
+      if(M != 1)  
+         d = (M)? &(*d+(*new SgValueExp(M-1))) : &(*d+(*DVM000(m))-c1.copy()); 
+      doAssignStmtBefore(d,stmt);
+   }
 
- step = last+rank;
- if(l+1 <= rank) {
-   ndvm = step + rank - l - 1;
-   doAssignStmtBefore(&c1.copy(),stmt);
- }
- ndvm = step+rank;
- if(stmt->variant() == READ_STAT){ 
-   doAssignStmtAfter (A_CopyTo_DA(are,HeaderRef(ar),init,last,step,2));
-   if(dvm_debug) {
-       if(contst)
-         cur_st = contst;
-       cur_st->insertStmtAfter(*D_Read(GetAddresDVM(HeaderRefInd(ar,1)))); 
+   step = last+rank;
+   if(l+1 <= rank) {
+      ndvm = step + rank - l - 1;
+      doAssignStmtBefore(&c1.copy(),stmt);
+   }
+   ndvm = step+rank;
+   if(stmt->variant() == READ_STAT){ 
+      doAssignStmtAfter (A_CopyTo_DA(are,HeaderRef(ar),init,last,step,2));
+      if(dvm_debug) {
+         if(contst)
+            cur_st = contst;
+         cur_st->insertStmtAfter(*D_Read(GetAddresDVM(HeaderRefInd(ar,1)))); 
+      } 
+   } else
+      doAssignStmtBefore(DA_CopyTo_A(HeaderRef(ar),are,init,last,step,2),stmt);
+   // replace I/O statement by: IF(TstIO().NE.0) I/O-statement 
+   ReplaceByIfStmt(stmt);
+   if(eiostat && dost)
+   {
+      LogIf_to_IfThen(stmt->controlParent());
+      SgLabel *lab_out = GetLabel(); 
+      doIfIOSTAT(eiostat,stmt,new SgGotoStmt(*lab_out));
+      next->setLabel(*lab_out); //next -> send of IOSTAT
    } 
- } else
-   doAssignStmtBefore(DA_CopyTo_A(HeaderRef(ar),are,init,last,step,2),stmt);
 
-// replace I/O statement by: IF(TstIO().NE.0) I/O-statement 
- ReplaceByIfStmt(stmt);
-
-//calculating maximal number of used loop variables for I/O
- nio = (nio < (rank-l+1)) ? (rank-l+1) : nio;
- SET_DVM(imem);
+   //calculating maximal number of used loop variables for I/O
+   nio = (nio < (rank-l+1)) ? (rank-l+1) : nio;
+   SET_DVM(imem);
 } 
 
 int IOcontrol(SgExpression *e, SgExpression *ioc[],int type)

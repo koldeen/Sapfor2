@@ -1109,7 +1109,7 @@ SgExpression *ConstRef_F95(int ic);
 SgExpression *DvmType_Ref(SgExpression *e);
 int ParLoopRank();
 void DeclareArrayCoefficients(SgStatement *after);
-void ReplaceLoopBounds(SgStatement *first_do, int lrank,SgSymbol *s_low_bound, SgSymbol *s_high_bound); 
+void ReplaceLoopBounds(SgStatement *first_do, int lrank,SgSymbol *s_low_bound, SgSymbol *s_high_bound, SgSymbol *s_step); 
 int NumberOfCoeffs(SgSymbol *sg);
 void    CreateStructuresForReductionInKernel();
 void CompleteStructuresForReductionInKernel();
@@ -1315,7 +1315,7 @@ void FormatAndDataStatementExport(SgStatement *par_dir, SgStatement *first_do);
 void AddExternStmtToBlock_C();
 void  GenerateStmtsForInfoFile();
 char *Up_regs_Symbol_Name(SgSymbol *s_regs);
-SgStatement *AssignBlocksSElement(int i,int pl_rank, SgSymbol *s_blocksS,SgSymbol *s_idxL,SgSymbol *s_idxH,SgSymbol *s_threads);
+SgStatement *AssignBlocksSElement(int i,int pl_rank, SgSymbol *s_blocksS,SgSymbol *s_idxL,SgSymbol *s_idxH,SgSymbol *s_step,SgSymbol *s_threads);
 char *IncludeComment(const char *txt);
 char *DefineComment(char *txt);
 void TypeSymbols(SgStatement *end_bl);
@@ -1516,6 +1516,7 @@ SgStatement *ReplaceOnByIf(SgStatement *stmt,SgStatement *end_stmt);
 SgStatement *TestEndOn(SgStatement *stmt);
 void doLogIfForAllocated(SgExpression *objref, SgStatement *stmt);
 void doLogIfForIOstat(SgSymbol *s, SgExpression *espec, SgStatement *stmt);
+void doIfIOSTAT(SgExpression *eiostat, SgStatement *stmt, SgStatement *go_stmt);
 
 /*  funcall.cpp */
 void Get_AM();
@@ -1849,7 +1850,7 @@ SgStatement *DvmhArrayCopyWhole( SgExpression *array_header_right, SgExpression 
 SgStatement *Correspondence_H (int il, SgExpression *hedr, SgExpression *axis_list);
 
 /*  io.cpp      */
-void IO_ThroughBuffer(SgSymbol *ar, SgStatement *stmt);
+void IO_ThroughBuffer(SgSymbol *ar, SgStatement *stmt, SgExpression *eiostat);
 int  IOcontrol(SgExpression *e, SgExpression *ioc[],int type);
 int  control_list1(SgExpression *e, SgExpression *ioc[]);
 int  control_list_open(SgExpression *e, SgExpression *ioc[]);

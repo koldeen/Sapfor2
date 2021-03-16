@@ -2044,7 +2044,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (inDataChainsStart.size())
             inliner(*inDataChainsStart.begin(), allFuncInfo, SPF_messages, newSymbsToDeclare);
 #endif
-        createDeclarations(newSymbsToDeclare);
+        createDeclarations(newSymbsToDeclare, commonBlocks);
     }
 
 #if _WIN32

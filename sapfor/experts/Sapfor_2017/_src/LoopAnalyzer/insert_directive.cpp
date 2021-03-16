@@ -2036,6 +2036,15 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
         if (dvmhModule)
             dvmhModule->deleteStmt();
     }
+    else
+    {
+        //TODO: do it better!!
+        if (dvmhModule)
+        {
+            if (dvmhModule->lexNext()->variant() == CONTROL_END)
+                dvmhModule->deleteStmt();
+        }
+    }
 }
 
 void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string> &distrArrays, 

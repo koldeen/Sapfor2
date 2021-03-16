@@ -261,7 +261,7 @@ void EndOfParallelLoopNest(SgStatement *stmt, SgStatement *end_stmt, SgStatement
           // generating call statement:
           //  call waitrd(RedGroupRef)
           doCallAfter(WaitRed(redgref));
-
+     
           if(IN_COMPUTE_REGION || parloop_by_handler)       /*ACC*/   
              ACC_ReductionVarsAreActual();
            
@@ -274,7 +274,7 @@ void EndOfParallelLoopNest(SgStatement *stmt, SgStatement *end_stmt, SgStatement
           //  call dvmh_delete_object(RedGroupRef)     //dvm000(i) = delobj(RedGroupRef)
           doCallAfter(DeleteObject_H(redgref));
        }
-      
+
        // actualizing of consistent arrays
        if(consgref)
           ConsistentArraysStart(cons_list);
@@ -1628,7 +1628,7 @@ void AcrossList(int ilh, int isOut, SgExpression *el, SgStatement *st, SgExpress
     }
     SgSymbol *ar = ear->symbol();
 
-    if(!tie_clause || !isInTieList(ar,tie_clause->lhs()))
+    if(!st->expr(0) && (!tie_clause || !isInTieList(ar,tie_clause->lhs())))
       Error("Array from ACROSS clause should be specified in TIE clause: %s", ar->identifier(), 648, st);
     
     SgExpression *head = HeaderForArrayInParallelDir(ar, st);

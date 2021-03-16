@@ -283,12 +283,12 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             {
                 if (parentLoops.size() != 0 && (arrayRefString.first || side == LEFT))
                 {
-                    __spf_print(1, "WARN: array ref '%s' at line %d does not have loop variables\n", arrayRefString.second.c_str(), currLine);
+                    __spf_print(1, "WARN: array ref '%s' in %d dimension at line %d does not have loop variables\n", arrayRefString.second.c_str(), dimNum + 1, currLine);
 
                     wstring messageE, messageR;
-                    __spf_printToLongBuf(messageE, L"array ref '%s' does not have loop variables", to_wstring(arrayRefString.second).c_str());
+                    __spf_printToLongBuf(messageE, L"array ref '%s' in %d dimension does not have loop variables", to_wstring(arrayRefString.second).c_str(), dimNum + 1);
 
-                    __spf_printToLongBuf(messageR, R55, to_wstring(arrayRefString.second).c_str());
+                    __spf_printToLongBuf(messageR, R55, to_wstring(arrayRefString.second).c_str(), dimNum + 1);
 
                     if (currLine > 0)
                         currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1021));
@@ -3278,13 +3278,37 @@ void getAllDeclaredArrays(SgFile *file, map<tuple<int, string, string>, pair<DIS
                     //TODO: need to add more checkers!
                     if (countOfItems > 1)
                     {
-                        for (SgExpression* items = stIO->itemList(); items; items = items->rhs(), ++countOfItems)
+                        for (SgExpression* items = stIO->itemList(); items; items = items->rhs())
                             findArrayRefInIO(items->lhs(), deprecatedByIO, stIO->lineNumber(), currMessages);
                     }
                     else if (countOfItems == 1)
                     {
-                        auto list = stIO->itemList();
-                        if (list->lhs()->lhs() != NULL || list->lhs()->rhs() != NULL)
+                        auto list = stIO->specList();
+                        bool ok = true;
+                        //exclude FMT='format'
+                        while (list)
+                        {
+                            if (list->lhs() && list->lhs()->variant() == SPEC_PAIR)
+                            {
+                                auto ex = list->lhs();
+                                if (ex->lhs() && ex->rhs())
+                                {
+                                    if (ex->lhs()->variant() == KEYWORD_VAL)
+                                    {
+                                        SgKeywordValExp* key = (SgKeywordValExp*)(ex->lhs());
+                                        if (key->value() == string("fmt"))
+                                            if (ex->rhs()->variant() == STRING_VAL)
+                                                ok = false;
+                                    }
+                                }
+                            }
+
+                            if (!ok)
+                                break;
+                            list = list->rhs();
+                        }
+
+                        if (!ok)
                             findArrayRefInIO(list->lhs(), deprecatedByIO, stIO->lineNumber(), currMessages);
                     }
                 }
