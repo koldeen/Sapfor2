@@ -3278,13 +3278,37 @@ void getAllDeclaredArrays(SgFile *file, map<tuple<int, string, string>, pair<DIS
                     //TODO: need to add more checkers!
                     if (countOfItems > 1)
                     {
-                        for (SgExpression* items = stIO->itemList(); items; items = items->rhs(), ++countOfItems)
+                        for (SgExpression* items = stIO->itemList(); items; items = items->rhs())
                             findArrayRefInIO(items->lhs(), deprecatedByIO, stIO->lineNumber(), currMessages);
                     }
                     else if (countOfItems == 1)
                     {
-                        auto list = stIO->itemList();
-                        if (list->lhs()->lhs() != NULL || list->lhs()->rhs() != NULL)
+                        auto list = stIO->specList();
+                        bool ok = true;
+                        //exclude FMT='format'
+                        while (list)
+                        {
+                            if (list->lhs() && list->lhs()->variant() == SPEC_PAIR)
+                            {
+                                auto ex = list->lhs();
+                                if (ex->lhs() && ex->rhs())
+                                {
+                                    if (ex->lhs()->variant() == KEYWORD_VAL)
+                                    {
+                                        SgKeywordValExp* key = (SgKeywordValExp*)(ex->lhs());
+                                        if (key->value() == string("fmt"))
+                                            if (ex->rhs()->variant() == STRING_VAL)
+                                                ok = false;
+                                    }
+                                }
+                            }
+
+                            if (!ok)
+                                break;
+                            list = list->rhs();
+                        }
+
+                        if (!ok)
                             findArrayRefInIO(list->lhs(), deprecatedByIO, stIO->lineNumber(), currMessages);
                     }
                 }

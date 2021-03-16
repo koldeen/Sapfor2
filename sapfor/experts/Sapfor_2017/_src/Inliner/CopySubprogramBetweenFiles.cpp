@@ -856,6 +856,12 @@ static int clean(const string& funcName, SgStatement* funcSt, const map<string, 
         {
             if (st->lexNext()->variant() == CONTROL_END && funcSt->lastNodeOfStmt() == st->lexNext())
             {
+                if (st->label())
+                {
+                    SgStatement* cont = new SgStatement(CONT_STAT);
+                    cont->setLabel(*st->label());
+                    st->insertStmtBefore(*cont, *st->controlParent());
+                }
                 toDelete.push_back(st);
                 break;
             }
@@ -865,7 +871,6 @@ static int clean(const string& funcName, SgStatement* funcSt, const map<string, 
                 contLab = new SgLabel(getNextFreeLabel());
                 cont = new SgStatement(CONT_STAT);
                 cont->setLabel(*contLab);
-                auto test = funcSt->lastNodeOfStmt();
                 funcSt->lastNodeOfStmt()->insertStmtBefore(*cont, *funcSt);
             }
 

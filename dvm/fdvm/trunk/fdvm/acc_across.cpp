@@ -2181,7 +2181,7 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
     if (!(s->attributes() & USE_IN_BIT))   // passing to kernel scalar argument by reference
     {
         sdev = GpuScalarAdrSymbolInAdapter(s, st_hedr);   // creating new symbol for address in device
-        if (!ln)
+        if (!scalar_first)
         {
             scalar_first = sdev;
             stmt = makeSymbolDeclaration(sdev);

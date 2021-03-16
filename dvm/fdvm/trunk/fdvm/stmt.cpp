@@ -232,7 +232,7 @@ void ReplaceByIfStmt(SgStatement *stmt)
   //cur_st =  stmt->lexPrev();
   cp = stmt->controlParent();
   stmt->extractStmt(); 
-  if_stmt =  new SgLogIfStmt(SgNeqOp(*TestIOProcessor(),                                                         *new SgValueExp(0) ),*stmt);
+  if_stmt =  new SgLogIfStmt(SgNeqOp(*TestIOProcessor(), *new SgValueExp(0) ), *stmt);
   cur_st->insertStmtBefore(*if_stmt, *cp);
   cur_st = if_stmt->lexNext(); // PRINT statement
   if (cur_st->numberOfAttributes(OMP_MARK) > 0) {/*OMP*/
@@ -911,6 +911,14 @@ void doLogIfForAllocated(SgExpression *objref, SgStatement *stmt)
  if_stmt = new SgLogIfStmt(*AllocatedFunction(objref),*call);
  InsertNewStatementBefore(if_stmt,stmt);
  (if_stmt->lexNext()->lexNext()) -> extractStmt(); //extract ENDIF 
+}
+
+void doIfIOSTAT(SgExpression *eiostat, SgStatement *stmt, SgStatement *go_stmt)
+{
+ SgExpression *cond =  &operator != (eiostat->copy(), *new SgValueExp(0));
+ SgStatement *if_stmt = new SgLogIfStmt(*cond,*go_stmt);
+ stmt->insertStmtAfter(*if_stmt,*stmt->controlParent());
+ (if_stmt->lexNext()->lexNext()) -> extractStmt(); //extract ENDIF
 }
 
 int isDoEndStmt(SgStatement *stmt)

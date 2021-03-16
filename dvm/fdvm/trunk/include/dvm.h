@@ -1516,6 +1516,7 @@ SgStatement *ReplaceOnByIf(SgStatement *stmt,SgStatement *end_stmt);
 SgStatement *TestEndOn(SgStatement *stmt);
 void doLogIfForAllocated(SgExpression *objref, SgStatement *stmt);
 void doLogIfForIOstat(SgSymbol *s, SgExpression *espec, SgStatement *stmt);
+void doIfIOSTAT(SgExpression *eiostat, SgStatement *stmt, SgStatement *go_stmt);
 
 /*  funcall.cpp */
 void Get_AM();
@@ -1849,7 +1850,7 @@ SgStatement *DvmhArrayCopyWhole( SgExpression *array_header_right, SgExpression 
 SgStatement *Correspondence_H (int il, SgExpression *hedr, SgExpression *axis_list);
 
 /*  io.cpp      */
-void IO_ThroughBuffer(SgSymbol *ar, SgStatement *stmt);
+void IO_ThroughBuffer(SgSymbol *ar, SgStatement *stmt, SgExpression *eiostat);
 int  IOcontrol(SgExpression *e, SgExpression *ioc[],int type);
 int  control_list1(SgExpression *e, SgExpression *ioc[]);
 int  control_list_open(SgExpression *e, SgExpression *ioc[]);

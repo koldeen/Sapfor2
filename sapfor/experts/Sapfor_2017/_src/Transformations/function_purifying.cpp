@@ -300,8 +300,40 @@ static void transferVarToArg(const map<string, vector<int>>& commonVarsUsed, con
     }
 }
 
+void findInterfaces(FuncInfo* func, vector<SgStatement*>& ifaces)
+{
+    for (auto& callFunc : func->callsTo)
+    {
+        SgStatement* iface = NULL;
+        if (callFunc->interfaceBlocks.find(func->funcName) != callFunc->interfaceBlocks.end())
+        {
+            SgStatement* hedr = callFunc->funcPointer->GetOriginal();
+            for (SgStatement* start = hedr->lexNext(), *end = hedr->lastNodeOfStmt(); start != end; start = start->lexNext())
+            {
+                if (start->variant() == INTERFACE_STMT)
+                {
+                    for (int i = 0; i < start->numberOfChildrenList1(); i++)
+                    {
+                        if ((isSgProgHedrStmt(start->childList1(i))) && start->childList1(i)->symbol()->identifier() == func->funcName)
+                        {
+                            iface = start->childList1(i);
+                            break;
+                        }
+                    }
+                }
+
+                if (iface)
+                {
+                    ifaces.push_back(iface);
+                    break;
+                }
+            }
+        }
+    }
+}
+
 void transferCommons(set<FuncInfo*>& allForChange, map <FuncInfo*, map<string, vector<int>>>& funcCommons, map<string, vector<int>>& commonVarsUsed,
-                     FuncInfo* curFunc, FuncInfo* precFunc, const map<string, CommonBlock>& commonBlocks, map <FuncInfo*, set<string>>& funcCommonDeclared)
+                     FuncInfo* curFunc, FuncInfo* precFunc, const map<string, CommonBlock>& commonBlocks, map<FuncInfo*, set<string>>& funcCommonDeclared)
 {
     if (commonVarsUsed.empty())
         return;
@@ -355,6 +387,10 @@ void transferCommons(set<FuncInfo*>& allForChange, map <FuncInfo*, map<string, v
             }
         }
     }
+
+    vector<SgStatement*> ifaces;
+    ifaces.push_back(curFunc->funcPointer->GetOriginal());
+    findInterfaces(curFunc, ifaces);
 
     for (auto& common : nextCommonVarsUsed)
     {
@@ -422,8 +458,16 @@ void transferCommons(set<FuncInfo*>& allForChange, map <FuncInfo*, map<string, v
             commList->setSymbol(commSymb);
             commList->setLhs(res);
 
-            auto lastDecl = curFunc->funcPointer->GetOriginal()->lastDeclaration();
-            lastDecl->insertStmtAfter(*commStat, *(lastDecl->controlParent()));
+            SgStatement* firstExDec, * hedr = curFunc->funcPointer->GetOriginal();
+            for (SgStatement* start = hedr->lexNext(), *end = hedr->lastNodeOfStmt(); start != end; start = start->lexNext())
+            {
+                if ((isSgExecutableStatement(start) || isSgDeclarationStatement(start)) && !strcmp(hedr->fileName(), start->fileName())) {
+                    firstExDec = start;
+                    break;
+                }
+            }
+            commStat->setlineNumber(firstExDec->lineNumber());
+            firstExDec->insertStmtBefore(*commStat, *(hedr));
 
             for (auto& var : varsToDeclare)
             {
@@ -436,74 +480,82 @@ void transferCommons(set<FuncInfo*>& allForChange, map <FuncInfo*, map<string, v
                     if (e = decl->expr(i))
                         decl->setExpression(i, CalculateInteger(ReplaceConstant(e)));
                 }
-                SgStatement* lastDecl = curFunc->funcPointer->GetOriginal()->lastDeclaration()->lexNext();
-                decl->setlineNumber(lastDecl->lineNumber());
-                decl->setFileName(lastDecl->fileName());
-                lastDecl->insertStmtBefore(*decl, *(curFunc->funcPointer->GetOriginal()->lastDeclaration()->controlParent()));
+                decl->setlineNumber(firstExDec->lineNumber());
+                decl->setFileName(hedr->fileName());
+                commStat->insertStmtAfter(*decl, *(hedr));
             }
         }
 
         //parametrs add
         if (allForChange.count(curFunc))
         {
-            for (auto& posVar : common.second)
-            {
-                Variable var = commonBlocks.find(common.first)->second.getGroupedVars().find(posVar)->second[0];
-                string name;
-                if ((int)(string(var.getSymbol()->identifier()).find("c_" + common.first + "_")) < 0)
-                    name = "c_" + common.first + "_" + var.getSymbol()->identifier();
-                else
-                    name = var.getSymbol()->identifier();
-
-                SgSymbol* s = new SgSymbol(var.getSymbol()->variant(), name.c_str(), var.getSymbol()->type(), curFunc->funcPointer);
-                
-                SgStatement* hedr = curFunc->funcPointer->GetOriginal();
-                SgExpression* result = hedr->expr(0) == NULL ? NULL : hedr->expr(0)->copyPtr();
-
-                if (isSgFuncHedrStmt(hedr))
-                    isSgFuncHedrStmt(hedr)->AddArg(*new SgVarRefExp(s));
-                else if (isSgProcHedrStmt(hedr))
-                    isSgProcHedrStmt(hedr)->AddArg(*new SgVarRefExp(s));
-                else
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                if (result == NULL)
+            for (int i = 0; i < ifaces.size(); i++) {
+                for (auto& posVar : common.second)
                 {
-                    if (hedr->expr(0) != NULL)
-                        hedr->setExpression(0, NULL);
-                }
-                else
-                {
-                    if (hedr->expr(0) != NULL)
-                        hedr->setExpression(0, result);
-                    else if (string(hedr->expr(0)->unparse()) != result->unparse())
-                        hedr->setExpression(0, result);
-                }
+                    Variable var = commonBlocks.find(common.first)->second.getGroupedVars().find(posVar)->second[0];
+                    string name;
+                    if ((int)(string(var.getSymbol()->identifier()).find("c_" + common.first + "_")) < 0)
+                        name = "c_" + common.first + "_" + var.getSymbol()->identifier();
+                    else
+                        name = var.getSymbol()->identifier();
 
-                curFunc->funcPointer->GetOriginal()->lexNext()->deleteStmt();
-                if (!funcCommonDeclared[curFunc].count(common.first))
-                {
-                    vector<SgSymbol*> varVec = vector<SgSymbol*>();
-                    varVec.push_back(s);
-                    SgStatement* decl = makeDeclaration(NULL, varVec);
-                    for (int i = 0; i < 3; i++)
+                    SgSymbol* s = new SgSymbol(var.getSymbol()->variant(), name.c_str(), var.getSymbol()->type(), ifaces[i]);
+
+                    SgStatement* hedr = ifaces[i];
+                    SgExpression* result = hedr->expr(0) == NULL ? NULL : hedr->expr(0)->copyPtr();
+
+                    if (isSgFuncHedrStmt(hedr))
+                        isSgFuncHedrStmt(hedr)->AddArg(*new SgVarRefExp(s));
+                    else if (isSgProcHedrStmt(hedr))
+                        isSgProcHedrStmt(hedr)->AddArg(*new SgVarRefExp(s));
+                    else
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    if (result == NULL)
                     {
-                        SgExpression* e;
-                        if (e = decl->expr(i))
-                            decl->setExpression(i, CalculateInteger(ReplaceConstant(e)));
+                        if (hedr->expr(0) != NULL)
+                            hedr->setExpression(0, NULL);
+                    }
+                    else
+                    {
+                        if (hedr->expr(0) != NULL)
+                            hedr->setExpression(0, result);
+                        else if (string(hedr->expr(0)->unparse()) != result->unparse())
+                            hedr->setExpression(0, result);
                     }
 
-                    SgStatement* lastDecl = curFunc->funcPointer->GetOriginal()->lastDeclaration()->lexNext();
-                    decl->setlineNumber(lastDecl->lineNumber());
-                    decl->setFileName(lastDecl->fileName());
-                    lastDecl->insertStmtBefore(*decl, *(curFunc->funcPointer->GetOriginal()->lastDeclaration()->controlParent()));
+                    curFunc->funcPointer->GetOriginal()->lexNext()->deleteStmt();
+                    if (!funcCommonDeclared[curFunc].count(common.first) || i!=0)
+                    {
+                        vector<SgSymbol*> varVec = vector<SgSymbol*>();
+                        varVec.push_back(s);
+                        SgStatement* decl = makeDeclaration(NULL, varVec);
+                        for (int i = 0; i < 3; i++)
+                        {
+                            SgExpression* e;
+                            if (e = decl->expr(i))
+                                decl->setExpression(i, CalculateInteger(ReplaceConstant(e)));
+                        }
+                        SgStatement* firstExDec;
+                        for (SgStatement* start = hedr->lexNext(), *end = hedr->lastNodeOfStmt(); start != end; start = start->lexNext())
+                        {
+
+                            if ((isSgExecutableStatement(start) || isSgDeclarationStatement(start)) && !strcmp(hedr->fileName(), start->fileName())) {
+                                firstExDec = start;
+                                break;
+                            }
+                        }
+                        decl->setlineNumber(firstExDec->lineNumber());
+                        decl->setFileName(hedr->fileName());
+                        firstExDec->insertStmtBefore(*decl, *(hedr));
+                    }
                 }
             }
         }
     }
 
     for (auto& callFunc : curFunc->callsTo)
-        transferCommons(allForChange, funcCommons, nextCommonVarsUsed, callFunc, curFunc, commonBlocks, funcCommonDeclared);    
+        transferCommons(allForChange, funcCommons, nextCommonVarsUsed, callFunc, curFunc, commonBlocks, funcCommonDeclared);
 }
 
 static void fillUsedVars(set<string>& usedVars, SgExpression* exp)
@@ -523,7 +575,6 @@ void commonTransfer(const map<string, vector<FuncInfo*>>& allFuncInfo, const map
     map <FuncInfo*, set<string>> funcCommonDeclared;
     FuncInfo* start = NULL;
     set<FuncInfo*> allForChange;
-
     for (auto& byfile : allFuncInfo)
     {
         if (SgFile::switchToFile(byfile.first) == -1)
@@ -576,7 +627,6 @@ void commonTransfer(const map<string, vector<FuncInfo*>>& allFuncInfo, const map
 
         if (func->commonBlocks.size() > 0) 
         {
-            //printf(">%s\n", func->funcName.c_str());
             map<string, vector<int>> commonVarsUsed;
             set<string> usedVars;
             for (SgStatement* start = st->lastDeclaration()->lexNext(), *end = st->lastNodeOfStmt(); start != end; start = start->lexNext()) 
@@ -656,6 +706,7 @@ static void transferSave(map<FuncInfo*, set<FuncInfo*>>& funcAddedVarsFuncs, vec
     {
         if (SgFile::switchToFile(curFunc->fileName) == -1)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
         for (auto& call : curFunc->pointerDetailCallsFrom)
         {
             if (isSgFuncHedrStmt(precFunc->funcPointer->GetOriginal()) && call.second == FUNC_CALL)
@@ -680,29 +731,47 @@ static void transferSave(map<FuncInfo*, set<FuncInfo*>>& funcAddedVarsFuncs, vec
     else if (funcAddedVarsFuncs[curFunc].count(startFunc))
         return;
 
+    vector<SgStatement*> ifaces;
+    ifaces.push_back(curFunc->funcPointer->GetOriginal());
+    findInterfaces(curFunc, ifaces);
+
     funcAddedVarsFuncs[curFunc].insert(startFunc);
     if (!curFunc->isMain)
     {
-        SgStatement* st = curFunc->funcPointer->GetOriginal();
-        for (auto& var : varsToTransfer)
+        for (int i = 0; i < ifaces.size(); i++)
         {
-            ((SgProcHedrStmt*)(st))->AddArg(*new SgVarRefExp(var->copy()));
-            st->lexNext()->deleteStmt();
-            if (curFunc != startFunc)
+            SgStatement* hedr = ifaces[i];
+            for (auto& var : varsToTransfer)
             {
-                vector<SgSymbol*> varVec = vector<SgSymbol*>();
-                varVec.push_back(var);
-                SgStatement* decl = makeDeclaration(NULL, varVec);
-                for (int i = 0; i < 3; i++)
+                ((SgProcHedrStmt*)(hedr))->AddArg(*new SgVarRefExp(var->copy()));
+                hedr->lexNext()->deleteStmt();
+                if (curFunc != startFunc || i!=0) 
                 {
-                    SgExpression* e;
-                    if (e = decl->expr(i))
-                        decl->setExpression(i, CalculateInteger(ReplaceConstant(e)));
+                    vector<SgSymbol*> varVec = vector<SgSymbol*>();
+                    varVec.push_back(var);
+                    SgStatement* decl = makeDeclaration(NULL, varVec);
+                    for (int i = 0; i < 3; i++)
+                    {
+                        SgExpression* e;
+                        if (e = decl->expr(i))
+                            decl->setExpression(i, CalculateInteger(ReplaceConstant(e)));
+                    }
+
+                    SgStatement* firstExDec = NULL;
+                    for (SgStatement* start = hedr->lexNext(), *end = hedr->lastNodeOfStmt(); start != end; start = start->lexNext())
+                    {
+                        if ((isSgExecutableStatement(start) || isSgDeclarationStatement(start)) && !strcmp(hedr->fileName(), start->fileName()))
+                        {
+                            firstExDec = start;
+                            break;
+                        }
+                    }
+                    checkNull(firstExDec, convertFileName(__FILE__).c_str(), __LINE__);
+
+                    decl->setlineNumber(firstExDec->lineNumber());
+                    decl->setFileName(hedr->fileName());
+                    firstExDec->insertStmtBefore(*decl, *(hedr));
                 }
-                SgStatement* lastDecl = st->lastDeclaration()->lexNext();
-                decl->setlineNumber(lastDecl->lineNumber());
-                decl->setFileName(lastDecl->fileName());
-                lastDecl->insertStmtBefore(*decl, *(curFunc->funcPointer->GetOriginal()->lastDeclaration()->controlParent()));
             }
         }
 
@@ -711,7 +780,19 @@ static void transferSave(map<FuncInfo*, set<FuncInfo*>>& funcAddedVarsFuncs, vec
     }
     else
     {
-        SgStatement* lastDecl = curFunc->funcPointer->GetOriginal()->lastDeclaration()->lexNext();
+        SgStatement* firstExDec = NULL;
+        auto hedr = curFunc->funcPointer->GetOriginal();
+
+        for (SgStatement* start = hedr->lexNext(), *end = hedr->lastNodeOfStmt(); start != end; start = start->lexNext())
+        {
+            if ((isSgExecutableStatement(start) || isSgDeclarationStatement(start)) && !strcmp(hedr->fileName(), start->fileName())) 
+            {
+                firstExDec = start;
+                break;
+            }
+        }
+        checkNull(firstExDec, convertFileName(__FILE__).c_str(), __LINE__);
+
         for (auto& var : varsToTransfer)
         {
             vector<SgSymbol*> varVec = vector<SgSymbol*>();
@@ -724,30 +805,29 @@ static void transferSave(map<FuncInfo*, set<FuncInfo*>>& funcAddedVarsFuncs, vec
                     decl->setExpression(i, CalculateInteger(ReplaceConstant(e)));
             }
 
-            decl->setlineNumber(lastDecl->lineNumber() - 1);
-            decl->setFileName(lastDecl->fileName());
-            lastDecl->insertStmtBefore(*decl, *(lastDecl->controlParent()));
+            decl->setlineNumber(firstExDec->lineNumber());
+            decl->setFileName(hedr->fileName());
+            firstExDec->insertStmtBefore(*decl, *(hedr));
         }
 
         for (auto& data : dataToTransfer)
-            lastDecl->addComment(data.c_str());
+            firstExDec->addComment(data.c_str());
     }
 }
 
 void saveTransfer(const map<string, vector<FuncInfo*>>& allFuncInfo)
 {
-    FuncInfo* start;
+    FuncInfo* start = NULL;
     set<FuncInfo*> allForChange;
     map<FuncInfo*, set<FuncInfo*>> funcAddedVarsFuncs;
 
     for (auto& byfile : allFuncInfo)
         for (auto& func : byfile.second)
             if (func->isMain)
-                start = func;
+                start = func;    
 
     collectForChange(allForChange, start);
     allForChange.erase(start);
-
     for (auto& func : allForChange)
     {
         if (SgFile::switchToFile(func->fileName) == -1)
@@ -786,13 +866,16 @@ void saveTransfer(const map<string, vector<FuncInfo*>>& allFuncInfo)
 
             if (s->scope() == st)
             {
-                if (s->attributes() & SAVE_BIT || s->attributes() & DATA_BIT || allSave && s->variant() == VARIABLE_NAME && !params.count(s->identifier()))
+                if ( (s->attributes() & SAVE_BIT) || 
+                     (s->attributes() & DATA_BIT) || 
+                     allSave && s->variant() == VARIABLE_NAME && !params.count(s->identifier()))
                 {
                     if ((s->type() ? s->type()->variant() : (T_COMPLEX + 1)) > T_COMPLEX)
                     {
                         hasComplType = true;
                         break;
                     }
+
                     string newName = "s_" + func->funcName + "_" + s->identifier();
                     locVars[s->identifier()] = newName;
                     s->changeName(newName.c_str());
@@ -834,18 +917,27 @@ void saveTransfer(const map<string, vector<FuncInfo*>>& allFuncInfo)
                 }
 
                 SgExprListExp* attrsNoSave = new SgExprListExp();
-                for (int i = 0; i < vst->numberOfAttributes(); i++)
+                bool needChange = false;
+                for (int i = 0; i < vst->numberOfAttributes(); i++) 
+                {
                     if (vst->attribute(i)->variant() != SAVE_OP)
+                    {
                         attrsNoSave->append(vst->attribute(i)->copy());
-
-                if (!attrsNoSave->length())
-                {
-                    SgVarDeclStmt* newVst = new SgVarDeclStmt(vst->varList()->copy(), *attrsNoSave, vst->type()->copy());
-                    vst->replaceWithStmt(*newVst);
+                    } 
+                    else
+                        needChange = true;                    
                 }
-                else
+
+                if (needChange) 
                 {
-                    SgVarDeclStmt* newVst = new SgVarDeclStmt(vst->varList()->copy(), vst->type()->copy());
+                    SgVarDeclStmt* newVst;
+                    if (!attrsNoSave->length())
+                        newVst = new SgVarDeclStmt(vst->varList()->copy(), *attrsNoSave, vst->type()->copy());                    
+                    else
+                        newVst = new SgVarDeclStmt(vst->varList()->copy(), vst->type()->copy());
+
+                    newVst->setlineNumber(vst->lineNumber());
+                    newVst->setComments(vst->comments());
                     vst->replaceWithStmt(*newVst);
                 }
             }
@@ -868,9 +960,9 @@ void saveTransfer(const map<string, vector<FuncInfo*>>& allFuncInfo)
     }
 }*/
 
-static string makeName(SgSymbol* var, map<SgSymbol*, set< SgSymbol*>>& modVarsToAdd, set<string>& useMod, 
-                       map<string, vector<pair<SgSymbol*, SgSymbol*>>>& modByUse, 
-                       map<string, vector<pair<SgSymbol*, SgSymbol*>>>& modByUseOnly)
+static string makeName(SgSymbol* var, map<SgSymbol*, set< SgSymbol*>>& modVarsToAdd, const set<string>& useMod, 
+                       const map<string, vector<pair<SgSymbol*, SgSymbol*>>>& modByUse, 
+                       const map<string, vector<pair<SgSymbol*, SgSymbol*>>>& modByUseOnly)
 {
     string name = "", modName = OriginalSymbol(var)->scope()->symbol()->identifier();
     SgSymbol* modS = OriginalSymbol(var)->scope()->symbol();
@@ -881,7 +973,7 @@ static string makeName(SgSymbol* var, map<SgSymbol*, set< SgSymbol*>>& modVarsTo
         name = varOrName;
     else if (mbu)
     {
-        for (auto& elem : modByUse[modName])
+        for (auto& elem : modByUse.at(modName))
         {
             if ((elem.second ? elem.second : elem.first)->identifier() == varOrName)
             {
@@ -895,7 +987,7 @@ static string makeName(SgSymbol* var, map<SgSymbol*, set< SgSymbol*>>& modVarsTo
     }
     else if (mbuo)
     {
-        for (auto& elem : modByUseOnly[modName])
+        for (auto& elem : modByUseOnly.at(modName))
         {
             if ((elem.second ? elem.second : elem.first)->identifier() == varOrName)
             {
@@ -908,7 +1000,7 @@ static string makeName(SgSymbol* var, map<SgSymbol*, set< SgSymbol*>>& modVarsTo
         {
             name = "m_" + modName + "_" + varOrName;
             if (!modVarsToAdd.count(modS))
-                modVarsToAdd[modS] = set < SgSymbol*>();
+                modVarsToAdd[modS] = set<SgSymbol*>();
             modVarsToAdd[modS].insert(OriginalSymbol(var));
         }
     }
@@ -916,15 +1008,138 @@ static string makeName(SgSymbol* var, map<SgSymbol*, set< SgSymbol*>>& modVarsTo
     {
         name = "m_" + modName + "_" + varOrName;
         if (!modVarsToAdd.count(modS))
-            modVarsToAdd[modS] = set < SgSymbol*>();
+            modVarsToAdd[modS] = set<SgSymbol*>();
         modVarsToAdd[modS].insert(OriginalSymbol(var));
     }
     return name;
 }
 
+static string getInterfaceBlock(SgStatement* func, const FuncParam& pars)
+{
+    string oldFile = current_file->filename();
+    if (!func->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    auto copy = duplicateProcedure(func, NULL, false, false, false, true);
+
+    const set<string> ident(pars.identificators.begin(), pars.identificators.end());
+
+    //remove all exec
+    SgStatement* st = copy->lexNext();
+    SgStatement* last = copy->lastNodeOfStmt();
+    vector<SgStatement*> toExtract;
+    while (st != last)
+    {
+        if (isDVM_stat(st) || isSPF_stat(st))
+        {
+            if (st->variant() != ACC_ROUTINE_DIR)
+            {
+                SgStatement* next = st->lexNext();
+                st->extractStmt();
+                st = next;
+            }
+            else
+                st = st->lexNext();
+        }
+        else if (isSgExecutableStatement(st))
+        {
+            SgStatement* next = st->lastNodeOfStmt();
+            if (next != last)
+                next = next->lexNext();
+            toExtract.push_back(st);
+            st = next;
+        }
+        else
+            st = st->lexNext();
+    }
+
+    //remove unused declarations
+    st = copy->lexNext();
+    while (st != last)
+    {
+        if (st->variant() == VAR_DECL
+            || st->variant() == VAR_DECL_90
+            || st->variant() == DIM_STAT
+            || st->variant() == INTENT_STMT)
+        {
+            SgExpression* list = st->expr(0);
+            vector<SgExpression*> newList;
+            while (list)
+            {
+                if (ident.find(list->lhs()->symbol()->identifier()) != ident.end())
+                    newList.push_back(list->lhs());
+                list = list->rhs();
+            }
+
+            if (newList.size() == 0)
+            {
+                SgStatement* next = st->lexNext();
+                toExtract.push_back(st);
+                st = next;
+                continue;
+            }
+            else
+                st->setExpression(0, makeExprList(newList));
+        }
+        else
+            toExtract.push_back(st);
+
+        if (st->variant() == CONTAINS_STMT)
+            break;
+        st = st->lexNext();
+    }
+
+    for (auto& elem : toExtract)
+        elem->extractStmt();
+
+    string retVal = copy->unparse();
+
+    if (SgFile::switchToFile(oldFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    return retVal;
+}
+
+static void insertInterface(SgStatement* func, const string& iface)
+{
+    string oldFile = current_file->filename();
+    if (!func->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgStatement* st = func->lexNext();
+    SgStatement* last = func->lastNodeOfStmt();
+    while (st != last)
+    {
+        if (isSgExecutableStatement(st))
+            break;
+        st = st->lexNext();
+    }
+    SgStatement* ifaceBlock = new SgStatement(INTERFACE_STMT);
+    addControlEndToStmt(ifaceBlock->thebif);
+
+    ifaceBlock->setlineNumber(st->lineNumber());
+    ifaceBlock->setFileName(st->fileName());
+    st->insertStmtBefore(*ifaceBlock, *st->controlParent());
+    ifaceBlock->lastNodeOfStmt()->addComment(iface.c_str());
+
+    if (SgFile::switchToFile(oldFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+}
+
+static void createInterfaceBlockForToCalls(FuncInfo* func)
+{
+    for (auto& callTo : func->callsTo)
+    {
+        if (callTo->interfaceBlocks.find(func->funcName) == callTo->interfaceBlocks.end())
+        {
+            callTo->interfaceBlocks[func->funcName] = func;
+            insertInterface(callTo->funcPointer, getInterfaceBlock(func->funcPointer->GetOriginal(), func->funcParams));
+        }
+    }
+}
 
 static void transferModule(map<FuncInfo*, set<SgSymbol*>>& funcAddedVarsMods, set<FuncInfo*>& allForChange, 
-                           vector<SgSymbol*>& varsToTransfer, FuncInfo* curFunc, FuncInfo* precFunc)
+                           vector<SgSymbol*>& varsToTransfer, FuncInfo* curFunc, FuncInfo* precFunc, set<FuncInfo*>& funcForInterfaceAdd)
 {
     SgStatement* st = curFunc->funcPointer->GetOriginal();
     map<SgSymbol*, set< SgSymbol*>> modVarsToAdd;
@@ -1013,42 +1228,81 @@ static void transferModule(map<FuncInfo*, set<SgSymbol*>>& funcAddedVarsMods, se
         }
     }
 
+    vector<SgStatement*> ifaces;
+    ifaces.push_back(curFunc->funcPointer->GetOriginal());
+    findInterfaces(curFunc, ifaces);
+
     if (allForChange.count(curFunc))
     {
-        for (auto& var : nextVarsToTransfer)
+        for (int i = 0; i < ifaces.size(); i++)
         {
-            ((SgProcHedrStmt*)(st))->AddArg(*new SgVarRefExp(var->copy()));
-            st->lexNext()->deleteStmt();
-            vector<SgSymbol*> varVec = vector<SgSymbol*>();
-            varVec.push_back(var);
-            SgStatement* decl = makeDeclaration(NULL, varVec);
-
-            /*TODO:: add some other*/
-            if (var->attributes() && ALLOCATABLE_BIT)
+            SgStatement* hedr = ifaces[i];
+            for (auto& var : nextVarsToTransfer)
             {
-                SgAttributeExp* a = new SgAttributeExp(ALLOCATABLE_OP);
-                SgExprListExp* l = new SgExprListExp();
-                l->setLhs(a);
-                ((SgVarDeclStmt*)decl)->addAttributeExpression(a);
-            }
+                if (i == 0)
+                    curFunc->funcParams.identificators.push_back(var->identifier());
+     
+                ((SgProcHedrStmt*)(hedr))->AddArg(*new SgVarRefExp(var->copy()));
+                hedr->lexNext()->deleteStmt();
+                vector<SgSymbol*> varVec = vector<SgSymbol*>();
+                varVec.push_back(var);
+                SgStatement* decl = makeDeclaration(NULL, varVec);
 
-            for (int i = 0; i < 3; i++)
-            {
-                SgExpression* e;
-                if (e = decl->expr(i))
+                /*TODO:: add some other*/
+                if (var->attributes() && ALLOCATABLE_BIT)
                 {
-                    decl->setExpression(i, CalculateInteger(ReplaceConstant(e)));
-                }
-            }
+                    bool isAuto = false;
+                    if (decl->expr(0)->lhs()->variant() == ARRAY_REF && decl->expr(0)->lhs()->lhs())
+                    {
+                        for (SgExpression* e = decl->expr(0)->lhs()->lhs(); e; e = e->rhs())
+                        {
+                            if (e->lhs()->variant() == DDOT && (e->lhs()->rhs() || e->lhs()->lhs()) ||
+                                e->lhs()->variant() != DDOT)
+                            {
+                                isAuto = true;
+                                break;
+                            }
+                        }
+                    }
 
-            SgStatement* lastDecl = st->lastDeclaration()->lexNext();
-            decl->setlineNumber(lastDecl->lineNumber() - 1);
-            decl->setFileName(lastDecl->fileName());
-            lastDecl->insertStmtBefore(*decl, *st);
+                    if (!isAuto) 
+                    {
+                        funcForInterfaceAdd.insert(curFunc);
+                        SgAttributeExp* a = new SgAttributeExp(ALLOCATABLE_OP);
+                        SgExprListExp* l = new SgExprListExp();
+                        l->setLhs(a);
+                        ((SgVarDeclStmt*)decl)->addAttributeExpression(a);
+                    }
+                }
+
+                for (int i = 0; i < 3; i++)
+                {
+                    SgExpression* e;
+                    if (e = decl->expr(i))
+                        decl->setExpression(i, CalculateInteger(ReplaceConstant(e)));
+                }
+
+                SgStatement* firstExDec = NULL;
+                for (SgStatement* start = hedr->lexNext(), *end = hedr->lastNodeOfStmt(); start != end; start = start->lexNext())
+                {
+                    if ((isSgExecutableStatement(start) || isSgDeclarationStatement(start)) && 
+                        !strcmp(hedr->fileName(), start->fileName())) 
+                    {
+                        firstExDec = start;
+                        break;
+                    }
+                }
+                checkNull(firstExDec, convertFileName(__FILE__).c_str(), __LINE__);
+
+                decl->setlineNumber(firstExDec->lineNumber());
+                decl->setFileName(hedr->fileName());
+                firstExDec->insertStmtBefore(*decl, *(hedr));
+
+            }
         }
 
         for (auto& callFunc : curFunc->callsTo)
-            transferModule(funcAddedVarsMods, allForChange, nextVarsToTransfer, callFunc, curFunc);
+            transferModule(funcAddedVarsMods, allForChange, nextVarsToTransfer, callFunc, curFunc, funcForInterfaceAdd);
     }
     else
     {
@@ -1068,6 +1322,7 @@ static void transferModule(map<FuncInfo*, set<SgSymbol*>>& funcAddedVarsMods, se
                 el->setRhs(renameL);
                 renameL = el;
             }
+
             onlyE->setLhs(renameL);
             SgStatement* useSt = new SgStatement(USE_STMT);
             useSt->setSymbol(modS);
@@ -1090,18 +1345,19 @@ static void fillUsedVars(set<SgSymbol*>& usedVars, SgExpression* exp)
 
 void moduleTransfer(const map<string, vector<FuncInfo*>>& allFuncInfo)
 {
-    FuncInfo* start;
-    set<FuncInfo*> allForChange;    
+    FuncInfo* start = NULL;
+    set<FuncInfo*> allForChange;
     map<FuncInfo*, set<SgSymbol*>> funcAddedVarsMods;
-
+    set<FuncInfo*> funcForInterfaceAdd;
     for (auto& byfile : allFuncInfo)
+    {
         for (auto& func : byfile.second)
             if (func->isMain)
                 start = func;
+    }
 
     collectForChange(allForChange, start);
     allForChange.erase(start);
-
     for (auto& func : allForChange)
     {
         if (SgFile::switchToFile(func->fileName) == -1)
@@ -1121,19 +1377,50 @@ void moduleTransfer(const map<string, vector<FuncInfo*>>& allFuncInfo)
                 break;
 
             SgStatement* next = start->lexNext();
-            if (isSgExecutableStatement(start))
+            if (start->variant() == USE_STMT) 
+            {
+                SgExpression* onlyE = start->expr(0);
+                if (onlyE)
+                {
+                    SgExprListExp* renameL = NULL;
+                    for (SgExpression* ex = onlyE->lhs(); ex; ex = ex->rhs())
+                    {
+                        if (ex->lhs()->variant() == RENAME_NODE)
+                        {
+                            SgSymbol* left = NULL, *right = NULL;
+                            if (ex->lhs()->lhs()->symbol())
+                                left = ex->lhs()->lhs()->symbol();
+                            if (ex->lhs()->rhs() && ex->lhs()->rhs()->symbol())
+                                right = ex->lhs()->rhs()->symbol();
+                            if (!(right && (right->variant() == VARIABLE_NAME) || left && (left->variant() == VARIABLE_NAME)))
+                            {
+                                SgExprListExp* el = new SgExprListExp();
+                                el->setLhs(ex->lhs());
+                                el->setRhs(renameL);
+                                renameL = el;
+                            }
+                        }
+                    }
+
+                    if (renameL)
+                        onlyE->setLhs(renameL);                    
+                    else
+                        start->deleteStmt();
+                }
+            }
+            if (isSgExecutableStatement(start)|| isSgDeclarationStatement(start))
                 for (int i = 0; i < 3; i++)
                     fillUsedVars(usedVars, start->expr(i));
             
-            if (start->variant() == IMPL_DECL)
-                start->deleteStmt();
+          //  if (start->variant() == IMPL_DECL)
+            //    start->deleteStmt();
             start = next;
         }
 
         sl = lst->lexNext() ? lst->lexNext()->symbol() : NULL;
         for (s = st->symbol(); s != sl && s != NULL; s = s->next())
         {
-            if (OriginalSymbol(s)->scope()->variant() == MODULE_STMT && s->variant() == VARIABLE_NAME && usedVars.count(s))
+            if (OriginalSymbol(s)->scope()->variant() == MODULE_STMT && (s->variant() == VARIABLE_NAME) && usedVars.count(s))
             {
                 string newName = "m_" + string(OriginalSymbol(s)->scope()->symbol()->identifier()) + "_" + OriginalSymbol(s)->identifier();
                 locVars[s->identifier()] = newName;
@@ -1141,6 +1428,9 @@ void moduleTransfer(const map<string, vector<FuncInfo*>>& allFuncInfo)
                 varsToTransfer.push_back(s);
             }
         }
-        transferModule(funcAddedVarsMods, allForChange, varsToTransfer, func, func);
+        transferModule(funcAddedVarsMods, allForChange, varsToTransfer, func, func, funcForInterfaceAdd);
     }
+
+    for (auto& func : funcForInterfaceAdd)
+        createInterfaceBlockForToCalls(func);
 }
