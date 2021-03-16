@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 
 set(project Sapfor)
 if (TARGET ${project})
@@ -11,7 +11,6 @@ message("processing ${project}")
 add_definitions("-D SYS5")
 add_definitions("-D YYDEBUG")
 
-set(JAVA_SDK_DIR "${JAVA_HOME}")
 #set(CMAKE_CXX_STANDARD 11)
 
 set(fdvm_include ../../../dvm/fdvm/trunk/include)
@@ -32,25 +31,6 @@ else ()
     message("Not found paths.txt, using default paths.")
     FILE(STRINGS ./paths.default.txt SAPFOR_PATHS)
 endif ()
-
-if(NOT EXISTS ${JAVA_SDK_DIR}/include)
-	if (WIN32)
-		message("path '${JAVA_SDK_DIR}/include' does not exist, set JAVA_HOME correctly")
-	else ()
-		message("path '${JAVA_SDK_DIR}/include' does not exist, set JAVA_HOME correctly")
-	endif()		
-endif()
-
-if (WIN32)
-	if(NOT EXISTS ${JAVA_SDK_DIR}/include/win32)
-		message("path '${JAVA_SDK_DIR}/include/win32' does not exist, set JAVA_HOME correctly")
-	endif()
-elseif (UNIX)
-	if(NOT EXISTS ${JAVA_SDK_DIR}/include/linux)
-		message("path '${JAVA_SDK_DIR}/include/linux' does not exist, set JAVA_HOME correctly")
-	endif()
-endif()
-
   
 foreach (NameAndValue ${SAPFOR_PATHS})
     # Strip leading spaces
@@ -73,16 +53,6 @@ include_directories(${zlib_sources}/include)
 include_directories(${sage_include_2})
 #PPPA includes
 include_directories(${pppa_sources})
-
-#JAVA includes 
-if (EXISTS ${JAVA_SDK_DIR}/include)
-	include_directories(${JAVA_SDK_DIR}/include)
-	if (WIN32)
-		include_directories(${JAVA_SDK_DIR}/include/win32)
-	else ()
-		include_directories(${JAVA_SDK_DIR}/include/linux)
-	endif()
-endif()
 
 set(VS_CALLS _src/VisualizerCalls/get_information.cpp
 		_src/VisualizerCalls/get_information.h
@@ -415,16 +385,6 @@ add_subdirectory(Inliner)
 
 add_definitions("-D __SPF_BUILT_IN_PARSER")
 add_definitions("-D __SPF_BUILT_IN_PPPA")
-
-if (WIN32)
-	if(EXISTS ${JAVA_SDK_DIR}/include/win32)
-		add_definitions("-D JAVA")
-	endif()
-elseif (UNIX)
-	if(EXISTS ${JAVA_SDK_DIR}/include/linux)
-		add_definitions("-D JAVA")
-	endif()
-endif()
 
 if (WIN32)
 	target_link_libraries(Sapfor_F SageNewSrc SageLib SageOldSrc)

@@ -87,6 +87,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   11 
 //   12 "for function duplication"
 //   13 "for function duplication"
+//   14 inlining errors - dims mismatch
 
 // 30xx PARALLEL GROUP
 //   01 "add across dependencies by array '%s' to loop"
@@ -258,7 +259,7 @@ static void printStackTrace() { };
     } \
 } while (0)
 
-// Сводобный - R180
+// Сводобный - R181
 // Гайд по русификации сообщений: При добавлении нового сообщения, меняется последний сводобный идентификатор.
 // В этом файле остаются только спецификаторы, для которых будет заполнен текст. Полный текст пишется в файле
 // russian_errors_text.txt. Специикаторы там тоже сохраняются, по ним в визуализаторе будет восстановлен 
@@ -350,7 +351,7 @@ static const wchar_t *R52 = L"R52:%s";
 static const wchar_t *R53 = L"R53:";
 //1021
 static const wchar_t *R54 = L"R54:%s";
-static const wchar_t *R55 = L"R55:%s";
+static const wchar_t *R55 = L"R55:%s#%d";
 //1022
 static const wchar_t *R56 = L"R56:%s";
 //1023
@@ -477,6 +478,8 @@ static const wchar_t *R177 = L"R177:";
 static const wchar_t* R173 = L"R173:";
 //2013
 static const wchar_t* R174 = L"R174:%s";
+//2013
+static const wchar_t* R180 = L"R180:%s#%s";
 
 //3001
 static const wchar_t *R108 = L"R108:%s";

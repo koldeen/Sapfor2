@@ -1,6 +1,7 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 
 set(project SageNewSrc)
+#set(CMAKE_C_STANDARD 11)
 #also named as libSage
 if (TARGET ${project})
     return()

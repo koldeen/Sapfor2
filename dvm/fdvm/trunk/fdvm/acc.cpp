@@ -33,7 +33,7 @@ static SgSymbol *Imem_k, *Rmem_k, *Dmem_k, *Cmem_k, *DCmem_k, *Lmem_k, *Chmem_k;
 static SgSymbol *fdim3;
 static SgSymbol *s_ibof, *s_CudaIndexType_k, *s_warpsize, *s_blockDims;
 static SgSymbol *s_rest_blocks, *s_cur_blocks, *s_add_blocks, *s_begin[MAX_LOOP_LEVEL];
-static SgSymbol *s_end[MAX_LOOP_LEVEL], *s_blocksS_k[MAX_LOOP_LEVEL];
+static SgSymbol *s_end[MAX_LOOP_LEVEL], *s_blocksS_k[MAX_LOOP_LEVEL], *s_loopStep[MAX_LOOP_LEVEL];
 static SgType *type_DvmType, *type_CudaIndexType, *type_with_len_DvmType, *type_FortranDvmType, *CudaIndexType_k;
 static int loopIndexCount;
 
@@ -740,6 +740,7 @@ void BeginEndBlocksSymbols(int pl_rank)
         s_begin[i - 1] = NULL;
         s_end[i - 1] = NULL;
         s_blocksS_k[i - 1] = NULL;
+        s_loopStep[i - 1] = NULL;
     }
     type = options.isOn(C_CUDA) ? C_Derived_Type(s_CudaIndexType_k) : CudaIndexType();
     for (i = 1; i <= pl_rank; i++)
@@ -750,6 +751,9 @@ void BeginEndBlocksSymbols(int pl_rank)
         s_end[i - 1] = new SgVariableSymb(TestAndCorrectName(name), *type, *kernel_st);
         sprintf(name, "blocks_%d", i);
         s_blocksS_k[i - 1] = new SgVariableSymb(TestAndCorrectName(name), *type, *kernel_st);
+        sprintf(name, "loopStep_%d", i);
+        s_loopStep[i - 1] = new SgVariableSymb(TestAndCorrectName(name), *type, *kernel_st);
+
     }
 
 }
@@ -3123,7 +3127,8 @@ void ACC_ReductionVarsAreActual()
 
     for (rl = red_struct_list; rl; rl = rl->next)
     {
-        doCallAfter(ActualScalar(rl->redvar));
+        if(rl->redvar)
+            doCallAfter(ActualScalar(rl->redvar));
         if (rl->locvar)
             doCallAfter(ActualScalar(rl->locvar));
     }
@@ -5898,7 +5903,7 @@ SgStatement *Create_Host_Loop_Subroutine(SgSymbol *sHostProc, int dependency)
 
     s_low_bound = s = new SgSymbol(VARIABLE_NAME, "boundsLow", *typearray, *st_hedr);
     s_high_bound = new SgSymbol(VARIABLE_NAME, "boundsHigh", *typearray, *st_hedr);
-    s_step = new SgSymbol(VARIABLE_NAME, "stepsIgnore", *typearray, *st_hedr);
+    s_step = new SgSymbol(VARIABLE_NAME, "loopSteps", *typearray, *st_hedr);
 
     stmt = s->makeVarDeclStmt();
     stmt->expr(1)->setType(tdvm);
@@ -5979,7 +5984,7 @@ SgStatement *Create_Host_Loop_Subroutine(SgSymbol *sHostProc, int dependency)
 
     // replace loop nest 
     ReplaceDoNestLabel_Above(LastStatementOfDoNest(first_do_par), first_do_par, GetLabel());
-    ReplaceLoopBounds(first_do_par, lrank, s_low_bound, s_high_bound);
+    ReplaceLoopBounds(first_do_par, lrank, s_low_bound, s_high_bound, s_step);
 
     //stmt = first_do_par->extractStmt();
     if (dependency == 0) firstdopar = stmt = first_do_par->extractStmt();
@@ -6525,7 +6530,7 @@ SgSymbol *dvm000SymbolForHost(int host_dvm, SgStatement *hedr)
 
 }
 
-void ReplaceLoopBounds(SgStatement *first_do, int lrank, SgSymbol *s_low_bound, SgSymbol *s_high_bound)
+void ReplaceLoopBounds(SgStatement *first_do, int lrank, SgSymbol *s_low_bound, SgSymbol *s_high_bound, SgSymbol *s_step)
 {
     SgStatement *st;
     SgForStmt *stdo;
@@ -6550,8 +6555,12 @@ void ReplaceLoopBounds(SgStatement *first_do, int lrank, SgSymbol *s_low_bound, 
             stdo->end()->setLhs(new SgArrayRefExp(*s_high_bound, *new SgValueExp(1 + i)));
         if (!stdo->step())
             continue;
-        int istep = IntStepForHostHandler(stdo->step());
-        SgExpression *estep = (istep ? new SgValueExp(istep) : stdo->step());
+        int istep = IntStepForHostHandler(stdo->step()); 
+        SgExpression *estep;
+        if(istep)
+            estep =  new SgValueExp(istep);
+        else
+             estep = new SgArrayRefExp(*s_step, *new SgValueExp(1 + i)); 
         stdo->setStep(*estep);
     }
 }
@@ -6964,8 +6973,8 @@ int IConstStep(SgStatement *stdo)
     ec = Calculate(dostep);
     if (ec->isInteger())
         return(ec->valueInteger());
-
-    err("Non constant do step is not implemented yet", 593, stdo);
+    if(!options.isOn(NO_BL_INFO))
+        err("Non constant do step is not implemented yet", 593, stdo);
     return(0);
 }
 
@@ -7712,11 +7721,19 @@ SgExpression *KernelCondition2(SgStatement *dost, int level)
 
     sind = dost->symbol();
     istep = IConstStep(dost);
-    if (istep >= 0)
+    if (istep > 0)
         cond = &operator <= (*new SgVarRefExp(sind), *new SgVarRefExp(s_end[level - 1]));
     else if (istep < 0)
         cond = &operator >= (*new SgVarRefExp(sind), *new SgVarRefExp(s_end[level - 1]));
-    //else   !!! not implemented
+    else   
+    {
+       SgExpression eStepLt0  = operator <  (*new SgVarRefExp(s_loopStep[level - 1]), *new SgValueExp(0)); 
+       SgExpression eStepGt0  = operator >  (*new SgVarRefExp(s_loopStep[level - 1]), *new SgValueExp(0)); 
+       SgExpression eIndLeEnd = operator <= (*new SgVarRefExp(sind), *new SgVarRefExp(s_end[level - 1]));
+       SgExpression eIndGeEnd = operator >= (*new SgVarRefExp(sind), *new SgVarRefExp(s_end[level - 1]));
+
+       cond =  &operator || (operator && (eStepLt0,eIndGeEnd), operator && (eStepGt0,eIndLeEnd));
+    }
     return(cond);
 }
 
@@ -8700,7 +8717,7 @@ SgExpression *CreateKernelDummyList(SgSymbol *s_red_count_k, SgType *idxTypeInKe
     }
     else  //without blocks_info
     {
-        SgSymbol *copy_s_begin, *copy_s_end, *copy_s_blocks, *copy_s_add_blocks;
+        SgSymbol *copy_s_begin, *copy_s_end, *copy_s_step, *copy_s_blocks, *copy_s_add_blocks;
         for (i = 0; i < pl_rank; i++)
         {
             copy_s_begin = new SgSymbol(s_begin[i]->variant(), s_begin[i]->identifier(), idxTypeInKernel, s_begin[i]->scope());
@@ -8714,6 +8731,13 @@ SgExpression *CreateKernelDummyList(SgSymbol *s_red_count_k, SgType *idxTypeInKe
             ae = new SgVarRefExp(*copy_s_end);
             ae = new SgExprListExp(*ae);
             arg_list = AddListToList(arg_list, ae);
+            if (!IConstStep(DoStmt(first_do_par, i + 1)))     
+            {
+                copy_s_step = new SgSymbol(s_loopStep[i]->variant(), s_loopStep[i]->identifier(), idxTypeInKernel, s_loopStep[i]->scope());
+                ae = new SgVarRefExp(*copy_s_step);
+                ae = new SgExprListExp(*ae);
+                arg_list = AddListToList(arg_list, ae);
+            }
         }
 
         for (i = 0; i < pl_rank - 1; i++)
@@ -9609,9 +9633,12 @@ SgStatement *Assign_To_IndVar2(SgStatement *dost, int i, int nloop)
     // i = 1,...,nloop                   
 
     e = new SgVarRefExp(s_begin[i - 1]);
-    if ((ist = IConstStep(dost)) != 1)
-        step_e = new SgValueExp(ist);
 
+    if ((ist = IConstStep(dost)) == 0)
+        step_e = new SgVarRefExp(s_loopStep[i-1]);  // step is not constant 
+     else if (ist != 1 )                            // step is constant other than 1
+        step_e = new SgValueExp(ist);
+   
     if (i == nloop)
         // ind_i = begin_i + (cur_blocks*blockDim%x + threadIdx%x [- 1]) [ * step_i ]
     {
@@ -12644,7 +12671,7 @@ SgStatement *Create_C_Adapter_Function(SgSymbol *sadapter)
     //SgStatement *fileHeaderSt;
     SgSymbol *s_loop_ref, *sarg, *s, *sb, *sg, *sdev, *h_first, *hgpu_first, *base_first, *red_first, *uses_first, *scalar_first;
     SgSymbol *s_stream = NULL, *s_blocks = NULL, *s_threads = NULL, *s_blocks_info = NULL, *s_red_count = NULL, *s_tmp_var = NULL;
-    SgSymbol *s_dev_num = NULL, *s_shared_mem = NULL, *s_regs = NULL, *s_blocksS = NULL, *s_idxL = NULL, *s_idxH = NULL, *s_idxTypeInKernel = NULL;
+    SgSymbol *s_dev_num = NULL, *s_shared_mem = NULL, *s_regs = NULL, *s_blocksS = NULL, *s_idxL = NULL, *s_idxH = NULL, *s_step = NULL, *s_idxTypeInKernel = NULL;
     SgSymbol *s_num_of_red_blocks = NULL, *s_fill_flag = NULL, *s_red_num = NULL, *s_restBlocks = NULL, *s_addBlocks = NULL, *s_overallBlocks = NULL;
     SgSymbol *s_max_blocks;
     SgType *typ = NULL;
@@ -12898,6 +12925,9 @@ SgStatement *Create_C_Adapter_Function(SgSymbol *sadapter)
         st_hedr->insertStmtAfter(*stmt, *st_hedr);
         s_idxH = s = ArraySymbol(TestAndCorrectName("idxH"), C_DvmType(), new SgValueExp(pl_rank), st_hedr);
         addDeclExpList(s, stmt->expr(0));
+        s_step = s = ArraySymbol(TestAndCorrectName("loopSteps"), C_DvmType(), new SgValueExp(pl_rank), st_hedr);
+        addDeclExpList(s, stmt->expr(0));
+
     }
     s_stream = s = new SgSymbol(VARIABLE_NAME, "stream", *C_Derived_Type(s_cudaStream), *st_hedr);
     stmt = makeSymbolDeclaration(s);
@@ -13200,6 +13230,8 @@ SgStatement *Create_C_Adapter_Function(SgSymbol *sadapter)
         {
             fcall->addArg(*new SgArrayRefExp(*s_idxL, *new SgValueExp(i)));     //'idxL[...]'
             fcall->addArg(*new SgArrayRefExp(*s_idxH, *new SgValueExp(i)));     //'idxH[...]'
+            if(!IConstStep(DoStmt(first_do_par, i + 1)))     //IntStepForHostHandler
+               fcall->addArg(*new SgArrayRefExp(*s_step, *new SgValueExp(i)));  // loopStep[...]
         }
         for (i = 1; i < pl_rank; i++)
             fcall->addArg(*new SgArrayRefExp(*s_blocksS, *new SgValueExp(i)));  //'blocksS[...]'
@@ -13250,14 +13282,14 @@ SgStatement *Create_C_Adapter_Function(SgSymbol *sadapter)
     else //without blocks-info
     {
         //loop_fill_bounds_(loop_ref,idxL,idxH,0);
-        e = FillBounds(s_loop_ref, s_idxL, s_idxH, NULL);
+        e = FillBounds(s_loop_ref, s_idxL, s_idxH, s_step); //s_step => NULL
         stmt = new SgCExpStmt(*e);
         st_end->insertStmtBefore(*stmt, *st_hedr);
 
         // blocksS[i] = ...           i=0,...,pl_rank-1
         for (i = pl_rank - 1; i >= 0; i--)
         {
-            stmt = AssignBlocksSElement(i, pl_rank, s_blocksS, s_idxL, s_idxH, s_threads);
+            stmt = AssignBlocksSElement(i, pl_rank, s_blocksS, s_idxL, s_idxH, s_step, s_threads);
             st_end->insertStmtBefore(*stmt, *st_hedr);
         }
 
@@ -13609,16 +13641,22 @@ SgStatement *Create_C_Adapter_Function_For_Sequence(SgSymbol *sadapter, SgStatem
     return(st_hedr);
 }
 
-SgStatement *AssignBlocksSElement(int i, int pl_rank, SgSymbol *s_blocksS, SgSymbol *s_idxL, SgSymbol *s_idxH, SgSymbol *s_threads)
+SgStatement *AssignBlocksSElement(int i, int pl_rank, SgSymbol *s_blocksS, SgSymbol *s_idxL, SgSymbol *s_idxH, SgSymbol *s_step, SgSymbol *s_threads)
 {
-    SgExpression *e;
+    SgExpression *e=NULL, *estep=NULL;
     int istep;
     istep = IConstStep(DoStmt(first_do_par, i + 1));
     // idxH[i] - idxL[i] + 1
     e = &(*new SgArrayRefExp(*s_idxH, *new SgValueExp(i)) - *new SgArrayRefExp(*s_idxL, *new SgValueExp(i)));
     if (istep != 1)
+    {
         // (idxH[i] - idxL[i] + 1)/step[i]
-        e = &((*e + *new SgValueExp(1)) / *new SgValueExp(istep));
+        if (istep == 0)
+            estep = new SgArrayRefExp(*s_step, *new SgValueExp(i));
+        else
+            estep = new SgValueExp(istep);
+        e = &((*e + *new SgValueExp(1)) / *estep);
+    }
     if (istep == 1)
     {
         if (i == pl_rank - 1)

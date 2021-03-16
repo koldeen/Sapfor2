@@ -33,6 +33,63 @@ static map<string, int> createdVarCounterByName;
 static map<pair<string, int>, map<string, pair<SgSymbol*, string>>> replacedConstRef; // key == <funcName, fileID>
 static map<pair<string, int>, set<SgValueExp*>> dataDeclsByFunc; // key == <funcName, fileID>
 
+struct PointCall
+{
+private:
+    bool findChainCall(FuncInfo* call, int lvl, vector<string>& str, const string& toFind) const
+    {
+        bool found = false;
+        if (lvl == 0)
+        {
+            for (auto& elem : call->callsFromV)
+            {
+                if (elem->funcName == toFind)
+                {
+                    str.push_back(elem->funcName);
+                    found = true;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            for (auto& elem : call->callsFromV)
+            {
+                str.push_back(elem->funcName);
+                found = findChainCall(elem, lvl - 1, str, toFind);
+                if (found)
+                    break;
+                else
+                    str.pop_back();
+            }
+        }
+
+        return found;
+    }
+
+public:
+    pair<string, int> mainPoint;
+    FuncInfo *func;
+    string currCall;
+    int currLvl;
+
+    string getChainCall() const
+    {
+        string str = func->funcName;
+        if (currLvl)
+        {
+            vector<string> chain;
+            findChainCall(func, currLvl - 1, chain, currCall);
+            if (chain.size() != currLvl)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            for (int z = 0; z < chain.size(); ++z)
+                str += "->" + chain[z];
+        }
+        return str;
+    }
+};
+
 static void checkSymbols(const int currFileId, const set<SgSymbol*>& symbs)
 {    
     for (auto& symb : symbs)
@@ -322,7 +379,8 @@ static SgArrayRefExp* linearize(SgArrayRefExp* result, SgArrayRefExp* arrayExpOl
 
 static SgExpression* doReplace(SgExpression* oldExp, SgExpression* newExp, map<SgExpression*, string>& collection, 
                                map<string, vector<pair<SgSymbol*, SgExpression*>>>& argVarsLinearForm, 
-                               map<string, vector<Messages>>& messages)
+                               map<string, vector<Messages>>& messages,
+                               const PointCall& point)
 {
     if (oneExpr == NULL)
         oneExpr = new SgValueExp(1);
@@ -355,8 +413,12 @@ static SgExpression* doReplace(SgExpression* oldExp, SgExpression* newExp, map<S
                 SgArrayRefExp* result = (SgArrayRefExp*)arrayExpNew->copyPtr();
                 if (boundsOld.size() != boundsNew.size() && boundsNew.size() != 1 && boundsOld.size() != 1)
                 {
-                    arrayExpOld->unparsestdout();
-                    arrayExpNew->unparsestdout();
+                    std::wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"Can not do replace argument of call '%s': sizes mismatch of array reference '%s'",
+                                               to_wstring(point.getChainCall()).c_str(), to_wstring(oldExp->symbol()->identifier()).c_str());
+                    __spf_printToLongBuf(bufR, R180, to_wstring(point.getChainCall()).c_str(), to_wstring(oldExp->symbol()->identifier()).c_str());
+                    getObjectForFileFromMap(point.mainPoint.first.c_str(), messages).push_back(Messages(ERROR, point.mainPoint.second, bufR, bufE, 2014));
+
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
 
@@ -364,8 +426,12 @@ static SgExpression* doReplace(SgExpression* oldExp, SgExpression* newExp, map<S
                     result = linearize(result, arrayExpOld, oldExp, argVarsLinearForm, boundsOld, boundsNew, collection);
                 else if (boundsNew.size() > 1 && boundsOld.size() == 1)
                 {
-                    arrayExpOld->unparsestdout();
-                    arrayExpNew->unparsestdout();
+                    std::wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"Can not do replace argument of call '%s': sizes mismatch of array reference '%s'", 
+                                               to_wstring(point.getChainCall()).c_str(), to_wstring(oldExp->symbol()->identifier()).c_str());
+                    __spf_printToLongBuf(bufR, R180, to_wstring(point.getChainCall()).c_str(), to_wstring(oldExp->symbol()->identifier()).c_str());
+                    getObjectForFileFromMap(point.mainPoint.first.c_str(), messages).push_back(Messages(ERROR, point.mainPoint.second, bufR, bufE, 2014));
+
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
                 else if (numOldSubs != 0)
@@ -376,7 +442,13 @@ static SgExpression* doReplace(SgExpression* oldExp, SgExpression* newExp, map<S
             {
                 SgArrayRefExp* result = new SgArrayRefExp(*arrayExpNew->symbol());
                 if (boundsOld.size() > boundsNew.size())
+                {
+                    std::wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"Can not do replace argument of call '%s': sizes mismatch of array reference '%s'",
+                                         to_wstring(point.getChainCall()).c_str(), to_wstring(oldExp->symbol()->identifier()).c_str());
+                    __spf_printToLongBuf(bufR, R180, to_wstring(point.getChainCall()).c_str(), to_wstring(oldExp->symbol()->identifier()).c_str());
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
 
                 result = addressPass(result, arrayExpOld, arrayExpNew, boundsOld, boundsNew, collection);
                 for (int z = 0; z < boundsNew.size() - boundsOld.size(); ++z)
@@ -408,7 +480,6 @@ static SgExpression* doReplace(SgExpression* oldExp, SgExpression* newExp, map<S
 }
 
 //return 0 - local, 1 - common, 2 - module
-//TODO: common synonyms
 static int isGlobal(SgStatement* st, SgSymbol* toCheckS, vector<SgSymbol*>* allInCommon = NULL, string* globalName = NULL)
 {
     //by USE
@@ -539,12 +610,12 @@ static void replaceSymbInExp(SgStatement* st, SgExpression* exp, SgExpression* p
                              const map<string, SgExpression*>& argVars, map<string, SgSymbol*>& locVars, set<SgSymbol*>& newSymbols,
                              const string& funcName, const string& resultName, SgSymbol*& newHedrSymb, map<SgExpression*, string>& collection,
                              map<string, vector<pair<SgSymbol*, SgExpression*>>>& argVarsLinearForm,
-                             map<string, vector<Messages>>& messages)
+                             map<string, vector<Messages>>& messages, const PointCall& point)
 {
     if (exp)
     {
-        replaceSymbInExp(st, exp->lhs(), exp, expIdx, true, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages);
-        replaceSymbInExp(st, exp->rhs(), exp, expIdx, false, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages);
+        replaceSymbInExp(st, exp->lhs(), exp, expIdx, true, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages, point);
+        replaceSymbInExp(st, exp->rhs(), exp, expIdx, false, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages, point);
 
         const int var = exp->variant();
         if (var == FUNC_CALL && exp->symbol())
@@ -560,12 +631,12 @@ static void replaceSymbInExp(SgStatement* st, SgExpression* exp, SgExpression* p
                 SgExpression* copy = NULL;
                 if (!par)
                 {
-                    copy = doReplace(st->expr(expIdx), it->second, collection, argVarsLinearForm, messages);
+                    copy = doReplace(st->expr(expIdx), it->second, collection, argVarsLinearForm, messages, point);
                     st->setExpression(expIdx, copy);
                 }
                 else
                 {
-                    copy = doReplace((isLeft ? par->lhs() : par->rhs()), it->second, collection, argVarsLinearForm, messages);
+                    copy = doReplace((isLeft ? par->lhs() : par->rhs()), it->second, collection, argVarsLinearForm, messages, point);
                     isLeft ? par->setLhs(copy) : par->setRhs(copy);
                 }
             }
@@ -596,7 +667,7 @@ static void replaceSymbInExp(SgStatement* st, SgExpression* exp, SgExpression* p
                                 {
                                     auto list = allList;
                                     if (list && list->lhs())
-                                        replaceSymbInExp(NULL, list->lhs(), list, -1, true, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages);
+                                        replaceSymbInExp(NULL, list->lhs(), list, -1, true, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages, point);
                                     allList = allList->rhs();
                                 }
                             }
@@ -615,7 +686,7 @@ inline static void replaceSymbInStat(SgStatement* st, SgStatement* tempHedr,
                                      const map<string, SgExpression*>& argVars, map<string, SgSymbol*>& locVars, set<SgSymbol*>& newSymbols,
                                      const string& funcName, const string& resultName, SgSymbol*& newHedrSymb, map<SgExpression*, string>& collection,
                                      map<string, vector<pair<SgSymbol*, SgExpression*>>>& argVarsLinearForm,
-                                     map<string, vector<Messages>>& messages)
+                                     map<string, vector<Messages>>& messages, const PointCall& point)
 {
     if (st->symbol() && st->variant() != PROC_STAT)
     {
@@ -648,13 +719,13 @@ inline static void replaceSymbInStat(SgStatement* st, SgStatement* tempHedr,
     }
 
     for (int i = 0; i < 3; ++i)
-        replaceSymbInExp(st, st->expr(i), NULL, i, false, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages);
+        replaceSymbInExp(st, st->expr(i), NULL, i, false, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages, point);
 }
 
 static inline void remapVars(SgStatement* tempHedr,
                              const map<string, SgExpression*>& argVars, map<string, SgSymbol*>& locVars,
                              set<SgSymbol*>& newSymbols, const string& funcName, const string& resultName, 
-                             SgSymbol*& newHedrSymb, map<string, vector<Messages>>& messages)
+                             SgSymbol*& newHedrSymb, map<string, vector<Messages>>& messages, const PointCall& point)
 {    
     map<SgExpression*, string> collection;
     map<string, vector<pair<SgSymbol*, SgExpression*>>> argVarsLinearForm;
@@ -665,7 +736,7 @@ static inline void remapVars(SgStatement* tempHedr,
             break;
 
         if (isSgExecutableStatement(st))
-            replaceSymbInStat(st, tempHedr, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages);
+            replaceSymbInStat(st, tempHedr, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, argVarsLinearForm, messages, point);
         else
             if (st->variant() == DATA_DECL)
                 dataDeclsByFunc[make_pair(funcName, current_file_id)].insert((SgValueExp*)st->expr(0));
@@ -699,7 +770,7 @@ static inline void remapVars(SgStatement* tempHedr,
 
                 tmp->setLhs(elem.second);
                 
-                replaceSymbInExp(NULL, tmp->lhs(), tmp, -1, true, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, dummy, messages);
+                replaceSymbInExp(NULL, tmp->lhs(), tmp, -1, true, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, collection, dummy, messages, point);
                 
                 SgAssignStmt* init = new SgAssignStmt(*new SgVarRefExp(elem.first), *tmp->lhs());
                 lastDecl->insertStmtAfter(*init, *tempHedr);
@@ -785,6 +856,12 @@ static int clean(const string& funcName, SgStatement* funcSt, const map<string, 
         {
             if (st->lexNext()->variant() == CONTROL_END && funcSt->lastNodeOfStmt() == st->lexNext())
             {
+                if (st->label())
+                {
+                    SgStatement* cont = new SgStatement(CONT_STAT);
+                    cont->setLabel(*st->label());
+                    st->insertStmtBefore(*cont, *st->controlParent());
+                }
                 toDelete.push_back(st);
                 break;
             }
@@ -794,7 +871,6 @@ static int clean(const string& funcName, SgStatement* funcSt, const map<string, 
                 contLab = new SgLabel(getNextFreeLabel());
                 cont = new SgStatement(CONT_STAT);
                 cont->setLabel(*contLab);
-                auto test = funcSt->lastNodeOfStmt();
                 funcSt->lastNodeOfStmt()->insertStmtBefore(*cont, *funcSt);
             }
 
@@ -814,7 +890,7 @@ static int clean(const string& funcName, SgStatement* funcSt, const map<string, 
 // true if inserted
 static inline bool insert(SgStatement* callSt, SgStatement* funcStat, SgExpression* args, set<SgSymbol*>& newSymbols, 
                           const map<string, FuncInfo*>& funcMap, vector<SgStatement*>& toDelete, set<SgStatement*>& useStats,
-                          map<string, vector<Messages>>& messages)
+                          map<string, vector<Messages>>& messages, const PointCall& point)
 {
     SgSymbol* funcSymb = funcStat->symbol();
     bool isEntry = false;
@@ -869,7 +945,7 @@ static inline bool insert(SgStatement* callSt, SgStatement* funcStat, SgExpressi
         if (begin->expr(0) && begin->expr(0)->symbol())
             resultName = begin->expr(0)->symbol()->identifier();
 
-    remapVars(tempHedr, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, messages);
+    remapVars(tempHedr, argVars, locVars, newSymbols, funcName, resultName, newHedrSymb, messages, point);
 
     if (!newHedrSymb && tempSymb->variant() == FUNCTION_NAME) // if no textual use of return variable, create new anyway
         newHedrSymb = createSymbAndDecl("null", string(tempSymb->identifier()) + "_spf", tempSymb, newSymbols);
@@ -1011,7 +1087,8 @@ static inline void PrecalculateActualParameters(SgStatement* st, SgSymbol* s, Sg
 }
 
 static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>& toInsert, map<string, vector<Messages>>& SPF_messages,
-                        const string& fileName, const FuncInfo* func, map<SgStatement*, set<SgSymbol*>>& newSymbsToDeclare)
+                        const string& fileName, const FuncInfo* func, map<SgStatement*, set<SgSymbol*>>& newSymbsToDeclare, 
+                        const PointCall& point)
 {
     bool isInlined = false;
     const string& funcName = func->funcName;
@@ -1131,7 +1208,7 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
                         auto rPart = st->expr(1);
                         if (rPart->variant() == FUNC_CALL && rPart->symbol() && rPart->symbol()->identifier() == funcName)
                         {
-                            bool doInline = insert(st, funcStat, rPart->lhs(), newSymbols, funcMap, toDelete, useStats, SPF_messages);
+                            bool doInline = insert(st, funcStat, rPart->lhs(), newSymbols, funcMap, toDelete, useStats, SPF_messages, point);
                             change |= doInline;
                             isInlined |= doInline;
                         }
@@ -1140,7 +1217,7 @@ static bool run_inliner(const map<string, FuncInfo*>& funcMap, set<SgStatement*>
                     case PROC_STAT:
                         if (st->symbol() && st->symbol()->identifier() == funcName)
                         {
-                            bool doInline = insert(st, funcStat, st->expr(0), newSymbols, funcMap, toDelete, useStats, SPF_messages);
+                            bool doInline = insert(st, funcStat, st->expr(0), newSymbols, funcMap, toDelete, useStats, SPF_messages, point);
                             change |= doInline;
                             isInlined |= doInline;
                         }
@@ -1324,9 +1401,17 @@ bool inliner(const string& fileName_in, const string& funcName, const int lineNu
         if (markers.size() == 0)
             return 0;
 
+        PointCall point;
+        point.mainPoint.first = fileName;
+        point.mainPoint.second = lineNumber;
+
+        point.func = func;
+        point.currLvl = 0;
+        point.currCall = func->funcName;
+
         __spf_print(1, "INLINE %s\n", func->funcName.c_str());
         //1 level
-        bool isInlined = run_inliner(funcMap, toInsert, SPF_messages, fileName, func, newSymbsToDeclare);
+        bool isInlined = run_inliner(funcMap, toInsert, SPF_messages, fileName, func, newSymbsToDeclare, point);
 
         if (deepLvl >= 0 && isInlined)
         {
@@ -1349,8 +1434,11 @@ bool inliner(const string& fileName_in, const string& funcName, const int lineNu
                         __spf_print(1, "skip %s by flag\n", next.first->funcName.c_str());
                         continue;
                     }
-                    __spf_print(1, "INLINE %s\n", next.first->funcName.c_str());
-                    bool isInlined = run_inliner(funcMap, next.second, SPF_messages, fileName, next.first, newSymbsToDeclare);
+
+                    point.currLvl = currDeep;
+                    point.currCall = next.first->funcName;
+                    __spf_print(1, "INLINE %s\n", next.first->funcName.c_str());                    
+                    bool isInlined = run_inliner(funcMap, next.second, SPF_messages, fileName, next.first, newSymbsToDeclare, point);
                     changed |= isInlined;
                 }
             }
@@ -1465,7 +1553,28 @@ static vector<SgSymbol*> sortConstRefs(const map<string, SgSymbol*>& constRefs)
     return result;
 }
 
-void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDeclare)
+static pair<string, int> getCommonInfo(SgSymbol* toDec)
+{
+    pair<string, int> info = make_pair("NULL", -1);
+
+    auto attrsC = getAttributes<SgSymbol*, char*>(toDec, set<int> { COMM_STAT });
+    if (attrsC.size() && attrsC.size() != 1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    if (attrsC.size())
+    {        
+        auto attrsPos = getAttributes<SgSymbol*, int*>(toDec, set<int> { COMM_LIST });
+        if (attrsPos.size() && attrsPos.size() != 1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        info.first = attrsC[0];
+        info.second = *attrsPos[0];
+    }
+
+    return info;
+}
+
+void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDeclare, const map<string, CommonBlock>& commonBlocks)
 {
     map<pair<string, int>, map<string, string>> preprocDataByFunc; // key is <funcName, int>
     for (auto& dataByF : dataDeclsByFunc)
@@ -1485,6 +1594,9 @@ void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDecla
         int currFileId = byFunc.first->getFileId();
         checkSymbols(currFileId, byFunc.second);
 
+        map<string, vector<SgExpression*>> commonBlocksRef;
+        getCommonBlocksRef(commonBlocksRef, byFunc.first, byFunc.first ? byFunc.first->lastNodeOfStmt() : NULL);
+
         map<string, map<string, vector<SgSymbol*>>> groups;
         map<string, map<string, vector<SgSymbol*>>> groupsConstRefs;
         map<string, map<int, SgSymbol*>> commons;
@@ -1499,6 +1611,7 @@ void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDecla
         SgStatement* scope = place;
 
         set<string> declared;
+        map<string, set<string>> commonsInCurrFunc;
         while (isSgExecutableStatement(place) == NULL && place != scope->lastNodeOfStmt())
         {
             if (place->variant() == VAR_DECL ||
@@ -1516,11 +1629,18 @@ void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDecla
             {
                 for (SgExpression* exp = place->expr(0); exp; exp = exp->rhs())
                 {
+                    string commonName = "spf_unnamed";
+                    if (exp->symbol())
+                        commonName = string(exp->symbol()->identifier());
+                    
                     for (auto list = exp->lhs(); list; list = list->rhs())
                     {
                         auto elem = list->lhs();
                         if (elem && elem->symbol())
+                        {
                             declared.insert(elem->symbol()->identifier());
+                            commonsInCurrFunc[commonName].insert(elem->symbol()->identifier());
+                        }
                     }                    
                 }
             }
@@ -1532,11 +1652,29 @@ void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDecla
             }
             place = place->lexNext();
         }
-
+        
         for (auto& toDec : byFunc.second)
         {
+            bool isVarFromAnotherCommon = false;
             if (declared.find(toDec->identifier()) != declared.end())
-                continue;
+            {
+                const auto commInfo = getCommonInfo(toDec);
+                const int posNum = commInfo.second;
+
+                if (posNum == -1)
+                    continue;
+                else
+                {
+                    auto itC = commonsInCurrFunc.find(commInfo.first);
+                    if (itC == commonsInCurrFunc.end())
+                        continue;
+
+                    if (itC->second.find(toDec->identifier()) != itC->second.end())
+                        continue;
+
+                    isVarFromAnotherCommon = true;
+                }
+            }
 
             if (isSgConstantSymb(toDec))
                 constRefs[toDec->identifier()] = toDec;
@@ -1568,21 +1706,60 @@ void createDeclarations(const map<SgStatement*, set<SgSymbol*>>& newSymbsToDecla
             }
 
             int globalType = isGlobal(byFunc.first, toDec);
-            if (globalType != 0)
+            if (globalType != 0 && !isVarFromAnotherCommon)
                 continue;
             else
             {
-                auto attrsC = getAttributes<SgSymbol*, char*>(toDec, set<int> { COMM_STAT });
-                if (attrsC.size() && attrsC.size() != 1)
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                const auto commInfo = getCommonInfo(toDec);
+                const int posNum = commInfo.second;
 
-                if (attrsC.size())
+                if (posNum != -1)
                 {
-                    auto attrsPos = getAttributes<SgSymbol*, int*>(toDec, set<int> { COMM_LIST });
-                    if (attrsPos.size() && attrsPos.size() != 1)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    auto itCommRef = commonBlocksRef.find(commInfo.first);
+                    if (itCommRef == commonBlocksRef.end())
+                        commons[commInfo.first][posNum] = toDec; // sort by position
+                    else
+                    {
+                        auto it = commonBlocks.find(commInfo.first);
+                        if (it == commonBlocks.end())
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        auto groupedByPos = it->second.getGroupedVars();
+                        auto itG = groupedByPos.find(posNum);
+                        
+                        if (itG == groupedByPos.end() || itG != groupedByPos.end() && itG->second.size() == 1)
+                            commons[commInfo.first][posNum] = toDec; // sort by position
+                        else
+                        {
+                            int idx = 0;
+                            SgExpression* ex = NULL;
+                            for (auto& elem : itCommRef->second)
+                            {   
+                                for (auto list = elem->lhs(); list && !ex; list = list->rhs(), ++idx)
+                                    if (idx == posNum)
+                                        ex = list->lhs();
 
-                    commons[attrsC[0]][*attrsPos[0]] = toDec; // sort by position
+                                if (ex)
+                                    break;
+                            }
+                                
+                            if (ex == NULL)
+                                commons[commInfo.first][posNum] = toDec; // sort by position
+                            else
+                            {
+                                if (ex->symbol() == NULL)
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                if (ex->symbol()->identifier() != string(toDec->identifier()))
+                                {
+                                    toDec->changeName(ex->symbol()->identifier());
+                                    continue;
+                                }
+                                else
+                                    commons[commInfo.first][posNum] = toDec; // sort by position
+                            }
+                        }
+                        
+                    }
                 }
 
                 auto attrsM = getAttributes<SgSymbol*, char*>(toDec, set<int> { MODULE_STMT });

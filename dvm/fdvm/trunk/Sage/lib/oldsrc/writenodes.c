@@ -417,6 +417,12 @@ write_symb_node(sy_ptr)
                 tmp[n] = (u_shrt) FOLLOW_SYMB_POINTER_2_TO_ID(Template.base_name);
                 n++;
 		break;
+            case MODULE_NAME:
+		tmp[0] = (u_shrt) FOLLOW_SYMB_POINTER_2_TO_ID(Template.symb_list);
+		tmp[1] = (u_shrt) FOLLOW_SYMB_POINTER_2_TO_ID(Template.func_hedr);
+                tmp[2] = (u_shrt) FOLLOW_SYMB_POINTER_2_TO_ID(Template.base_name);
+                n = 3;
+                break;
 	    case MEMBER_FUNC:	 /*  NEW ADDED FOR VPC */
 		tmp[0] = (u_shrt) sy_ptr->entry.member_func.num_input;
 		tmp[1] = (u_shrt) sy_ptr->entry.member_func.num_output;

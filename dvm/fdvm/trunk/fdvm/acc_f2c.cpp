@@ -2539,11 +2539,11 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
                 rhs = tmpCond->rhs();
                 convertExpr(rhs, rhs);
                 if (rhs == NULL)
-                    tmpCond = &(*lhs < *select);
+                    tmpCond = &(*lhs <= *select);
                 else if (lhs == NULL)
-                    tmpCond = &(*select > *rhs);
+                    tmpCond = &(*select <= *rhs);
                 else
-                    tmpCond = &(*lhs < *select && *select < *rhs);
+                    tmpCond = &(*lhs <= *select && *select <= *rhs);
             }
             else
             {
