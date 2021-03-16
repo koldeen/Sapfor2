@@ -16,45 +16,53 @@ using std::make_pair;
 using std::queue;
 using std::wstring;
 
-static bool expressionsAreEqual(SgExpression* exp1, SgExpression* exp2) 
+
+static bool expressionsAreEqual(SgExpression *exp1, SgExpression *exp2) 
 {
-    if(exp1 == NULL && exp2 == NULL)
+    if (exp1 == NULL && exp2 == NULL)
         return true;
 
-    if(exp1 != NULL && exp2 != NULL) 
+    if (exp1 != NULL && exp2 != NULL) 
     {
         string str1 = exp1->unparse();
         string str2 = exp2->unparse();
         return str1 == str2;
     }
+
     return false;
 }
 
 /**
  * Проверить, что объединение возможно и заодно вернуть соответсивие между итерационными переменными.
  */
-static bool combinationIsPossible(const vector<SgForStmt*>& basisLoops, LoopGraph *loop, map<SgSymbol*, SgSymbol*> &symbols) 
+static bool combinationIsPossible(const vector<SgForStmt*>& basisLoops, LoopGraph *loop, map<SgSymbol*, SgSymbol*>& symbols) 
 {
     int perfectLoop = loop->perfectLoop;
     LoopGraph *curLoop = loop;
+
     for (int i = 0; i < basisLoops.size(); ++i)
     {
+        if (curLoop->hasLimitsToSplit())
+            return false;
+
         SgForStmt *loopStmt = (SgForStmt*) (curLoop->loop->GetOriginal());
-
-        if(!expressionsAreEqual(basisLoops[i]->start(), loopStmt->start()))
-            return false;
-        if(!expressionsAreEqual(basisLoops[i]->end(), loopStmt->end()))
-            return false;
-        if(!expressionsAreEqual(basisLoops[i]->step(), loopStmt->step()))
+        if (!expressionsAreEqual(basisLoops[i]->start(), loopStmt->start()))
             return false;
 
-        if(string(basisLoops[i]->doName()->identifier()) != string(loopStmt->doName()->identifier()))
+        if (!expressionsAreEqual(basisLoops[i]->end(), loopStmt->end()))
+            return false;
+
+        if (!expressionsAreEqual(basisLoops[i]->step(), loopStmt->step()))
+            return false;
+
+        if (string(basisLoops[i]->doName()->identifier()) != string(loopStmt->doName()->identifier()))
             symbols.insert(make_pair(loopStmt->doName(), basisLoops[i]->doName()));
 
         if (i != basisLoops.size() - 1)
         {
-            if(curLoop->children.size() != 1)
+            if (curLoop->children.size() != 1)
                 return false;
+
             curLoop = curLoop->children[0];
         }
     }
@@ -65,7 +73,7 @@ static bool combinationIsPossible(const vector<SgForStmt*>& basisLoops, LoopGrap
 /**
  * Переименовать итерационные переменные цикла, который мы соединяем с основным.
  */
-static void renameIterationVariables(const map<SgSymbol*, SgSymbol*>& symbols, SgExpression *ex) 
+static void renameIterationVariables(const map<SgSymbol*, SgSymbol*> &symbols, SgExpression *ex) 
 {
     if (ex)
     {
@@ -83,15 +91,16 @@ static void renameIterationVariables(const map<SgSymbol*, SgSymbol*>& symbols, S
     }
 }
 
-static SgForStmt* getInnerLoop(LoopGraph* loop, int deep)
+static SgForStmt* getInnerLoop(LoopGraph *loop, int deep)
 {
     int perfectLoop = loop->perfectLoop;
     LoopGraph *curLoop = loop;
     SgForStmt *result = NULL;
-    for(int i = 0; i < deep ; ++i) 
+
+    for (int i = 0; i < deep ; ++i) 
     {
         result = (SgForStmt*) (curLoop->loop->GetOriginal());
-        if(i != perfectLoop - 1) 
+        if (i != perfectLoop - 1) 
             curLoop = curLoop->children[0];
     }
 
@@ -105,7 +114,7 @@ static void moveBody(SgForStmt *from, SgForStmt *to, const map<SgSymbol*, SgSymb
             renameIterationVariables(symbols, st->expr(i));
 
     auto loopBody = from->extractStmtBody();
-    to->lastExecutable()->insertStmtAfter(*loopBody, *to);    
+    to->lastExecutable()->insertStmtAfter(*loopBody, *to);
 }
 
 /**
@@ -118,28 +127,32 @@ static bool combine(LoopGraph *firstLoop, const vector<LoopGraph*>& nextLoops, s
     LoopGraph* curLoop = firstLoop;
     vector<SgForStmt*> basisLoops(perfectLoop);
 
-    for(int i = 0; i < perfectLoop; ++i) 
+    for (int i = 0; i < perfectLoop; ++i) 
     {
         SgForStmt *loopStmt = (SgForStmt*) (curLoop->loop->GetOriginal());
         basisLoops[i] = loopStmt;
+        
+        if (curLoop->hasLimitsToSplit())
+            return false;
 
-        if(i != perfectLoop - 1) 
+        if (i != perfectLoop - 1) 
             curLoop = curLoop->children[0];
     }
 
     SgForStmt *innerMainLoop = getInnerLoop(firstLoop, basisLoops.size());
-    for(auto& loop : nextLoops)
+    for (auto& loop : nextLoops)
     {
         map<SgSymbol*, SgSymbol*> symbols;
-        if(combinationIsPossible(basisLoops, loop, symbols))
+        if (combinationIsPossible(basisLoops, loop, symbols))
         {
             moveBody(getInnerLoop(loop, basisLoops.size()), innerMainLoop, symbols);
             if (loop->loop->comments())
                 firstLoop->loop->addComment(string(loop->loop->comments()).c_str());
+
             loop->loop->extractStmt();
 
-            wasCombine = true;
             combinedLoops.insert(loop);
+            wasCombine = true;
 
             if (loop->perfectLoop < perfectLoop)
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -148,8 +161,12 @@ static bool combine(LoopGraph *firstLoop, const vector<LoopGraph*>& nextLoops, s
             LoopGraph* deep = loop;
             for (int p = 0; p < perfectLoop - 1; ++p)
                 deep = deep->children[0];
-            for (auto &toMove : deep->children)
+
+            for (auto& toMove : deep->children)
+            {
                 firstLoop->children.push_back(toMove);
+                toMove->parent = firstLoop;
+            }
             deep->children.clear();
 
 #ifdef _WIN32
@@ -162,7 +179,9 @@ static bool combine(LoopGraph *firstLoop, const vector<LoopGraph*>& nextLoops, s
             __spf_print(1, "Loops on lines %d and %d were combined\n", firstLoop->lineNum, loop->lineNum);
         }
         else
+        {
             break;
+        }
     }
 
     return wasCombine;
@@ -172,7 +191,7 @@ static bool combine(LoopGraph *firstLoop, const vector<LoopGraph*>& nextLoops, s
  * Возвращает следующие loopsAmount циклов после nextAfterThis.
  * Если loopsAmount < 0, вернёт все последующие циклы, до первого оператора-не-цикла.
  */
-static vector<LoopGraph*> getNextLoops(LoopGraph* nextAfterThis, vector<LoopGraph*> &loops, int loopsAmount) 
+static vector<LoopGraph*> getNextLoops(LoopGraph *nextAfterThis, vector<LoopGraph*>& loops, int loopsAmount) 
 {
     vector<LoopGraph*> result;
     SgStatement *lastSt = nextAfterThis->loop->lastNodeOfStmt();
@@ -205,7 +224,8 @@ static vector<LoopGraph*> getNextLoops(LoopGraph* nextAfterThis, vector<LoopGrap
     return result;
 }
 
-bool tryToCombine(vector<LoopGraph*>& loopGraphs, vector<Messages>& messages)
+
+static bool tryToCombine(vector<LoopGraph*>& loopGraphs, vector<Messages>& messages)
 {
     if (loopGraphs.size() == 0)
         return false;
@@ -219,8 +239,13 @@ bool tryToCombine(vector<LoopGraph*>& loopGraphs, vector<Messages>& messages)
         vector<LoopGraph*> nextLoops = getNextLoops(loop, loopGraphs, -1);
 
         set<LoopGraph*> combinedLoops;
+        change = false;
         if (nextLoops.size())
             change = combine(loop, nextLoops, combinedLoops, messages);
+
+        if (change && loop->parent)
+            loop->parent->recalculatePerfect();
+
         if (combinedLoops.size())
         {
             for (auto& elem : combinedLoops)
@@ -241,7 +266,7 @@ bool tryToCombine(vector<LoopGraph*>& loopGraphs, vector<Messages>& messages)
     return change;
 }
 
-int combineLoops(SgFile* file, vector<LoopGraph*>& loopGraphs, vector<Messages>& messages, const pair<string, int> &onPlace)
+int combineLoops(SgFile *file, vector<LoopGraph*>& loopGraphs, vector<Messages>& messages, const pair<string, int> &onPlace)
 {
     map<int, LoopGraph*> mapGraph;
     createMapLoopGraph(loopGraphs, mapGraph);
