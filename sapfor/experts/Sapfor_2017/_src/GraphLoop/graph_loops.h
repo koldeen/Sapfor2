@@ -117,7 +117,7 @@ public:
     
     bool hasLimitsToSplit() const
     {
-        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasStops || !isFor;
+        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasStops || !isFor || hasPrints;
     }
 
     void addConflictMessages(std::vector<Messages> *messages)
