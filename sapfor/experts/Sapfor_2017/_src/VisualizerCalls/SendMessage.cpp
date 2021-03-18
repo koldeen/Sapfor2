@@ -2,6 +2,7 @@
 #include <locale>
 #include <vector>
 #include <iostream>
+#include <ctime>
 
 #include "SendMessage.h"
 #include "../Utils/utils.h"
@@ -40,10 +41,27 @@ using std::string;
 using std::vector;
 
 static SOCKET clientSocket = INVALID_SOCKET;
+static FILE* logFile = NULL;
+
+#if _WIN32
+#define FILE_LOG "Components\\Sapfor_log.txt"
+#else
+#define FILE_LOG "Components/Sapfor_log.txt"
+#endif
 
 #define __print(prefix, format, ...) do {\
    printf((string("%s: ") + format + string("\n")).c_str(), prefix, ##__VA_ARGS__); \
    fflush(NULL); \
+} while (0)
+
+#define __print_log(file, format, ...) do {\
+   if (file) { \
+       time_t now = time(0);\
+       auto dt = string(ctime(&now)); \
+       dt = dt.erase(dt.size() - 1); \
+       fprintf(file, (string("%s: ") + format + string("\n")).c_str(), dt.c_str(), ##__VA_ARGS__); \
+       fflush(file); \
+   } \
 } while (0)
 
 #define CLIENT "[SAPFOR]"
@@ -340,18 +358,30 @@ void RunSapforAsClient(int serverPort)
     if (MessageManager::init() != 0)
         return;
 
+    logFile = fopen(FILE_LOG, "w");
+    if (logFile == NULL)
+        __print(CLIENT, "Can not open log file '%s'", FILE_LOG);
+
     client = INVALID_SOCKET;
+    __print_log(logFile, "create and connect to server socket with port %d", serverPort > 0 ? serverPort : 8889);
     if (connectAndCreate(client, "127.0.0.1", serverPort > 0 ? serverPort : 8889) != 0)
         return;
-     
+    __print_log(logFile, "done");
+
+    __print_log(logFile, "start main communications");
     while (true)
     {
         wstring result = L"";
         string message = "";
 
         __print(CLIENT, "start recv message");
-        int count = doRecv(client, message);
+        __print_log(logFile, "wait for command from server");
+
+        const int count = doRecv(client, message);        
+
         __print(CLIENT, "end recv message with size %d", count);
+        __print_log(logFile, "done with message size %d", count);
+
         if (count > 0)
         {
             string code;
@@ -376,7 +406,9 @@ void RunSapforAsClient(int serverPort)
             {
                 __print(CLIENT, "Wrong message");
 
+                __print_log(logFile, "send WRONG message to server ");
                 int err = send(client, L"WRONG");
+                __print_log(logFile, "done with code %d", err);
                 if (err != 0)
                     break;
                 continue;
@@ -389,6 +421,7 @@ void RunSapforAsClient(int serverPort)
 
             if (code == "analysis")
             {
+                __print_log(logFile, "decode message as analysis");
                 int err = decodeMessage(message, pars, winHandler, 3);
 
                 if (err == 0)
@@ -398,6 +431,7 @@ void RunSapforAsClient(int serverPort)
             }
             else if (code == "transformation")
             {
+                __print_log(logFile, "decode message as transformation");
                 int err = decodeMessage(message, pars, winHandler, 5);
                 if (err == 0)
                     result = Sapfor_RunTransformation(pars[0].c_str(), pars[1].c_str(), pars[2].c_str(), pars[3].c_str(), pars[4].c_str(), winHandler);
@@ -406,6 +440,7 @@ void RunSapforAsClient(int serverPort)
             }
             else if (code == "modification")
             {
+                __print_log(logFile, "decode message as modification");
                 int err = decodeMessage(message, pars, winHandler, 6);
                 if (err == 0)
                     result = Sapfor_RunModification(pars[0].c_str(), pars[1].c_str(), pars[2].c_str(), pars[3].c_str(), pars[4].c_str(), pars[5].c_str(), winHandler);
@@ -415,13 +450,19 @@ void RunSapforAsClient(int serverPort)
             else
             {
                 __print(CLIENT, "Wrong code of message: %s", code.c_str()); // exit
+                __print_log(logFile, "wrong code of message, send WRONG");
                 int err = send(client, L"WRONG");
+                __print_log(logFile, "done with code %d", err);
+
                 if (err != 0)
                     break;
                 continue;
             }
 
+            __print_log(logFile, "send results to server");
             int err = send(client, result.c_str());
+            __print_log(logFile, "done with code %d", err);
+
             if (err != 0)
                 break;
         }
@@ -429,12 +470,14 @@ void RunSapforAsClient(int serverPort)
         {
             closesocket(client);
             __print(CLIENT, "Socket was closed");
+            __print_log(logFile, "done with normal exit");
             break;
         }
         else // error
         {
             closesocket(client);
             __print(CLIENT, "Recv return error code %d", count);
+            __print_log(logFile, "done with error exit");
             break;
         }
     }

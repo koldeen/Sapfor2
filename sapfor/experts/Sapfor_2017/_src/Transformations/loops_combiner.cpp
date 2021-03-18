@@ -179,9 +179,7 @@ static bool combine(LoopGraph *firstLoop, const vector<LoopGraph*>& nextLoops, s
             __spf_print(1, "Loops on lines %d and %d were combined\n", firstLoop->lineNum, loop->lineNum);
         }
         else
-        {
             break;
-        }
     }
 
     return wasCombine;

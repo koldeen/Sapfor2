@@ -9,6 +9,7 @@
 #include <string>
 #include <algorithm>
 #include <unordered_map>
+#include <ctime>
 
 #if _WIN32
 #include <filesystem>
@@ -39,6 +40,7 @@ using namespace std;
 
 #define VIZ_NAME     "Components\\VisualSapfor.jar"
 #define VIZ_NAME_NEW "Components\\VisualSapfor_new.jar"
+#define FILE_LOG     "Components\\Server_log.txt"
 #else
 
 #include <sys/types.h>
@@ -52,14 +54,15 @@ using namespace std;
 #define SOCKADDR sockaddr 
 #define closesocket close
 
-#define SPF_NAME "Components/Sapfor_F"
-#define SPF_NAME_NEW "Components/Sapfor_F_new"
+#define SPF_NAME      "Components/Sapfor_F"
+#define SPF_NAME_NEW  "Components/Sapfor_F_new"
 
-#define SPC_NAME "Components/Sapfor_C"
-#define SPC_NAME_NEW "Components/Sapfor_C_new"
+#define SPC_NAME      "Components/Sapfor_C"
+#define SPC_NAME_NEW  "Components/Sapfor_C_new"
 
-#define VIZ_NAME "Components/VisualSapfor.jar"
-#define VIZ_NAME_NEW "Components/VisualSapfor_new.jar"
+#define VIZ_NAME      "Components/VisualSapfor.jar"
+#define VIZ_NAME_NEW  "Components/VisualSapfor_new.jar"
+#define FILE_LOG      "Components/Server_log.txt"
 
 void WSACleanup() { }
 int  WSAGetLastError() { return 0; }
@@ -72,9 +75,20 @@ void Sleep(int millisec) { usleep(millisec * 2000); }
    fflush(NULL); \
 } while (0)
 
+#define __print_log(file, format, ...) do {\
+   if (file) { \
+       time_t now = time(0);\
+       auto dt = string(ctime(&now)); \
+       dt = dt.erase(dt.size() - 1); \
+       fprintf(file, (string("%s: ") + format + string("\n")).c_str(), dt.c_str(), ##__VA_ARGS__); \
+       fflush(file); \
+   } \
+} while (0)
+
 #define SERV "[SERVER]"
 
-static const char* VERSION = "2";
+static const char* VERSION = "3";
+static FILE* logFile = NULL;
 
 extern void __bst_create(const char* name);
 extern bool __bst_tryToLock();
@@ -482,21 +496,29 @@ int main(int argc, char** argv)
             exit(0);
         }
     }
+    logFile = fopen(FILE_LOG, "w");
+    if (logFile == NULL)
+        __print(SERV, "Can not open log file '%s'", FILE_LOG);
 
     setlocale(LC_ALL, "Russian");
     SOCKET serverSPF = INVALID_SOCKET, serverJAVA = INVALID_SOCKET;
     int sapforPort = 0, javaPort = 0;
+
+    __print_log(logFile, "create socket for Sapfor");
     if (initServer(serverSPF, "127.0.0.1", sapforPort) != 0) // create server for Sapfor
         return -1;
     sapforPort = getPort(serverSPF);
+    __print_log(logFile, "done with port %d", sapforPort);
 
-    if (initServer(serverJAVA, "127.0.0.1", javaPort) != 0) // create server for Sapfor
+    __print_log(logFile, "create socket for Visualizer");
+    if (initServer(serverJAVA, "127.0.0.1", javaPort) != 0) // create server for Visuzlier
     {
         closesocket(serverSPF);
         return -1;
     }
     javaPort = getPort(serverJAVA);
-    
+    __print_log(logFile, "done with port %d", javaPort);
+
     __print(SERV, "SOCKET PORT for SAPFOR %d, SOCKET PORT for Visualizer %d", sapforPort, javaPort);
 
     const int maxSize = 4096;
@@ -507,65 +529,92 @@ int main(int argc, char** argv)
     SOCKET spfSoc = INVALID_SOCKET, javaSoc = INVALID_SOCKET;
     bool needToUpdateViz = true;
     int t = 0;
+
+    __print_log(logFile, "start main communications");
     while (true)
     {
         if (!vizRun && needToUpdateViz && !isVizDeb)
         {
+            __print_log(logFile, "try to restart Visualizer, flags before: vizRun(%d), needToUpdateViz(%d), isVizDeb(%d)", 
+                        vizRun, needToUpdateViz, isVizDeb);
+
             __print(SERV, "Run Visualizer from '%s' path with port %d", VIZ_NAME, javaPort);
             if (fs::exists(VIZ_NAME))
-            {
+            {                
                 needToUpdateViz = false;
-                string toRun = string("java -Dfile.encoding=UTF-8 -jar ") + VIZ_NAME + " --port " + to_string(javaPort);
+                const string toRun = string("java -Dfile.encoding=UTF-8 -jar ") + VIZ_NAME + " --port " + to_string(javaPort);
+                __print_log(logFile, "try to start with command '%s'", toRun.c_str());
+
                 thread viz(runVisulizer, toRun);
                 viz.detach();
                 
+                __print_log(logFile, "done");
                 //wait run of viz
                 //while (!vizRun) ;
             }
             else
             {
                 __print(SERV, "Can not find Visualizer in '%s' path", VIZ_NAME);
+                __print_log(logFile, "Can not find Visualizer in '%s' path", VIZ_NAME);
                 //closeAndExit({ serverSPF , serverJAVA }, "Component not found", -1);
             }
         }
 
         if (!spfRun && !isSpfDeb)
         {
+            __print_log(logFile, "try to restart Sapfor, flags before: spfRun(%d), isSpfDeb(%d)",
+                        spfRun, isSpfDeb);
+
             __print(SERV, "Run Sapfor from '%s' path with port %d", SPF_NAME, sapforPort);
             if (fs::exists(SPF_NAME))
             {
                 const string toRun = SPF_NAME + string(" -client ") + to_string(sapforPort);
+                __print_log(logFile, "try to start with command '%s'", toRun.c_str());
+
                 thread sapfor(runSapfor, toRun);
                 sapfor.detach();
 
+                __print_log(logFile, "done");
                 //wait run of spf
                 //while (!spfRun) ;
             }
             else
             {
                 __print(SERV, "Can not find Sapfor in '%s' path", SPF_NAME);
+                __print_log(logFile, "Can not find Sapfor in '%s' path", SPF_NAME);
                 //closeAndExit({ serverSPF , serverJAVA }, "Component not found", -1);
             }
         }
 
         bool spfExists = (fs::exists(SPF_NAME) || isSpfDeb);
+
+        __print_log(logFile, "start connections");
 #pragma omp parallel for
         for (int z = 0; z < 2; ++z)
         {
             if (spfSoc == INVALID_SOCKET && z == 0 && spfExists)
             {
+                __print_log(logFile, "wait acception from Sapfor");
                 spfSoc = accept(serverSPF, NULL, NULL);
                 if (spfSoc != INVALID_SOCKET)
+                {
                     __print(SERV, "SAPFOR connected to server");
+                    __print_log(logFile, "SAPFOR connected to server");
+                }
             }
 
             if (javaSoc == INVALID_SOCKET && z == 1)
             {
+                __print_log(logFile, "wait acception from Visualizer");
                 javaSoc = accept(serverJAVA, NULL, NULL);
                 if (javaSoc != INVALID_SOCKET)
+                {
                     __print(SERV, "VISUALIZER connected to server");
+                    __print_log(logFile, "VISUALIZER connected to server");
+                }
             }
         }
+        __print_log(logFile, "done connections");
 
         while ( ((spfSoc != INVALID_SOCKET && spfExists) || (!fs::exists(SPF_NAME) && !isSpfDeb)) && 
                  javaSoc != INVALID_SOCKET)
@@ -573,10 +622,13 @@ int main(int argc, char** argv)
             string retCode = "";
             string command = "";
 
+            __print_log(logFile, "wait for command from Visualizer");
             err = doRecv(javaSoc, command);
+            __print_log(logFile, "done with code %d", err);
             if (err <= 0)
             {
                 __print(SERV, "Error recv from Visualizer with code %d", err);
+                __print_log(logFile, "error recv from Visualizer with code %d", err);
                 closesocket(javaSoc);
                 closesocket(spfSoc);
                 javaSoc = spfSoc = INVALID_SOCKET;
@@ -585,6 +637,7 @@ int main(int argc, char** argv)
             else
             {
                 string returnToJava = "";
+                __print_log(logFile, "do command '%s'", command.c_str());
                 if (doCommand(spfSoc, javaSoc, serverSPF, serverJAVA, command, needToUpdateViz, returnToJava))
                 {
                     if (javaSoc != INVALID_SOCKET)
@@ -603,36 +656,50 @@ int main(int argc, char** argv)
                         {
                             closesocket(javaSoc);
                             javaSoc = INVALID_SOCKET;
+                            __print_log(logFile, "done with invalid break ");
                             break;
                         }
                         else
                         {
                             //after 'get_version' command
                             if (needToRecv > 1)
+                            {
+                                __print_log(logFile, "done with continue");
                                 continue;
+                            }
                         }
                     }
+                    __print_log(logFile, "done with break");
                     break;
                 }
+                __print_log(logFile, "done");
             }
 
+            __print_log(logFile, "try to send command to Sapfor with size %d", command.size());
             err = send(spfSoc, command.c_str(), command.size(), 0);
+            __print_log(logFile, "done with code %d", err);
+
             if (err != command.size())
             {
                 __print(SERV, "Error of send(): %d", err);
+                __print_log(logFile, "error of send(): %d", err);
                 closesocket(spfSoc);
                 spfSoc = INVALID_SOCKET;
             }
             else
                 __print(SERV, "Send command to SAPFOR");
 
+            __print_log(logFile, "try to recv answer from Sapfor");
             err = recv(spfSoc, buf, maxSize, 0);
+            __print_log(logFile, "done with code %d", err);
+
             int sizeLong = -1;
             char* bufLong = NULL;
 
             if (err <= 0)
             {
                 __print(SERV, "Error recv(): %d", err);
+                __print_log(logFile, "error recv(): %d", err);
                 closesocket(spfSoc);
                 spfSoc = INVALID_SOCKET;
 
@@ -679,10 +746,13 @@ int main(int argc, char** argv)
                 int sum = 0;
                 while (sum != sizeLong)
                 {
+                    __print_log(logFile, "try to recv results from Sapfor");
                     err = recv(spfSoc, bufLong + start, sizeLong - sum, 0);
+                    __print_log(logFile, "done with code %d", err);
                     if (err <= 0)
                     {
                         __print(SERV, "Error of recv from SAPFOR with code %d", err);
+                        __print_log(logFile, "error of recv from SAPFOR with code %d", err);
                         retCode = "WRONG\n";
                         closesocket(spfSoc);
                         spfSoc = INVALID_SOCKET;
@@ -694,6 +764,7 @@ int main(int argc, char** argv)
                     start += err;
                 }
                 __print(SERV, "Recv from SAPFOR total %d size", sum);
+                __print_log(logFile, "done recv from SAPFOR with total %d size", sum);
 
                 if (sum >= sizeLong + 1)
                     closeAndExit({ spfSoc , javaSoc , serverSPF , serverJAVA }, "Critical error", -1);
@@ -705,12 +776,17 @@ int main(int argc, char** argv)
             else 
                 __print(SERV, "Send error code to Visualizer: %s", retCode.c_str());
 
+            __print_log(logFile, "send response to Sapfor");
             err = send(spfSoc, buf, 1, 0);
+            __print_log(logFile, "done with code %d", err);
 
+            __print_log(logFile, "send response to Visualizer");
             err = send(javaSoc, retCode.c_str(), retCode.size(), 0);
+            __print_log(logFile, "done with code %d", err);
             if (err != retCode.size())
             {
                 __print(SERV, "Error send to Visualizer");
+                __print_log(logFile, "error send to Visualizer");
                 closesocket(spfSoc);
                 closesocket(javaSoc);
                 javaSoc = spfSoc = INVALID_SOCKET;
@@ -720,6 +796,7 @@ int main(int argc, char** argv)
                 __print(SERV, "Send result to Visualizer %d", (int)retCode.size());
         }
         __print(SERV, "Invalid SAPFOR socket, try to restart");
+        __print_log(logFile, "invalid SAPFOR socket, try to restart");
         Sleep(500);
     }
 
